@@ -1,0 +1,1 @@
+export const LISTING_VERIFICATION_FEE_NGN = 15_000;

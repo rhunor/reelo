@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# seed script (creates a demo login + mock data, not for version control)
+scripts/seed.ts
+
 # vercel
 .vercel
 
