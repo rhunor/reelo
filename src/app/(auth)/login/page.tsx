@@ -61,7 +61,7 @@ export default function LoginPage() {
         </button>
       </form>
       <p className="mt-6 text-sm text-foreground/60">
-        New to RentDirect?{" "}
+        New to Reallow?{" "}
         <a href="/register" className="text-clay hover:underline">
           Create an account
         </a>

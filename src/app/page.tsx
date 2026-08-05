@@ -11,12 +11,12 @@ export default function Home() {
             No agent. No hidden fees.
           </p>
           <h1 className="mt-4 text-5xl leading-[1.05] font-semibold tracking-tight sm:text-6xl">
-            Rent direct.
+            Reallow.
             <br />
-            Pay what&apos;s on the receipt.
+            Rent direct, pay what&apos;s on the receipt.
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70">
-            RentDirect connects you straight to verified landlords across Lagos and Abuja — no
+            Reallow connects you straight to verified landlords across Lagos and Abuja — no
             agent commission, no surprise legal fee, no inspection charge. Search, message, sign,
             and pay, all itemised before you commit.
           </p>
@@ -45,7 +45,7 @@ export default function Home() {
           <div className="relative aspect-4/5 w-full overflow-hidden rounded-3xl">
             <Image
               src="https://images.unsplash.com/photo-1757970326337-95d7cca56fa1?q=80&w=1400&auto=format&fit=crop"
-              alt="Modern apartment building with balconies, the kind of verified listing found on RentDirect"
+              alt="Modern apartment building with balconies, the kind of verified listing found on Reallow"
               fill
               priority
               className="object-cover"
@@ -77,7 +77,7 @@ export default function Home() {
           <div>
             <p className="font-display text-3xl font-semibold">Real support</p>
             <p className="mt-2 text-sm text-foreground/70">
-              A direct line to RentDirect for every inquiry, inspection, and dispute — not just an
+              A direct line to Reallow for every inquiry, inspection, and dispute — not just an
               inbox that goes quiet.
             </p>
           </div>

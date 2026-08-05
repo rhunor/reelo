@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { SUBSCRIPTION_TIERS, canBookInspection } from "@/lib/subscription-tiers";
 import { InspectionBookingForm } from "@/components/inspection-booking-form";
-import { ContactReeloForm } from "@/components/contact-reelo-form";
+import { ContactReallowForm } from "@/components/contact-reallow-form";
 
 export default async function ListingDetailPage({
   params,
@@ -70,16 +70,16 @@ export default async function ListingDetailPage({
 
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-line p-6 lg:sticky lg:top-24">
-            <p className="font-medium">Contact Reelo &amp; book inspection</p>
+            <p className="font-medium">Contact Reallow &amp; book inspection</p>
             <p className="mt-1 text-xs text-foreground/50">
-              Landlords and tenants never contact each other directly — Reelo coordinates
+              Landlords and tenants never contact each other directly — Reallow coordinates
               everything.
             </p>
 
             {!session?.user && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Log in and upgrade to Pro or Pro+ to contact Reelo about this property and book
+                  Log in and upgrade to Pro or Pro+ to contact Reallow about this property and book
                   an inspection.
                 </p>
                 <Link
@@ -91,10 +91,10 @@ export default async function ListingDetailPage({
               </>
             )}
 
-            {session?.user && !tierConfig.canContactReelo && (
+            {session?.user && !tierConfig.canContactReallow && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Upgrade to Pro or Pro+ to contact Reelo about this property and book an
+                  Upgrade to Pro or Pro+ to contact Reallow about this property and book an
                   inspection.
                 </p>
                 <Link
@@ -106,15 +106,15 @@ export default async function ListingDetailPage({
               </>
             )}
 
-            {session?.user && tierConfig.canContactReelo && session.user.role !== "tenant" && (
+            {session?.user && tierConfig.canContactReallow && session.user.role !== "tenant" && (
               <p className="mt-3 text-sm text-foreground/70">
                 Inspection booking and inquiries are available to tenant accounts.
               </p>
             )}
 
-            {session?.user && tierConfig.canContactReelo && session.user.role === "tenant" && (
+            {session?.user && tierConfig.canContactReallow && session.user.role === "tenant" && (
               <>
-                <ContactReeloForm
+                <ContactReallowForm
                   listingId={listing._id!.toString()}
                   subject={`Inquiry about ${listing.title}`}
                 />

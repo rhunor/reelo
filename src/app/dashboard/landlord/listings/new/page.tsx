@@ -69,7 +69,7 @@ export default function NewListingPage() {
       <h1 className="text-2xl font-semibold">List a property</h1>
       <p className="mt-2 text-sm text-foreground/70">
         This listing is saved as a draft. It won&apos;t appear on the site until you pay the
-        ₦15,000 verification fee and RentDirect completes an in-person inspection and approves it.
+        ₦15,000 verification fee and Reallow completes an in-person inspection and approves it.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">

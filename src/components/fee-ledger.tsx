@@ -24,7 +24,7 @@ export function FeeLedger() {
         ))}
 
         <div className="flex items-baseline justify-between gap-4 pt-1">
-          <span className="font-medium text-verified">RentDirect fee</span>
+          <span className="font-medium text-verified">Reallow fee</span>
           <span className="shrink-0 font-medium text-verified">disclosed upfront</span>
         </div>
       </div>

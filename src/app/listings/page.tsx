@@ -14,7 +14,7 @@ export default async function ListingsPage() {
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">Browse verified properties</h1>
       <p className="mt-3 max-w-lg text-foreground/70">
         {listings.length} propert{listings.length === 1 ? "y" : "ies"} available — free to browse.
-        Upgrade to Pro or Pro+ to contact Reelo about a listing or book an inspection.
+        Upgrade to Pro or Pro+ to contact Reallow about a listing or book an inspection.
       </p>
 
       {listings.length === 0 && (

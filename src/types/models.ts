@@ -38,7 +38,7 @@ export interface User {
 export type ListingType = "rent" | "sale";
 
 // A listing only becomes publicly visible once an admin approves it, which can only
-// happen after the landlord has paid for and RentDirect has carried out the in-person
+// happen after the landlord has paid for and Reallow has carried out the in-person
 // verification inspection (see ListingVerification below).
 export type ListingStatus =
   | "draft"
@@ -174,7 +174,7 @@ export type TicketStatus = "open" | "in_progress" | "resolved";
 
 // Landlords and tenants never contact each other directly — every inquiry, dispute, or
 // coordination need (property questions, inspection scheduling, etc.) goes through a
-// ticket addressed to RentDirect's support/admin side. `listingId` is set when a ticket
+// ticket addressed to Reallow's support/admin side. `listingId` is set when a ticket
 // was opened from a specific listing (e.g. a tenant asking about it); omitted for
 // general support requests.
 export interface SupportTicket {

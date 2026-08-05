@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
-export function ContactReeloForm({ listingId, subject }: { listingId: string; subject: string }) {
+export function ContactReallowForm({ listingId, subject }: { listingId: string; subject: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [ticketId, setTicketId] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function ContactReeloForm({ listingId, subject }: { listingId: string; su
   if (ticketId) {
     return (
       <p className="mt-4 text-sm text-green-600">
-        Sent — Reelo will get back to you.{" "}
+        Sent — Reallow will get back to you.{" "}
         <Link href={`/dashboard/tenant/tickets/${ticketId}`} className="underline">
           View message
         </Link>
@@ -59,7 +59,7 @@ export function ContactReeloForm({ listingId, subject }: { listingId: string; su
         disabled={loading}
         className="h-9 self-start rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-50"
       >
-        {loading ? "Sending…" : "Contact Reelo about this property"}
+        {loading ? "Sending…" : "Contact Reallow about this property"}
       </button>
     </form>
   );

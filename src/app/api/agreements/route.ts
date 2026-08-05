@@ -14,8 +14,8 @@ const schema = z.object({
   responsibilities: z.string().min(10),
 });
 
-// Reelo organizes everything between landlord and tenant, so admin — not the landlord —
-// creates the agreement, referencing the tenant by the email Reelo already has on file
+// Reallow organizes everything between landlord and tenant, so admin — not the landlord —
+// creates the agreement, referencing the tenant by the email Reallow already has on file
 // from coordinating the deal.
 export async function POST(request: Request) {
   const session = await auth();

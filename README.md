@@ -1,9 +1,9 @@
-# RentDirect
+# Reallow
 
 Direct landlord-to-tenant rental platform for Nigeria. Next.js (App Router) + TypeScript, MongoDB, deployed on Vercel.
 
 **Landlords and tenants never contact each other directly.** Every inquiry, inspection booking,
-and coordination need routes through RentDirect/Reelo staff (admin/support). There is no
+and coordination need routes through Reallow/Reallow staff (admin/support). There is no
 peer-to-peer chat feature by design.
 
 ## Getting started
@@ -17,7 +17,7 @@ npm run dev
 Visit `/api/health` to confirm the MongoDB connection is wired up correctly, and `/listings` to
 see the seeded mock properties.
 
-Demo landlord login (created by `npm run seed`): `demo.landlord@rentdirect.test` / `password123`
+Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / `password123`
 
 ## Project structure
 
@@ -32,7 +32,7 @@ Demo landlord login (created by `npm run seed`): `demo.landlord@rentdirect.test`
 - `src/lib/mongodb.ts` — MongoDB client singleton (Vercel-serverless-safe connection reuse)
 - `src/lib/db.ts` — typed collection getters
 - `src/lib/subscription-tiers.ts` — single source of truth for Free/Pro/Pro+ pricing and
-  inspection-booking limits, plus `canBookInspection()` / `canContactReelo()`
+  inspection-booking limits, plus `canBookInspection()` / `canContactReallow()`
 - `src/lib/listing-verification.ts` — the ₦15,000 landlord listing-verification fee constant
 - `src/lib/paystack.ts` — Paystack transaction initialize/verify + webhook signature check
 - `src/lib/youverify.ts` — Youverify NIN verification client
@@ -47,8 +47,8 @@ Three mechanisms coexist:
 
 1. **Per-transaction platform commission** — disclosed, itemised fee on completed
    rent/deposit payments (configurable from the admin panel; not yet wired to a UI).
-2. **Tenant subscription tiers** (Paystack-billed), gating contact with Reelo about a listing and
-   inspection bookings — enforced server-side via `canContactReelo()` / `canBookInspection()`:
+2. **Tenant subscription tiers** (Paystack-billed), gating contact with Reallow about a listing and
+   inspection bookings — enforced server-side via `canContactReallow()` / `canBookInspection()`:
    - **Free** — browse/search only, no listing inquiries, no inspection bookings
    - **Pro** — ₦3,000/month, up to 5 inspection bookings/month
    - **Pro+** — ₦7,000/month, unlimited inspection bookings
@@ -71,7 +71,7 @@ production.**
 
 ## Landlord listing flow
 
-A listing only becomes publicly visible after RentDirect physically inspects and an admin approves
+A listing only becomes publicly visible after Reallow physically inspects and an admin approves
 it. State machine on `Property.status`:
 
 `draft` → (landlord pays ₦15,000) → `pending_verification` → (admin schedules + approves/rejects) → `published` or `rejected`
@@ -89,11 +89,11 @@ it. State machine on `Property.status`:
   landlord) via `src/app/dashboard/admin/actions.ts` server actions.
 - `/listings` only ever queries `status: "published"`, so nothing shows publicly until approved.
 
-## Contacting Reelo (no landlord↔tenant chat)
+## Contacting Reallow (no landlord↔tenant chat)
 
 Listing inquiries and general support requests are both `SupportTicket` documents, identical in
 shape: a ticket belongs to one user (`userId`, `userRole`), optionally references a `listingId`,
-and has a `messages[]` thread. Reelo staff (admin/support) reply from the same thread — there's no
+and has a `messages[]` thread. Reallow staff (admin/support) reply from the same thread — there's no
 second thread type.
 
 - `/listings/[id]` — Pro/Pro+ tenants see `src/components/contact-reelo-form.tsx` (creates a
@@ -108,7 +108,7 @@ second thread type.
 
 ## Tenancy agreement + e-signature
 
-Because Reelo coordinates everything, **admin** (not the landlord) creates the agreement from
+Because Reallow coordinates everything, **admin** (not the landlord) creates the agreement from
 `/dashboard/admin/agreements/new`, referencing a listing and the tenant's email. Both the landlord
 and tenant then review and sign at `/agreements/[id]` — e-signature is a typed full name producing
 a SHA-256 hash + timestamp + IP address audit record (`Agreement.signatures[]`), not a drawn

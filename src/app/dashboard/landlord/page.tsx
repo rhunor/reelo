@@ -49,7 +49,7 @@ export default async function LandlordDashboardPage() {
 
       <div className="mt-4 flex gap-4 text-sm">
         <Link href="/dashboard/landlord/tickets" className="underline">
-          Your messages to Reelo
+          Your messages to Reallow
         </Link>
         <Link href="/dashboard/landlord/agreements" className="underline">
           Tenancy agreements

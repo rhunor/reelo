@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
-  title: "RentDirect",
+  title: "Reallow",
   description:
     "Find and rent properties directly from verified landlords in Nigeria — no agent fees.",
 };

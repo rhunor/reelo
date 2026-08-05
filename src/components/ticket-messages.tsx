@@ -15,7 +15,7 @@ export function TicketMessages({ messages }: { messages: SupportTicket["messages
             }`}
           >
             <p className="text-xs opacity-70">
-              {isStaff ? "Reelo" : message.senderRole} · {new Date(message.createdAt).toLocaleString()}
+              {isStaff ? "Reallow" : message.senderRole} · {new Date(message.createdAt).toLocaleString()}
             </p>
             <p className="mt-1">{message.body}</p>
           </div>

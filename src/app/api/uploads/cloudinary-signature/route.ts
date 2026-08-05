@@ -9,7 +9,7 @@ export async function POST() {
   }
 
   try {
-    const signature = createUploadSignature(`rentdirect/listings/${session.user.id}`);
+    const signature = createUploadSignature(`reallow/listings/${session.user.id}`);
     return NextResponse.json(signature);
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });

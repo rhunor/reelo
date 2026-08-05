@@ -3,8 +3,8 @@ import { SubscribeButton } from "@/components/subscribe-button";
 
 const FEATURES: Record<keyof typeof SUBSCRIPTION_TIERS, string[]> = {
   free: ["Browse & search every listing", "No listing inquiries", "No inspection bookings"],
-  pro: ["Browse & search every listing", "Contact Reelo about any listing", "5 inspection bookings a month"],
-  pro_plus: ["Browse & search every listing", "Contact Reelo about any listing", "Unlimited inspection bookings"],
+  pro: ["Browse & search every listing", "Contact Reallow about any listing", "5 inspection bookings a month"],
+  pro_plus: ["Browse & search every listing", "Contact Reallow about any listing", "Unlimited inspection bookings"],
 };
 
 export default function PricingPage() {
@@ -16,11 +16,11 @@ export default function PricingPage() {
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-16">
       <p className="font-mono text-xs tracking-widest text-clay uppercase">Pricing</p>
       <h1 className="mt-3 max-w-lg text-4xl font-semibold tracking-tight">
-        Browsing is free. Reaching Reelo isn&apos;t — and that&apos;s the only fee.
+        Browsing is free. Reaching Reallow isn&apos;t — and that&apos;s the only fee.
       </h1>
       <p className="mt-4 max-w-lg text-foreground/70">
         No agent commission, no legal fee, no inspection surcharge. Just one plan, priced monthly,
-        that unlocks contacting Reelo about a listing and booking inspections.
+        that unlocks contacting Reallow about a listing and booking inspections.
       </p>
 
       <div className="mt-12 grid gap-6 sm:grid-cols-3">
@@ -66,7 +66,7 @@ export default function PricingPage() {
 
       <p className="mt-10 max-w-2xl text-sm text-foreground/50">
         Landlords pay separately: a one-off ₦15,000 fee books the in-person verification
-        inspection every listing goes through before it can appear on RentDirect, plus a small
+        inspection every listing goes through before it can appear on Reallow, plus a small
         disclosed commission on completed tenancies.
       </p>
     </div>

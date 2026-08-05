@@ -20,7 +20,7 @@ export default async function LandlordTicketsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your messages to Reelo</h1>
+        <h1 className="text-2xl font-semibold">Your messages to Reallow</h1>
         <Link
           href="/dashboard/landlord/tickets/new"
           className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"

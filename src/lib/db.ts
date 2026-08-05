@@ -9,7 +9,7 @@ import type {
   User,
 } from "@/types/models";
 
-const dbName = process.env.MONGODB_DB || "rentdirect";
+const dbName = process.env.MONGODB_DB || "reallow";
 
 export async function getDb() {
   const client = await getMongoClientPromise();

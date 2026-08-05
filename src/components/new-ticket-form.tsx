@@ -55,7 +55,7 @@ export function NewTicketForm({ redirectBasePath }: { redirectBasePath: string }
         disabled={loading}
         className="h-11 rounded-full bg-clay text-white disabled:opacity-50"
       >
-        {loading ? "Sending…" : "Send to Reelo"}
+        {loading ? "Sending…" : "Send to Reallow"}
       </button>
     </form>
   );

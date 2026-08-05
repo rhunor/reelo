@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { ReallowLogo } from "@/components/reallow-logo";
 
 export async function SiteHeader() {
   const session = await auth();
@@ -7,8 +8,8 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="font-display text-lg font-semibold tracking-tight">
-          RentDirect
+        <Link href="/">
+          <ReallowLogo />
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm sm:flex">
