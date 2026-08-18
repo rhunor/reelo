@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { SUBSCRIPTION_TIERS } from "@/lib/subscription-tiers";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,23 @@ export default async function TenantDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Tenant dashboard</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold">Tenant dashboard</h1>
+        {user?.verifiedBadge && <VerifiedBadge />}
+      </div>
+
+      {!user?.verifiedBadge && (
+        <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm">
+          <p className="font-medium">Verify your identity</p>
+          <p className="mt-1 text-foreground/70">
+            You can browse and contact Reallow without verifying, but you&apos;ll need to verify
+            before booking an inspection.
+          </p>
+          <Link href="/dashboard/verify-identity" className="mt-2 inline-block text-clay underline">
+            Verify now
+          </Link>
+        </div>
+      )}
 
       <div className="mt-6 rounded-lg border border-line p-4">
         <p className="text-sm text-foreground/70">Plan</p>
@@ -45,6 +62,9 @@ export default async function TenantDashboardPage() {
         </Link>
         <Link href="/dashboard/tenant/agreements" className="underline">
           Tenancy agreements
+        </Link>
+        <Link href="/dashboard/tenant/profile" className="underline">
+          Your profile
         </Link>
         <Link href="/listings" className="underline">
           Browse listings

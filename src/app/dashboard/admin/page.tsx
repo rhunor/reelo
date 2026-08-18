@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCollections } from "@/lib/db";
 import { approveListing, rejectListing, scheduleInspection } from "./actions";
+import { CheckInButton } from "@/components/check-in-button";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export default async function AdminDashboardPage() {
       </p>
 
       <div className="mt-4 flex gap-4 text-sm">
+        <Link href="/dashboard/admin/listings/new" className="underline">
+          Post a property directly
+        </Link>
         <Link href="/dashboard/admin/agreements" className="underline">
           Tenancy agreements
         </Link>
@@ -36,12 +40,21 @@ export default async function AdminDashboardPage() {
             <p className="mt-1 text-sm text-foreground/70">
               {listing.location.city}, {listing.location.state} · ₦{listing.priceNGN.toLocaleString()}
             </p>
-            <p className="mt-1 text-xs text-foreground/50 dark:text-foreground/50">
+            <p className="mt-1 text-xs text-foreground/50">
               Paid {listing.verification.paidAt ? new Date(listing.verification.paidAt).toLocaleDateString() : "—"}
               {listing.verification.scheduledFor && (
                 <> · Inspection scheduled {new Date(listing.verification.scheduledFor).toLocaleDateString()}</>
               )}
+              {listing.verification.checkedInAt && (
+                <> · Checked in {new Date(listing.verification.checkedInAt).toLocaleString()}</>
+              )}
             </p>
+
+            {listing.verification.scheduledFor && !listing.verification.checkedInAt && (
+              <div className="mt-3">
+                <CheckInButton listingId={listing._id!.toString()} />
+              </div>
+            )}
 
             <form action={scheduleInspection} className="mt-3 flex items-center gap-2">
               <input type="hidden" name="listingId" value={listing._id!.toString()} />

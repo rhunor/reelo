@@ -37,8 +37,11 @@ Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / 
 - `src/lib/paystack.ts` — Paystack transaction initialize/verify + webhook signature check
 - `src/lib/youverify.ts` — Youverify NIN verification client
 - `src/lib/cloudinary.ts` — signed upload signature generation for the photo uploader
+- `src/lib/mapbox.ts` — geocoding for listing coordinates (also powers the browser map, see below)
+- `src/lib/geo.ts` — haversine distance, used for the field-inspection check-in fraud check
+- `src/lib/notifications.ts` — matches newly-published listings against saved searches
 - `src/types/models.ts` — domain model types (User, Property, SupportTicket, InspectionBooking,
-  Agreement, Transaction, ListingReview)
+  Agreement, Transaction, ListingReview, SavedSearch, Notification)
 - `scripts/seed.ts` — seeds a demo landlord + mock published properties (run with `npm run seed`)
 
 ## Monetization
@@ -96,7 +99,7 @@ shape: a ticket belongs to one user (`userId`, `userRole`), optionally reference
 and has a `messages[]` thread. Reallow staff (admin/support) reply from the same thread — there's no
 second thread type.
 
-- `/listings/[id]` — Pro/Pro+ tenants see `src/components/contact-reelo-form.tsx` (creates a
+- `/listings/[id]` — Pro/Pro+ tenants see `src/components/contact-reallow-form.tsx` (creates a
   listing-scoped ticket) and the inspection-booking form. Free tier / logged-out visitors see an
   upgrade/login CTA. Gating reads the viewer's subscription tier **fresh from MongoDB**, not the
   session JWT, since a Paystack webhook can upgrade a tier without refreshing an existing login
@@ -125,21 +128,108 @@ each party can rate the other once via `POST /api/reviews`, which recomputes `Us
 `ratingCount`. Landlord ratings are public on `/landlords/[id]`; tenant ratings are only shown to
 the tenant themselves on `/dashboard/tenant` (tenants aren't publicly browsable).
 
+## Map, search & saved-search alerts
+
+`/listings` has a location/type/price filter form (plain `GET` form, no client JS needed) and a
+Mapbox map (`src/components/listings-map.tsx`, `react-map-gl` + `mapbox-gl`) alongside the list,
+pinning every result that has coordinates. `/listings/[id]` shows the same map for just that one
+property. Needs `NEXT_PUBLIC_MAPBOX_TOKEN` — without it the map area shows a "not configured"
+placeholder rather than breaking the page. Mapbox's public token works for both browser rendering
+and server-side calls, so only one token is needed.
+
+Listing coordinates are geocoded automatically (`src/lib/mapbox.ts`) from the state/city/area text
+when a landlord creates a listing (`POST /api/listings`) — best-effort, a geocoding miss just means
+no map pin, it never blocks listing creation.
+
+Search-demand tracking: whenever a signed-in tenant's search (`state`/`city`/`propertyType`/
+`maxPrice`) returns zero results, it's saved as a `SavedSearch` (`src/types/models.ts`). When an
+admin approves a listing, `notifySavedSearchMatches()` (`src/lib/notifications.ts`) checks every
+saved search for a match and creates an in-app `Notification` for that tenant, tracked so the same
+listing never notifies the same search twice. Tenants see these at
+`/dashboard/tenant/notifications`, with an unread-count badge in the header.
+
+## Tenant profile & landlord preferences
+
+Tenants can optionally fill in background info (occupation, employer, income, household size, a
+short note) at `/dashboard/tenant/profile` — everything is off by default behind a single
+`visibleToLandlords` toggle (`User.tenantProfile`). Landlords can write free-text
+`tenantPreferences` on their own listing (shown publicly on `/listings/[id]`) describing who
+they're looking for — deliberately kept as free text rather than a structured list of tenant
+attributes, so it can't become a checkbox list of protected characteristics to screen on.
+
+**Where a landlord actually sees a tenant:** `/dashboard/landlord/candidates` lists everyone who's
+opened a Reallow ticket about one of the landlord's listings (i.e. every inquiry is a candidate).
+Two things are always shown regardless of the tenant's sharing choice — their name-or-"Interested
+tenant" and their verification status (blue tick / "Not verified", see below) — since verification
+is a platform trust signal, not personal background info. The rest of the profile only appears if
+`visibleToLandlords` is on. A landlord can mark **"Prefer this tenant"**
+(`POST /api/tickets/[id]/prefer`, ownership-checked against the listing) — this doesn't hand over
+any contact info, it just flags the ticket (`SupportTicket.landlordPreferred`) for Reallow staff
+(visible on `/dashboard/support/tickets/[id]`) to act on, and shows the tenant a friendly "the
+landlord is interested in you" note on their own ticket. The tenancy-agreement page
+(`/agreements/[id]`) also shows the shared profile once an agreement exists, for the same reason.
+There's no notification yet for candidates who *aren't* preferred — deliberately out of scope for
+now.
+
+## Field inspection check-in
+
+Reallow's own inspection staff (admin/support accounts) check in when they physically arrive to
+verify a listing — `src/components/check-in-button.tsx` reads the browser's Geolocation API and
+calls the `checkInAtListing` server action, which stores `verification.checkedInAt/By/Location` and
+flags (not blocks) the check-in if it's more than 500m from the listing's own coordinates
+(`src/lib/geo.ts`), as a lightweight fraud signal for admin review — GPS accuracy varies, so this is
+advisory, not a hard gate. This is deliberately scoped to "check in at the moment of inspection,"
+not continuous/background location tracking, which would need a native mobile app rather than a
+browser tab.
+
+## Payment custody
+
+All payments (subscriptions, the ₦15,000 listing-verification fee, and eventually rent/deposit)
+settle into Reallow's own Paystack account only — see the guardrail comment at the top of
+`src/lib/paystack.ts`. No Paystack subaccount/`split_code` is used anywhere; payouts to landlords
+happen out-of-band. Don't add split-payment params without deliberately revisiting this.
+
 ## Identity verification
 
 `src/lib/youverify.ts` calls Youverify's NIN lookup endpoint from
 `src/app/api/kyc/verify-nin/route.ts`, sets `user.nin.status` and `user.verifiedBadge`. The exact
 request/response shape should be confirmed against Youverify's current docs before going live —
-implemented from the commonly documented v2 API shape, not a live-tested integration.
+implemented from the commonly documented v2 API shape, not a live-tested integration. Only NIN is
+wired up; Youverify also supports BVN, driver's license, passport, voter's card, and vNIN via
+parallel endpoints (`/v2/api/identity/ng/{type}`) if broader document support is wanted later.
+
+Any verified account (tenant or landlord) gets `verifiedBadge: true` and shows a blue checkmark
+(`src/components/verified-badge.tsx`) wherever their name appears — landlord profiles, listing
+pages, their own dashboard. Verification unlocks two gated actions:
+
+- **Tenants** can browse, subscribe, and contact Reallow about a listing without verifying, but
+  `POST /api/inspections/book` and the booking UI on `/listings/[id]` both require
+  `verifiedBadge: true` — enforced server-side, not just hidden in the UI.
+- **Landlords** must verify before they can list a property at all — `POST /api/listings` checks
+  `verifiedBadge` and the `/dashboard/landlord/listings/new` page shows a "verify first" screen
+  instead of the form when unverified.
+
+`/dashboard/verify-identity` is the shared NIN-entry page for both roles.
+
+**Admin bypass:** `POST /api/admin/listings` (`/dashboard/admin/listings/new`) lets an admin post a
+property directly on behalf of an existing landlord account (by email) — no landlord-verification
+check, no ₦15,000 fee, no inspection queue, published immediately with `verification.reviewedBy`
+set to the admin. This is the one path that skips both the landlord-verification gate and the
+normal listing pipeline, by design.
 
 ## Not yet built
 
 - Rent/deposit payment collection and the full "completed transaction" lifecycle (reviews currently
   key off agreement signing instead)
 - FAQ/knowledge base content for the support flow
-- Saved searches / alerts, map view, sorting (PRD section 7.2)
+- Sorting on `/listings` (filtering + map are built, see above)
+- Email/SMS delivery for saved-search notifications — currently in-app only
+  (`FIREBASE_SERVER_KEY`/`RESEND_API_KEY`/`TERMII_API_KEY` are unconfigured)
 - Recurring billing renewal automation is implemented but unverified against live Paystack webhook
   payloads — see the Monetization section above
+- Minimum lease term (12 months, `MINIMUM_LEASE_TERM_MONTHS` in
+  `src/lib/listing-verification.ts`) is enforced on new agreements but is a single platform-wide
+  constant, not configurable from the admin panel
 
 ## Deploying
 

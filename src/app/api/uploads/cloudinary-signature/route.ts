@@ -4,7 +4,7 @@ import { createUploadSignature } from "@/lib/cloudinary";
 
 export async function POST() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "landlord") {
+  if (!session?.user || (session.user.role !== "landlord" && session.user.role !== "admin")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

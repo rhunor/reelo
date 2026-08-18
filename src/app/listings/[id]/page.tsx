@@ -7,6 +7,8 @@ import { getCollections } from "@/lib/db";
 import { SUBSCRIPTION_TIERS, canBookInspection } from "@/lib/subscription-tiers";
 import { InspectionBookingForm } from "@/components/inspection-booking-form";
 import { ContactReallowForm } from "@/components/contact-reallow-form";
+import { ListingsMap } from "@/components/listings-map";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export default async function ListingDetailPage({
   params,
@@ -32,7 +34,8 @@ export default async function ListingDetailPage({
   const tier = currentUser?.subscription.tier ?? "free";
   const tierConfig = SUBSCRIPTION_TIERS[tier];
   const bookingsUsed = currentUser?.subscription.inspectionBookingsUsed ?? 0;
-  const canBook = currentUser ? canBookInspection(tier, bookingsUsed) : false;
+  const isVerified = Boolean(currentUser?.verifiedBadge);
+  const canBook = currentUser ? isVerified && canBookInspection(tier, bookingsUsed) : false;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-16">
@@ -53,17 +56,37 @@ export default async function ListingDetailPage({
           </p>
           <p className="mt-6 leading-relaxed text-foreground/80">{listing.description}</p>
 
+          {listing.tenantPreferences && (
+            <div className="mt-6 rounded-2xl border border-line p-4">
+              <p className="text-sm font-medium">Who the landlord is looking for</p>
+              <p className="mt-1 text-sm text-foreground/70">{listing.tenantPreferences}</p>
+            </div>
+          )}
+
+          {listing.location.coordinates && (
+            <div className="mt-6 h-80 overflow-hidden rounded-2xl">
+              <ListingsMap
+                listings={[
+                  {
+                    id: listing._id!.toString(),
+                    title: listing.title,
+                    priceNGN: listing.priceNGN,
+                    listingType: listing.listingType,
+                    lng: listing.location.coordinates[0],
+                    lat: listing.location.coordinates[1],
+                  },
+                ]}
+              />
+            </div>
+          )}
+
           {landlord && (
             <Link
               href={`/landlords/${landlord._id}`}
               className="mt-6 inline-flex items-center gap-2 text-sm text-foreground/60 hover:text-clay"
             >
               Listed by {landlord.name}
-              {landlord.verifiedBadge && (
-                <span className="rounded-full bg-verified/10 px-2 py-0.5 text-xs font-medium text-verified">
-                  Verified
-                </span>
-              )}
+              {landlord.verifiedBadge && <VerifiedBadge />}
             </Link>
           )}
         </div>
@@ -127,6 +150,19 @@ export default async function ListingDetailPage({
                   </p>
                   {canBook ? (
                     <InspectionBookingForm listingId={listing._id!.toString()} />
+                  ) : !isVerified ? (
+                    <>
+                      <p className="mt-2 text-sm text-red-600">
+                        You can&apos;t book an inspection because your account has not been
+                        verified.
+                      </p>
+                      <Link
+                        href="/dashboard/verify-identity"
+                        className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
+                      >
+                        Verify your identity
+                      </Link>
+                    </>
                   ) : (
                     <>
                       <p className="mt-2 text-sm text-red-600">

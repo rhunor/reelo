@@ -3,10 +3,11 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { LISTING_VERIFICATION_FEE_NGN } from "@/lib/listing-verification";
 import { geocodeLocation } from "@/lib/mapbox";
+import { notifySavedSearchMatches } from "@/lib/notifications";
 
 const listingSchema = z.object({
+  landlordEmail: z.string().email(),
   title: z.string().min(5),
   description: z.string().min(20),
   listingType: z.enum(["rent", "sale"]),
@@ -24,10 +25,15 @@ const listingSchema = z.object({
   photoUrls: z.array(z.string().url()).min(1),
 });
 
+// Admin can post a property directly, on behalf of a landlord who already has an account —
+// this skips the ₦15,000 fee and in-person inspection entirely and goes straight to
+// `published`, since the admin is vouching for it themselves. Landlord verification is
+// deliberately NOT required here (unlike the self-serve POST /api/listings flow) — that's
+// the point of the admin bypass.
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "landlord") {
-    return NextResponse.json({ error: "Only landlords can create listings" }, { status: 403 });
+  if (!session?.user || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await request.json();
@@ -38,23 +44,18 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
   const { properties, users } = await getCollections();
-  const now = new Date();
 
-  const landlord = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!landlord?.verifiedBadge) {
-    return NextResponse.json(
-      { error: "Verify your identity before listing a property" },
-      { status: 403 },
-    );
+  const landlord = await users.findOne({ email: data.landlordEmail.toLowerCase(), role: "landlord" });
+  if (!landlord) {
+    return NextResponse.json({ error: "No landlord found with that email" }, { status: 404 });
   }
 
-  // Best-effort — geocodeLocation returns null on any failure, which just means this
-  // listing won't show a map pin until an admin/landlord corrects it later.
+  const now = new Date();
   const geocodeQuery = [data.area, data.city, data.state, "Nigeria"].filter(Boolean).join(", ");
   const coordinates = await geocodeLocation(geocodeQuery);
 
   const { insertedId } = await properties.insertOne({
-    landlordId: new ObjectId(session.user.id),
+    landlordId: landlord._id!,
     title: data.title,
     description: data.description,
     listingType: data.listingType,
@@ -75,14 +76,23 @@ export async function POST(request: Request) {
       : [],
     tenantPreferences: data.tenantPreferences,
     photoUrls: data.photoUrls,
-    status: "draft",
-    verification: { feeNGN: LISTING_VERIFICATION_FEE_NGN },
+    status: "published",
+    verification: {
+      feeNGN: 0,
+      paymentReference: "admin-created",
+      paidAt: now,
+      reviewedBy: new ObjectId(session.user.id),
+      reviewedAt: now,
+    },
     viewsCount: 0,
     savesCount: 0,
     inquiriesCount: 0,
     createdAt: now,
     updatedAt: now,
   });
+
+  const listing = await properties.findOne({ _id: insertedId });
+  if (listing) await notifySavedSearchMatches(listing);
 
   return NextResponse.json({ success: true, id: insertedId.toString() });
 }

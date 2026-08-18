@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { ListingVerificationPayButton } from "@/components/listing-verification-pay-button";
+import { VerifiedBadge } from "@/components/verified-badge";
 import type { ListingStatus } from "@/types/models";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
@@ -32,22 +33,51 @@ export default async function LandlordDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { properties } = await getCollections();
-  const listings = await properties.find({ landlordId: new ObjectId(session.user.id) }).toArray();
+  const { properties, users } = await getCollections();
+  const [listings, user] = await Promise.all([
+    properties.find({ landlordId: new ObjectId(session.user.id) }).toArray(),
+    users.findOne({ _id: new ObjectId(session.user.id) }),
+  ]);
+  const isVerified = Boolean(user?.verifiedBadge);
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your listings</h1>
-        <Link
-          href="/dashboard/landlord/listings/new"
-          className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
-        >
-          List a property
-        </Link>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold">Your listings</h1>
+          {isVerified && <VerifiedBadge />}
+        </div>
+        {isVerified ? (
+          <Link
+            href="/dashboard/landlord/listings/new"
+            className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
+          >
+            List a property
+          </Link>
+        ) : (
+          <Link
+            href="/dashboard/verify-identity"
+            className="h-10 rounded-full border border-clay px-5 text-sm font-medium leading-10 text-clay"
+          >
+            Verify to list a property
+          </Link>
+        )}
       </div>
 
+      {!isVerified && (
+        <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm">
+          <p className="font-medium">Verify your identity to list a property</p>
+          <p className="mt-1 text-foreground/70">
+            Reallow verifies every landlord against the NIN database before they can publish a
+            listing — this is separate from the ₦15,000 in-person inspection fee.
+          </p>
+        </div>
+      )}
+
       <div className="mt-4 flex gap-4 text-sm">
+        <Link href="/dashboard/landlord/candidates" className="underline">
+          Interested tenants
+        </Link>
         <Link href="/dashboard/landlord/tickets" className="underline">
           Your messages to Reallow
         </Link>

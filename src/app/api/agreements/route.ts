@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const schema = z.object({
   listingId: z.string(),
@@ -10,7 +11,10 @@ const schema = z.object({
   rentNGN: z.coerce.number().positive(),
   depositNGN: z.coerce.number().nonnegative(),
   leaseStart: z.string(),
-  leaseTermMonths: z.coerce.number().int().positive(),
+  leaseTermMonths: z.coerce
+    .number()
+    .int()
+    .min(MINIMUM_LEASE_TERM_MONTHS, `Lease term must be at least ${MINIMUM_LEASE_TERM_MONTHS} months`),
   responsibilities: z.string().min(10),
 });
 

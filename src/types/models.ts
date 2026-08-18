@@ -15,6 +15,21 @@ export interface Subscription {
   providerSubscriptionId?: string;
 }
 
+// Optional, tenant-controlled information a tenant can choose to surface to a landlord
+// (via Reallow — never directly) to strengthen their case for a listing. Everything here
+// is opt-in: `visibleToLandlords` is off by default, and nothing here should ever encode
+// a protected characteristic — this is background/affordability context the tenant
+// chooses to share, not a screening questionnaire Reallow imposes.
+export interface TenantProfile {
+  occupation?: string;
+  employer?: string;
+  monthlyIncomeNGN?: number;
+  householdSize?: number;
+  hasPets?: boolean;
+  aboutMe?: string;
+  visibleToLandlords: boolean;
+}
+
 export interface User {
   _id?: ObjectId;
   role: UserRole;
@@ -29,6 +44,7 @@ export interface User {
   };
   verifiedBadge: boolean;
   subscription: Subscription;
+  tenantProfile?: TenantProfile;
   ratingAverage?: number;
   ratingCount?: number;
   createdAt: Date;
@@ -54,6 +70,12 @@ export interface ListingVerification {
   paymentReference?: string;
   paidAt?: Date;
   scheduledFor?: Date;
+  // Set when the Reallow inspector actually arrives on site to carry out the in-person
+  // verification visit — captured via the browser Geolocation API, compared against the
+  // listing's own coordinates as a lightweight fraud check (see lib/geo.ts).
+  checkedInAt?: Date;
+  checkedInBy?: ObjectId;
+  checkedInLocation?: { lat: number; lng: number };
   reviewedBy?: ObjectId;
   reviewedAt?: Date;
   rejectionReason?: string;
@@ -79,6 +101,11 @@ export interface Property {
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
   amenities: string[];
   photoUrls: string[];
+  // Free text the landlord writes describing who they're looking for (e.g. "working
+  // professional, no pets, minimum 2-year stay"). Deliberately free-form rather than a
+  // structured set of tenant attributes, so this can't become a checkbox list of
+  // protected characteristics to filter on.
+  tenantPreferences?: string;
   status: ListingStatus;
   verification: ListingVerification;
   viewsCount: number;
@@ -185,6 +212,11 @@ export interface SupportTicket {
   subject: string;
   status: TicketStatus;
   assignedTo?: ObjectId;
+  // A landlord-scoped listing inquiry doubles as a "candidate" — see
+  // /dashboard/landlord/candidates. The landlord can mark who they'd prefer; Reallow staff
+  // sees that flag and takes it from there (still no direct landlord<->tenant contact).
+  landlordPreferred?: boolean;
+  landlordPreferredAt?: Date;
   messages: Array<{
     senderId: ObjectId;
     senderRole: UserRole;
@@ -193,4 +225,36 @@ export interface SupportTicket {
   }>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// A tenant's search criteria, persisted whenever it returns zero listings — this is both
+// the record used to alert them later if a match appears, and the raw signal of unmet
+// demand (which locations/types people search for that Reallow has no supply in).
+export interface SavedSearch {
+  _id?: ObjectId;
+  userId: ObjectId;
+  query: {
+    state?: string;
+    city?: string;
+    listingType?: ListingType;
+    propertyType?: string;
+    maxPriceNGN?: number;
+  };
+  resultCountAtSearch: number;
+  notifiedListingIds: ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type NotificationType = "saved_search_match";
+
+export interface Notification {
+  _id?: ObjectId;
+  userId: ObjectId;
+  type: NotificationType;
+  title: string;
+  body: string;
+  listingId?: ObjectId;
+  read: boolean;
+  createdAt: Date;
 }

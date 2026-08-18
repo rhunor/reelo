@@ -32,6 +32,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  if (!user.verifiedBadge) {
+    return NextResponse.json(
+      { error: "Verify your identity before booking an inspection" },
+      { status: 403 },
+    );
+  }
+
   if (!canBookInspection(user.subscription.tier, user.subscription.inspectionBookingsUsed)) {
     return NextResponse.json(
       { error: "Inspection booking limit reached for your plan this month" },

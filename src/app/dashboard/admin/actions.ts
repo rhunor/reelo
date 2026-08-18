@@ -4,6 +4,8 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { notifySavedSearchMatches } from "@/lib/notifications";
+import { distanceMeters, CHECK_IN_DISTANCE_WARNING_METERS } from "@/lib/geo";
 
 async function requireAdmin() {
   const session = await auth();
@@ -53,7 +55,47 @@ export async function approveListing(formData: FormData) {
     },
   );
 
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (listing) await notifySavedSearchMatches(listing);
+
   revalidatePath("/dashboard/admin");
+}
+
+export async function checkInAtListing(formData: FormData) {
+  const staff = await requireAdmin();
+  const listingId = formData.get("listingId") as string;
+  const lat = Number(formData.get("lat"));
+  const lng = Number(formData.get("lng"));
+
+  const { properties } = await getCollections();
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (!listing) throw new Error("Listing not found");
+
+  const now = new Date();
+  let flagged = false;
+
+  if (listing.location.coordinates) {
+    const distance = distanceMeters(
+      { lat, lng },
+      { lat: listing.location.coordinates[1], lng: listing.location.coordinates[0] },
+    );
+    flagged = distance > CHECK_IN_DISTANCE_WARNING_METERS;
+  }
+
+  await properties.updateOne(
+    { _id: listing._id },
+    {
+      $set: {
+        "verification.checkedInAt": now,
+        "verification.checkedInBy": new ObjectId(staff.id),
+        "verification.checkedInLocation": { lat, lng },
+        updatedAt: now,
+      },
+    },
+  );
+
+  revalidatePath("/dashboard/admin");
+  return { flagged };
 }
 
 export async function rejectListing(formData: FormData) {

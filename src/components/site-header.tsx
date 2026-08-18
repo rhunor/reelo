@@ -1,9 +1,25 @@
 import Link from "next/link";
+import { ObjectId } from "mongodb";
 import { auth, signOut } from "@/auth";
 import { ReallowLogo } from "@/components/reallow-logo";
+import { getCollections } from "@/lib/db";
 
 export async function SiteHeader() {
   const session = await auth();
+
+  // Best-effort — a notification-count hiccup shouldn't take down the whole site's header.
+  let unreadCount = 0;
+  if (session?.user?.role === "tenant") {
+    try {
+      const { notifications } = await getCollections();
+      unreadCount = await notifications.countDocuments({
+        userId: new ObjectId(session.user.id),
+        read: false,
+      });
+    } catch {
+      unreadCount = 0;
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
@@ -24,6 +40,16 @@ export async function SiteHeader() {
         <div className="flex items-center gap-3 text-sm">
           {session?.user ? (
             <>
+              {session.user.role === "tenant" && (
+                <Link href="/dashboard/tenant/notifications" className="relative hover:text-clay">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-medium text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               <Link href="/dashboard" className="hover:text-clay">
                 Dashboard
               </Link>

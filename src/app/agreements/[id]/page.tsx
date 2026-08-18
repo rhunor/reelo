@@ -21,7 +21,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
   if (!session?.user) redirect("/login");
   if (!ObjectId.isValid(id)) notFound();
 
-  const { agreements, properties, reviews } = await getCollections();
+  const { agreements, properties, reviews, users } = await getCollections();
   const agreement = await agreements.findOne({ _id: new ObjectId(id) });
   if (!agreement) notFound();
 
@@ -31,6 +31,8 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
   if (!isStaff && !isLandlordParty && !isTenantParty) notFound();
 
   const listing = await properties.findOne({ _id: agreement.listingId });
+  const tenant = isLandlordParty || isStaff ? await users.findOne({ _id: agreement.tenantId }) : null;
+  const showTenantProfile = tenant?.tenantProfile?.visibleToLandlords && (isLandlordParty || isStaff);
   const myReview =
     isLandlordParty || isTenantParty
       ? await reviews.findOne({ agreementId: agreement._id, fromUserId: new ObjectId(session.user.id) })
@@ -74,6 +76,44 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           <p className="mt-1 text-sm">{agreement.terms.responsibilities}</p>
         </div>
       </div>
+
+      {showTenantProfile && tenant?.tenantProfile && (
+        <div className="mt-6 rounded-lg border border-line p-6">
+          <p className="text-sm font-medium">About the tenant</p>
+          <p className="mt-1 text-xs text-foreground/50">
+            Shared by the tenant — visible to you because they chose to share it.
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            {tenant.tenantProfile.occupation && (
+              <div>
+                <dt className="text-foreground/50">Occupation</dt>
+                <dd className="mt-0.5">{tenant.tenantProfile.occupation}</dd>
+              </div>
+            )}
+            {tenant.tenantProfile.employer && (
+              <div>
+                <dt className="text-foreground/50">Employer</dt>
+                <dd className="mt-0.5">{tenant.tenantProfile.employer}</dd>
+              </div>
+            )}
+            {tenant.tenantProfile.monthlyIncomeNGN !== undefined && (
+              <div>
+                <dt className="text-foreground/50">Monthly income</dt>
+                <dd className="mt-0.5">₦{tenant.tenantProfile.monthlyIncomeNGN.toLocaleString()}</dd>
+              </div>
+            )}
+            {tenant.tenantProfile.householdSize !== undefined && (
+              <div>
+                <dt className="text-foreground/50">Household size</dt>
+                <dd className="mt-0.5">{tenant.tenantProfile.householdSize}</dd>
+              </div>
+            )}
+          </dl>
+          {tenant.tenantProfile.aboutMe && (
+            <p className="mt-3 text-sm text-foreground/70">{tenant.tenantProfile.aboutMe}</p>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 flex flex-col gap-2 text-sm">
         {(["landlord", "tenant"] as const).map((p) => {

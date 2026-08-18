@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +20,7 @@ export default async function LandlordProfilePage({ params }: { params: Promise<
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold">{landlord.name}</h1>
-        {landlord.verifiedBadge && (
-          <span className="rounded-full bg-verified/10 px-2 py-1 text-xs font-medium text-verified">
-            Verified
-          </span>
-        )}
+        {landlord.verifiedBadge && <VerifiedBadge />}
       </div>
       <p className="mt-1 text-sm text-foreground/70">
         {landlord.ratingCount

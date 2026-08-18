@@ -61,7 +61,15 @@ export function NewAgreementForm({ listingId: defaultListingId }: { listingId?: 
       </div>
       <div className="grid grid-cols-2 gap-4">
         <input name="leaseStart" type="date" required className={inputClass} />
-        <input name="leaseTermMonths" type="number" min={1} placeholder="Term (months)" required className={inputClass} />
+        <input
+          name="leaseTermMonths"
+          type="number"
+          min={12}
+          defaultValue={12}
+          placeholder="Term (months, min. 12)"
+          required
+          className={inputClass}
+        />
       </div>
       <textarea
         name="responsibilities"

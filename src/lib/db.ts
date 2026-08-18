@@ -3,7 +3,9 @@ import type {
   Agreement,
   InspectionBooking,
   ListingReview,
+  Notification,
   Property,
+  SavedSearch,
   SupportTicket,
   Transaction,
   User,
@@ -26,5 +28,7 @@ export async function getCollections() {
     inspectionBookings: db.collection<InspectionBooking>("inspectionBookings"),
     reviews: db.collection<ListingReview>("reviews"),
     tickets: db.collection<SupportTicket>("tickets"),
+    savedSearches: db.collection<SavedSearch>("savedSearches"),
+    notifications: db.collection<Notification>("notifications"),
   };
 }

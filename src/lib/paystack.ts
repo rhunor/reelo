@@ -1,5 +1,11 @@
 import { createHmac } from "crypto";
 
+// Guardrail: every payment in this app (subscriptions, listing verification fees, and
+// eventually rent/deposit) settles into Reallow's own Paystack account — never a
+// landlord's. Do not introduce Paystack subaccounts or `split_code`/`subaccount` params
+// on transaction initialization; that would route money directly to a third party's bank
+// account instead of Reallow's, which breaks the "no money enters any account that isn't
+// Reallow's" requirement. Payouts to landlords happen out-of-band, not via Paystack split.
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 function getSecretKey(): string {
