@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { SignAgreementForm } from "@/components/sign-agreement-form";
 import { ReviewForm } from "@/components/review-form";
+import { AgreementPayButton } from "@/components/agreement-pay-button";
+import { markAgreementPaidOut } from "@/app/dashboard/admin/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +55,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       <p className="mt-1 text-sm font-medium">{STATUS_LABEL[agreement.status]}</p>
 
       <div className="mt-6 rounded-lg border border-line p-6">
-        <dl className="grid grid-cols-2 gap-4 text-sm">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
           <div>
             <dt className="text-foreground/50">Rent</dt>
             <dd className="mt-1 font-medium">₦{agreement.terms.rentNGN.toLocaleString()}/year</dd>
@@ -73,7 +75,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         </dl>
         <div className="mt-4">
           <p className="text-foreground/50 text-sm">Responsibilities</p>
-          <p className="mt-1 text-sm">{agreement.terms.responsibilities}</p>
+          <p className="mt-1 text-sm break-words">{agreement.terms.responsibilities}</p>
         </div>
       </div>
 
@@ -83,7 +85,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           <p className="mt-1 text-xs text-foreground/50">
             Shared by the tenant — visible to you because they chose to share it.
           </p>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
             {tenant.tenantProfile.occupation && (
               <div>
                 <dt className="text-foreground/50">Occupation</dt>
@@ -110,7 +112,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             )}
           </dl>
           {tenant.tenantProfile.aboutMe && (
-            <p className="mt-3 text-sm text-foreground/70">{tenant.tenantProfile.aboutMe}</p>
+            <p className="mt-3 text-sm text-foreground/70 break-words">{tenant.tenantProfile.aboutMe}</p>
           )}
         </div>
       )}
@@ -136,13 +138,70 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             Both parties have signed. Use your browser&apos;s print/save-as-PDF to keep a copy of
             this page.
           </p>
-          {party && !myReview && (
+
+          <div className="mt-6 rounded-lg border border-line p-4">
+            <p className="text-sm font-medium">Rent &amp; deposit</p>
+            <p className="mt-1 text-xs text-foreground/50">
+              Paid straight to Reallow, never directly to the landlord — Reallow holds it and pays
+              the landlord out separately.
+            </p>
+
+            {agreement.payment.status === "unpaid" && isTenantParty && (
+              <div className="mt-3">
+                <AgreementPayButton
+                  agreementId={agreement._id!.toString()}
+                  amountNGN={agreement.terms.rentNGN + agreement.terms.depositNGN}
+                />
+              </div>
+            )}
+            {agreement.payment.status === "unpaid" && !isTenantParty && (
+              <p className="mt-3 text-sm text-foreground/70">Awaiting payment from the tenant.</p>
+            )}
+
+            {agreement.payment.status === "paid_to_reallow" && (
+              <>
+                <p className="mt-3 text-sm text-verified">
+                  Reallow received ₦{agreement.payment.amountNGN?.toLocaleString()}
+                  {agreement.payment.paidAt &&
+                    ` on ${new Date(agreement.payment.paidAt).toLocaleDateString()}`}{" "}
+                  — held pending payout to the landlord.
+                </p>
+                {session.user.role === "admin" && (
+                  <form action={markAgreementPaidOut} className="mt-3">
+                    <input type="hidden" name="agreementId" value={agreement._id!.toString()} />
+                    <button
+                      type="submit"
+                      className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
+                    >
+                      Mark payout to landlord complete
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
+
+            {agreement.payment.status === "paid_out_to_landlord" && (
+              <p className="mt-3 text-sm text-verified">
+                Paid out to the landlord
+                {agreement.payment.payoutAt &&
+                  ` on ${new Date(agreement.payment.payoutAt).toLocaleDateString()}`}
+                .
+              </p>
+            )}
+          </div>
+
+          {party && agreement.payment.status === "unpaid" && (
+            <p className="mt-4 text-sm text-foreground/50">
+              Reviews open once rent &amp; deposit have been paid.
+            </p>
+          )}
+          {party && agreement.payment.status !== "unpaid" && !myReview && (
             <ReviewForm
               agreementId={agreement._id!.toString()}
               revieweeLabel={party === "landlord" ? "tenant" : "landlord"}
             />
           )}
-          {myReview && (
+          {party && agreement.payment.status !== "unpaid" && myReview && (
             <p className="mt-4 text-sm text-foreground/70">
               You rated {party === "landlord" ? "the tenant" : "the landlord"} {myReview.rating}/5.
             </p>

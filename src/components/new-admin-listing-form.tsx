@@ -107,7 +107,7 @@ export function NewAdminListingForm() {
 
       <input name="propertyType" placeholder="Property type (e.g. Duplex, Flat)" required className={inputClass} />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input
           name="priceNGN"
           type="number"
@@ -119,13 +119,13 @@ export function NewAdminListingForm() {
         <input name="depositNGN" type="number" min={0} placeholder="Deposit (₦, optional)" className={inputClass} />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <input name="state" placeholder="State" required className={inputClass} />
         <input name="city" placeholder="City" required className={inputClass} />
         <input name="area" placeholder="Area (optional)" className={inputClass} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input name="bedrooms" type="number" min={0} placeholder="Bedrooms" className={inputClass} />
         <input name="bathrooms" type="number" min={0} placeholder="Bathrooms" className={inputClass} />
       </div>

@@ -55,11 +55,11 @@ export function NewAgreementForm({ listingId: defaultListingId }: { listingId?: 
         className={inputClass}
       />
       <input name="tenantEmail" type="email" placeholder="Tenant email" required className={inputClass} />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input name="rentNGN" type="number" min={0} placeholder="Rent (₦/year)" required className={inputClass} />
         <input name="depositNGN" type="number" min={0} placeholder="Deposit (₦)" required className={inputClass} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input name="leaseStart" type="date" required className={inputClass} />
         <input
           name="leaseTermMonths"

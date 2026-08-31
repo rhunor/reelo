@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     "Find and rent properties directly from verified landlords in Nigeria — no agent fees.",
 };
 
+// Runs before hydration so an explicit theme choice applies before first paint —
+// without this, the page would flash the system/light theme for a beat on every load.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("reallow-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,6 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans">
         <SiteHeader />
         <main className="flex flex-1 flex-col">{children}</main>

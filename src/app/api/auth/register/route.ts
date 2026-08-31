@@ -35,11 +35,6 @@ export async function POST(request: Request) {
     passwordHash,
     nin: { status: "unverified" },
     verifiedBadge: false,
-    subscription: {
-      tier: "free",
-      status: "none",
-      inspectionBookingsUsed: 0,
-    },
     createdAt: now,
     updatedAt: now,
   });

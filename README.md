@@ -23,17 +23,16 @@ Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / 
 
 - `src/app/` — routes. `listings/` (public browse/search), `(auth)/` (login, register),
   `dashboard/{landlord,tenant,admin,support}/` (role dashboards, gated by `src/proxy.ts`),
-  `agreements/[id]/` (shared tenancy-agreement view/sign page), `landlords/[id]/` (public
-  landlord profile), `pricing/`, `api/`
+  `agreements/[id]/` (shared tenancy-agreement view/sign/pay page), `landlords/[id]/` (public
+  landlord profile), `api/`
 - `src/auth.config.ts` — edge-safe Auth.js config (RBAC `authorized` callback used by
   `src/proxy.ts`, no DB/bcrypt so it can run in the edge runtime)
 - `src/auth.ts` — full Auth.js config (Credentials provider backed by the `users` collection,
-  JWT session carrying role/subscription tier/verified badge)
+  JWT session carrying role/verified badge)
 - `src/lib/mongodb.ts` — MongoDB client singleton (Vercel-serverless-safe connection reuse)
 - `src/lib/db.ts` — typed collection getters
-- `src/lib/subscription-tiers.ts` — single source of truth for Free/Pro/Pro+ pricing and
-  inspection-booking limits, plus `canBookInspection()` / `canContactReallow()`
-- `src/lib/listing-verification.ts` — the ₦15,000 landlord listing-verification fee constant
+- `src/lib/listing-verification.ts` — the ₦15,000 landlord listing-verification fee constant and
+  the minimum lease term
 - `src/lib/paystack.ts` — Paystack transaction initialize/verify + webhook signature check
 - `src/lib/youverify.ts` — Youverify NIN verification client
 - `src/lib/cloudinary.ts` — signed upload signature generation for the photo uploader
@@ -46,31 +45,14 @@ Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / 
 
 ## Monetization
 
-Three mechanisms coexist:
+Reallow is free for tenants and landlords to use — browsing, contacting Reallow about a listing,
+booking inspections, signing agreements, none of it is paywalled or subscription-gated. The only
+money that ever moves through the app is:
 
-1. **Per-transaction platform commission** — disclosed, itemised fee on completed
-   rent/deposit payments (configurable from the admin panel; not yet wired to a UI).
-2. **Tenant subscription tiers** (Paystack-billed), gating contact with Reallow about a listing and
-   inspection bookings — enforced server-side via `canContactReallow()` / `canBookInspection()`:
-   - **Free** — browse/search only, no listing inquiries, no inspection bookings
-   - **Pro** — ₦3,000/month, up to 5 inspection bookings/month
-   - **Pro+** — ₦7,000/month, unlimited inspection bookings
-3. **Landlord listing-verification fee (₦15,000, one-off per listing)** — see below.
+1. **Landlord listing-verification fee (₦15,000, one-off per listing)** — see below.
+2. **Rent & deposit payments** — see "Rent & deposit payments" below.
 
-`/pricing` has working "Subscribe" buttons that call `/api/subscriptions/checkout`, initialize a
-Paystack transaction, and redirect to Paystack's checkout page.
-
-**Recurring billing:** if `PAYSTACK_PRO_PLAN_CODE` / `PAYSTACK_PRO_PLUS_PLAN_CODE` are set (create
-these once as Plans in the Paystack dashboard — deliberately not done via API, since naming/amount
-should be a reviewed dashboard action), checkout passes `plan` to Paystack, which creates a native
-recurring subscription and auto-charges the card monthly. Without them, it falls back to a one-off
-transaction the user has to repeat manually. `/api/payments/paystack/webhook` handles
-`charge.success` (both first checkout and unmetadata'd renewal charges, matched by customer email),
-`subscription.create` (stores the subscription code), `invoice.payment_failed` (marks
-`past_due`), and `subscription.disable` (cancels, reverts to Free). **These lifecycle event
-payload shapes are implemented from documented Paystack behavior, not verified against a live
-account — check real webhook deliveries in the Paystack dashboard before relying on this in
-production.**
+There is no tenant pricing page or subscription tier system.
 
 ## Landlord listing flow
 
@@ -99,11 +81,10 @@ shape: a ticket belongs to one user (`userId`, `userRole`), optionally reference
 and has a `messages[]` thread. Reallow staff (admin/support) reply from the same thread — there's no
 second thread type.
 
-- `/listings/[id]` — Pro/Pro+ tenants see `src/components/contact-reallow-form.tsx` (creates a
-  listing-scoped ticket) and the inspection-booking form. Free tier / logged-out visitors see an
-  upgrade/login CTA. Gating reads the viewer's subscription tier **fresh from MongoDB**, not the
-  session JWT, since a Paystack webhook can upgrade a tier without refreshing an existing login
-  token.
+- `/listings/[id]` — any signed-in tenant sees `src/components/contact-reallow-form.tsx` (creates a
+  listing-scoped ticket) and the inspection-booking form, free of charge. Logged-out visitors see a
+  login CTA. Inspection booking additionally requires `verifiedBadge: true`, checked **fresh from
+  MongoDB**, not the session JWT.
 - `/dashboard/{tenant,landlord}/tickets` — a user's own tickets + `.../tickets/new` for general
   (non-listing) questions.
 - `/dashboard/support` — queue of open/in-progress tickets for admin/support staff, with
@@ -120,13 +101,39 @@ have signed. There's no PDF-generation/cloud-storage pipeline for agreements —
 designed to be saved via the browser's print-to-PDF instead, to avoid a second file-storage
 integration beyond Cloudinary.
 
+## Rent & deposit payments
+
+Once an agreement is `fully_signed`, the tenant pays rent + deposit together in one Paystack
+transaction, straight into Reallow's own account (`src/components/agreement-pay-button.tsx` →
+`POST /api/agreements/[id]/pay-checkout`). `Agreement.payment.status` tracks the escrow state:
+
+`unpaid` → (tenant pays) → `paid_to_reallow` → (Reallow staff bank-transfers the landlord,
+out-of-band) → `paid_out_to_landlord`
+
+- `POST /api/agreements/[id]/pay-checkout` — tenant-only, requires `fully_signed` and
+  `payment.status === "unpaid"`, initializes a Paystack transaction for
+  `rentNGN + depositNGN` with `metadata.kind = "agreement_payment"`.
+- `/api/payments/paystack/webhook` — on `charge.success` with that metadata, records a `rent` and
+  a `deposit` `Transaction` (each linked to the agreement) and flips `payment.status` to
+  `paid_to_reallow`. Guarded against duplicate webhook delivery by checking the current status
+  before writing.
+- `markAgreementPaidOut` (`src/app/dashboard/admin/actions.ts`) — admin-only server action, shown
+  as a button on `/agreements/[id]` once `payment.status === "paid_to_reallow"`. This **only**
+  records that Reallow already sent the money to the landlord by bank transfer; it never moves
+  money itself — see "Payment custody" below for why no Paystack split/subaccount is used instead.
+- `/agreements/[id]` shows the live payment state to whoever's looking at it: a pay button for the
+  tenant, an "awaiting payout" note for admin/support with the mark-paid-out button, and a "paid
+  out" confirmation once done. `/dashboard/admin/agreements` and
+  `/dashboard/landlord/agreements` show a small payout-pending/paid-out badge per agreement.
+
 ## Reviews & trust score
 
-Reviews are gated on a `fully_signed` agreement (the closest proxy this build has to "completed
-transaction," since a full rent-payment lifecycle isn't built). Once an agreement is fully signed,
-each party can rate the other once via `POST /api/reviews`, which recomputes `User.ratingAverage`/
-`ratingCount`. Landlord ratings are public on `/landlords/[id]`; tenant ratings are only shown to
-the tenant themselves on `/dashboard/tenant` (tenants aren't publicly browsable).
+Reviews are gated on `Agreement.payment.status !== "unpaid"` — rent & deposit actually paid to
+Reallow, not just both signatures — since that's the real "completed transaction" signal. Once
+paid, each party can rate the other once via `POST /api/reviews`, which recomputes
+`User.ratingAverage`/`ratingCount`. Landlord ratings are public on `/landlords/[id]`; tenant
+ratings are only shown to the tenant themselves on `/dashboard/tenant` (tenants aren't publicly
+browsable).
 
 ## Map, search & saved-search alerts
 
@@ -184,10 +191,13 @@ browser tab.
 
 ## Payment custody
 
-All payments (subscriptions, the ₦15,000 listing-verification fee, and eventually rent/deposit)
-settle into Reallow's own Paystack account only — see the guardrail comment at the top of
-`src/lib/paystack.ts`. No Paystack subaccount/`split_code` is used anywhere; payouts to landlords
-happen out-of-band. Don't add split-payment params without deliberately revisiting this.
+All payments (the ₦15,000 listing-verification fee and rent/deposit) settle into Reallow's own
+Paystack account only — see the guardrail comment at the top of `src/lib/paystack.ts`. No Paystack
+subaccount/`split_code` is used anywhere. Payouts to landlords happen out-of-band (bank transfer,
+initiated and executed by Reallow staff manually) — the app only *records* that a payout happened
+(`markAgreementPaidOut`, see "Rent & deposit payments" above), it never automates the transfer
+itself. Don't add split-payment params or a payout-automation integration without deliberately
+revisiting this — it's a deliberate policy, not a gap.
 
 ## Identity verification
 
@@ -202,7 +212,7 @@ Any verified account (tenant or landlord) gets `verifiedBadge: true` and shows a
 (`src/components/verified-badge.tsx`) wherever their name appears — landlord profiles, listing
 pages, their own dashboard. Verification unlocks two gated actions:
 
-- **Tenants** can browse, subscribe, and contact Reallow about a listing without verifying, but
+- **Tenants** can browse and contact Reallow about a listing without verifying, but
   `POST /api/inspections/book` and the booking UI on `/listings/[id]` both require
   `verifiedBadge: true` — enforced server-side, not just hidden in the UI.
 - **Landlords** must verify before they can list a property at all — `POST /api/listings` checks
@@ -217,19 +227,19 @@ check, no ₦15,000 fee, no inspection queue, published immediately with `verifi
 set to the admin. This is the one path that skips both the landlord-verification gate and the
 normal listing pipeline, by design.
 
-## Not yet built
+## Theming (light/dark)
 
-- Rent/deposit payment collection and the full "completed transaction" lifecycle (reviews currently
-  key off agreement signing instead)
-- FAQ/knowledge base content for the support flow
-- Sorting on `/listings` (filtering + map are built, see above)
-- Email/SMS delivery for saved-search notifications — currently in-app only
-  (`FIREBASE_SERVER_KEY`/`RESEND_API_KEY`/`TERMII_API_KEY` are unconfigured)
-- Recurring billing renewal automation is implemented but unverified against live Paystack webhook
-  payloads — see the Monetization section above
-- Minimum lease term (12 months, `MINIMUM_LEASE_TERM_MONTHS` in
-  `src/lib/listing-verification.ts`) is enforced on new agreements but is a single platform-wide
-  constant, not configurable from the admin panel
+Colors are CSS variables (`--paper`, `--ink`, `--clay`, `--verified`, `--gold`, `--line`) set in
+`src/app/globals.css` and mapped to Tailwind tokens (`bg-background`, `text-foreground`,
+`border-line`, `text-clay`, etc.) via `@theme inline` — components use those tokens, never raw
+hex values, so theming only ever needs to change the variables in one place.
+
+By default the site follows the OS's light/dark preference (`prefers-color-scheme`).
+`src/components/theme-toggle.tsx` (in the header) lets a visitor override that explicitly — it
+stamps `data-theme="light"`/`"dark"` on `<html>` and persists the choice to `localStorage`
+(`reallow-theme`), which always wins over the OS preference. An inline script in
+`src/app/layout.tsx` applies a stored choice before hydration so the page never flashes the wrong
+theme on load.
 
 ## Deploying
 

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ObjectId } from "mongodb";
 import { auth, signOut } from "@/auth";
 import { ReallowLogo } from "@/components/reallow-logo";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/mobile-nav";
 import { getCollections } from "@/lib/db";
 
 export async function SiteHeader() {
@@ -21,10 +23,50 @@ export async function SiteHeader() {
     }
   }
 
+  const sessionLinks = session?.user ? (
+    <>
+      {session.user.role === "tenant" && (
+        <Link href="/dashboard/tenant/notifications" className="relative hover:text-clay">
+          Notifications
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-medium text-white">
+              {unreadCount}
+            </span>
+          )}
+        </Link>
+      )}
+      <Link href="/dashboard" className="hover:text-clay">
+        Dashboard
+      </Link>
+      <form
+        action={async () => {
+          "use server";
+          await signOut({ redirectTo: "/" });
+        }}
+      >
+        <button type="submit" className="text-foreground/60 hover:text-clay">
+          Log out
+        </button>
+      </form>
+    </>
+  ) : (
+    <>
+      <Link href="/login" className="hover:text-clay">
+        Log in
+      </Link>
+      <Link
+        href="/register"
+        className="inline-flex items-center rounded-full bg-clay px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
+      >
+        List your property
+      </Link>
+    </>
+  );
+
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
-        <Link href="/">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link href="/" className="shrink-0">
           <ReallowLogo />
         </Link>
 
@@ -32,51 +74,21 @@ export async function SiteHeader() {
           <Link href="/listings" className="hover:text-clay">
             Listings
           </Link>
-          <Link href="/pricing" className="hover:text-clay">
-            Pricing
-          </Link>
         </nav>
 
-        <div className="flex items-center gap-3 text-sm">
-          {session?.user ? (
-            <>
-              {session.user.role === "tenant" && (
-                <Link href="/dashboard/tenant/notifications" className="relative hover:text-clay">
-                  Notifications
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-medium text-white">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Link>
-              )}
-              <Link href="/dashboard" className="hover:text-clay">
-                Dashboard
-              </Link>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/" });
-                }}
-              >
-                <button type="submit" className="text-foreground/60 hover:text-clay">
-                  Log out
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="hover:text-clay">
-                Log in
-              </Link>
-              <Link
-                href="/register"
-                className="rounded-full bg-clay px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-              >
-                List your property
-              </Link>
-            </>
-          )}
+        <div className="hidden items-center gap-3 text-sm sm:flex">
+          {sessionLinks}
+          <ThemeToggle />
+        </div>
+
+        <div className="flex items-center gap-2 sm:hidden">
+          <ThemeToggle />
+          <MobileNav>
+            <Link href="/listings" className="hover:text-clay">
+              Listings
+            </Link>
+            {sessionLinks}
+          </MobileNav>
         </div>
       </div>
     </header>

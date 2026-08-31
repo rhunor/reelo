@@ -56,7 +56,7 @@ export default async function AdminDashboardPage() {
               </div>
             )}
 
-            <form action={scheduleInspection} className="mt-3 flex items-center gap-2">
+            <form action={scheduleInspection} className="mt-3 flex flex-wrap items-center gap-2">
               <input type="hidden" name="listingId" value={listing._id!.toString()} />
               <input
                 name="scheduledFor"
@@ -88,12 +88,12 @@ export default async function AdminDashboardPage() {
                 </button>
               </form>
 
-              <form action={rejectListing} className="flex items-center gap-2">
+              <form action={rejectListing} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="listingId" value={listing._id!.toString()} />
                 <input
                   name="reason"
                   placeholder="Rejection reason"
-                  className="h-9 rounded-md border border-line px-3 text-sm bg-transparent"
+                  className="h-9 min-w-0 flex-1 rounded-md border border-line px-3 text-sm bg-transparent"
                 />
                 <button
                   type="submit"

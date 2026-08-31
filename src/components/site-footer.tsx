@@ -9,9 +9,6 @@ export function SiteFooter() {
           <Link href="/listings" className="hover:text-clay">
             Listings
           </Link>
-          <Link href="/pricing" className="hover:text-clay">
-            Pricing
-          </Link>
           <Link href="/dashboard/tenant/tickets/new" className="hover:text-clay">
             Contact Reallow
           </Link>

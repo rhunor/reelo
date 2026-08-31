@@ -12,17 +12,42 @@
   --font-bricolage: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
   --font-instrument: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-plex-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
 }
 
+/* Falls back to the OS preference until the visitor picks a theme explicitly via
+   ThemeToggle (see components/theme-toggle.tsx), which stamps data-theme on <html>. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #16120d;
     --ink: #f3ece2;
     --clay: #e2703f;
     --verified: #35a579;
     --gold: #e3ac5c;
     --line: #f3ece21f;
+    color-scheme: dark;
   }
+}
+
+/* An explicit choice always wins over the OS preference in both directions. */
+:root[data-theme="dark"] {
+  --paper: #16120d;
+  --ink: #f3ece2;
+  --clay: #e2703f;
+  --verified: #35a579;
+  --gold: #e3ac5c;
+  --line: #f3ece21f;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --paper: #fbf7f0;
+  --ink: #1c1712;
+  --clay: #c1502e;
+  --verified: #1f6b4c;
+  --gold: #c98a2c;
+  --line: #1c17121a;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -40,6 +65,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 h1,

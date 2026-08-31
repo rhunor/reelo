@@ -29,7 +29,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
-          subscriptionTier: user.subscription.tier,
           verifiedBadge: user.verifiedBadge,
         };
       },
@@ -40,7 +39,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt: async ({ token, user }) => {
       if (user) {
         token.role = user.role;
-        token.subscriptionTier = user.subscriptionTier;
         token.verifiedBadge = user.verifiedBadge;
       }
       return token;
@@ -48,7 +46,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session: async ({ session, token }) => {
       session.user.id = token.sub as string;
       session.user.role = token.role;
-      session.user.subscriptionTier = token.subscriptionTier;
       session.user.verifiedBadge = token.verifiedBadge;
       return session;
     },

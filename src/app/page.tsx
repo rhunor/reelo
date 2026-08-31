@@ -17,8 +17,8 @@ export default function Home() {
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70">
             Reallow connects you straight to verified landlords across Lagos and Abuja — no
-            agent commission, no surprise legal fee, no inspection charge. Search, message, sign,
-            and pay, all itemised before you commit.
+            agent commission, no surprise legal fee, no inspection charge, and free to use.
+            Search, message, sign, and pay, all itemised before you commit.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
@@ -27,12 +27,6 @@ export default function Home() {
               className="flex h-12 items-center justify-center rounded-full bg-clay px-6 font-medium text-white transition-opacity hover:opacity-90"
             >
               Browse listings
-            </Link>
-            <Link
-              href="/pricing"
-              className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
-            >
-              See pricing
             </Link>
           </div>
 

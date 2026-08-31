@@ -3,7 +3,6 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { canContactReallow } from "@/lib/subscription-tiers";
 
 const schema = z.object({
   subject: z.string().min(3),
@@ -26,19 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid listing" }, { status: 400 });
   }
 
-  const { users, tickets } = await getCollections();
-
-  // Listing inquiries are the paid "contact" feature; general support tickets are free
-  // for any authenticated tenant or landlord.
-  if (session.user.role === "tenant" && parsed.data.listingId) {
-    const user = await users.findOne({ _id: new ObjectId(session.user.id) });
-    if (!user || !canContactReallow(user.subscription.tier)) {
-      return NextResponse.json(
-        { error: "Upgrade to Pro or Pro+ to contact Reallow about a listing" },
-        { status: 403 },
-      );
-    }
-  }
+  const { tickets } = await getCollections();
 
   const now = new Date();
   const { insertedId } = await tickets.insertOne({

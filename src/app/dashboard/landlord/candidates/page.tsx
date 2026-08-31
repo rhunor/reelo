@@ -70,7 +70,7 @@ export default async function LandlordCandidatesPage() {
               </div>
 
               {profile ? (
-                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
                   {profile.occupation && (
                     <div>
                       <dt className="text-foreground/50">Occupation</dt>

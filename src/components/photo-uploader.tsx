@@ -62,7 +62,7 @@ export function PhotoUploader({ value, onChange }: { value: string[]; onChange: 
       {uploading && <p className="mt-1 text-xs text-foreground/50">Uploading…</p>}
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       {value.length > 0 && (
-        <div className="mt-3 grid grid-cols-4 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {value.map((url) => (
             <div key={url} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary Cloudinary URLs, not worth configuring next/image remote patterns for a small preview thumbnail */}

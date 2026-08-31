@@ -3,7 +3,6 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { canBookInspection } from "@/lib/subscription-tiers";
 
 const schema = z.object({
   listingId: z.string(),
@@ -39,13 +38,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!canBookInspection(user.subscription.tier, user.subscription.inspectionBookingsUsed)) {
-    return NextResponse.json(
-      { error: "Inspection booking limit reached for your plan this month" },
-      { status: 403 },
-    );
-  }
-
   const listing = await properties.findOne({ _id: new ObjectId(parsed.data.listingId) });
   if (!listing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -59,14 +51,8 @@ export async function POST(request: Request) {
     tenantId: user._id!,
     scheduledFor: new Date(parsed.data.scheduledFor),
     status: "requested",
-    billingPeriodStart: user.subscription.currentPeriodStart ?? now,
     createdAt: now,
   });
-
-  await users.updateOne(
-    { _id: user._id },
-    { $inc: { "subscription.inspectionBookingsUsed": 1 }, $set: { updatedAt: now } },
-  );
 
   return NextResponse.json({ success: true });
 }

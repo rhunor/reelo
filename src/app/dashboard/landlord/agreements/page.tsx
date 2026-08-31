@@ -32,7 +32,19 @@ export default async function LandlordAgreementsPage() {
             className="flex items-center justify-between rounded-lg border border-line p-4"
           >
             <p className="text-sm">₦{agreement.terms.rentNGN.toLocaleString()}/year</p>
-            <span className="text-sm capitalize text-foreground/50">{agreement.status.replace(/_/g, " ")}</span>
+            <span className="flex items-center gap-2 text-sm capitalize text-foreground/50">
+              {agreement.status.replace(/_/g, " ")}
+              {agreement.payment.status === "paid_to_reallow" && (
+                <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-medium text-clay">
+                  payout pending
+                </span>
+              )}
+              {agreement.payment.status === "paid_out_to_landlord" && (
+                <span className="rounded-full bg-verified/10 px-2 py-0.5 text-xs font-medium text-verified">
+                  paid out
+                </span>
+              )}
+            </span>
           </Link>
         ))}
       </div>

@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     },
     status: "sent",
     signatures: [],
+    payment: { status: "unpaid" },
     createdAt: now,
     updatedAt: now,
   });

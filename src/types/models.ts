@@ -2,18 +2,7 @@ import type { ObjectId } from "mongodb";
 
 export type UserRole = "tenant" | "landlord" | "admin" | "support";
 
-export type SubscriptionTier = "free" | "pro" | "pro_plus";
-
 export type VerificationStatus = "unverified" | "pending" | "verified" | "failed";
-
-export interface Subscription {
-  tier: SubscriptionTier;
-  status: "active" | "past_due" | "cancelled" | "none";
-  currentPeriodStart?: Date;
-  currentPeriodEnd?: Date;
-  inspectionBookingsUsed: number;
-  providerSubscriptionId?: string;
-}
 
 // Optional, tenant-controlled information a tenant can choose to surface to a landlord
 // (via Reallow — never directly) to strengthen their case for a listing. Everything here
@@ -43,7 +32,6 @@ export interface User {
     verifiedAt?: Date;
   };
   verifiedBadge: boolean;
-  subscription: Subscription;
   tenantProfile?: TenantProfile;
   ratingAverage?: number;
   ratingCount?: number;
@@ -124,7 +112,6 @@ export interface InspectionBooking {
   tenantId: ObjectId;
   scheduledFor: Date;
   status: InspectionStatus;
-  billingPeriodStart: Date;
   createdAt: Date;
 }
 
@@ -134,6 +121,22 @@ export type AgreementStatus =
   | "signed_by_landlord"
   | "signed_by_tenant"
   | "fully_signed";
+
+// Rent + deposit only ever move Reallow -> nobody until Reallow pays the landlord out
+// out-of-band (bank transfer, not Paystack) — see the guardrail comment in lib/paystack.ts.
+// "paid_to_reallow" is the escrow state: money has landed in Reallow's account but not yet
+// reached the landlord. Only Reallow staff can move a payment to "paid_out_to_landlord",
+// and only manually, once the transfer has actually happened.
+export type AgreementPaymentStatus = "unpaid" | "paid_to_reallow" | "paid_out_to_landlord";
+
+export interface AgreementPayment {
+  status: AgreementPaymentStatus;
+  amountNGN?: number;
+  reference?: string;
+  paidAt?: Date;
+  payoutAt?: Date;
+  payoutBy?: ObjectId;
+}
 
 export interface Agreement {
   _id?: ObjectId;
@@ -155,17 +158,13 @@ export interface Agreement {
     signatureHash: string;
     ipAddress: string;
   }>;
+  payment: AgreementPayment;
   pdfUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export type TransactionType =
-  | "rent"
-  | "deposit"
-  | "platform_commission"
-  | "subscription"
-  | "listing_verification";
+export type TransactionType = "rent" | "deposit" | "platform_commission" | "listing_verification";
 export type TransactionStatus = "pending" | "success" | "failed" | "refunded";
 
 export interface Transaction {
@@ -186,8 +185,9 @@ export interface Transaction {
 export interface ListingReview {
   _id?: ObjectId;
   listingId: ObjectId;
-  // Reviews are tied to a fully-signed agreement — the closest thing this build has to
-  // a "completed transaction" gate, since a full rent-payment lifecycle isn't built yet.
+  // Reviews are gated on `Agreement.payment.status !== "unpaid"` (see api/reviews/route.ts) —
+  // rent & deposit actually paid to Reallow, not just both signatures — since that's the real
+  // "completed transaction" signal now that the payment lifecycle is built.
   agreementId: ObjectId;
   fromUserId: ObjectId;
   fromRole: "tenant" | "landlord";

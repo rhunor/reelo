@@ -27,8 +27,11 @@ export async function POST(request: Request) {
   if (!agreement) {
     return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
   }
-  if (agreement.status !== "fully_signed") {
-    return NextResponse.json({ error: "You can only review after both parties have signed" }, { status: 409 });
+  if (agreement.payment.status === "unpaid") {
+    return NextResponse.json(
+      { error: "You can only review after rent & deposit have been paid" },
+      { status: 409 },
+    );
   }
 
   const role = session.user.role as "tenant" | "landlord";

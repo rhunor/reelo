@@ -25,13 +25,14 @@ export function FeeLedger() {
 
         <div className="flex items-baseline justify-between gap-4 pt-1">
           <span className="font-medium text-verified">Reallow fee</span>
-          <span className="shrink-0 font-medium text-verified">disclosed upfront</span>
+          <span className="shrink-0 font-medium text-verified">₦0 — free to use</span>
         </div>
       </div>
 
       <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-foreground/60">
         On a ₦1,000,000/year rent, the old stack cost ₦150,000–250,000 before you even moved in —
-        often without an itemised breakdown until the deal was nearly done.
+        often without an itemised breakdown until the deal was nearly done. Browsing, contacting
+        Reallow, and booking inspections cost you nothing on Reallow.
       </p>
     </div>
   );

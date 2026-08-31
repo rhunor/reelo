@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { SUBSCRIPTION_TIERS, canBookInspection } from "@/lib/subscription-tiers";
 import { InspectionBookingForm } from "@/components/inspection-booking-form";
 import { ContactReallowForm } from "@/components/contact-reallow-form";
 import { ListingsMap } from "@/components/listings-map";
@@ -25,17 +24,12 @@ export default async function ListingDetailPage({
   const landlord = await users.findOne({ _id: listing.landlordId });
 
   const session = await auth();
-  // Read subscription status fresh from the DB rather than trusting the JWT, since a
-  // Paystack webhook can upgrade the user's tier without refreshing their session token.
   const currentUser = session?.user
     ? await users.findOne({ _id: new ObjectId(session.user.id) })
     : null;
 
-  const tier = currentUser?.subscription.tier ?? "free";
-  const tierConfig = SUBSCRIPTION_TIERS[tier];
-  const bookingsUsed = currentUser?.subscription.inspectionBookingsUsed ?? 0;
   const isVerified = Boolean(currentUser?.verifiedBadge);
-  const canBook = currentUser ? isVerified && canBookInspection(tier, bookingsUsed) : false;
+  const canBook = currentUser ? isVerified : false;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-16">
@@ -54,12 +48,12 @@ export default async function ListingDetailPage({
             ₦{listing.priceNGN.toLocaleString()}
             {listing.listingType === "rent" ? <span className="text-base text-foreground/50">/year</span> : null}
           </p>
-          <p className="mt-6 leading-relaxed text-foreground/80">{listing.description}</p>
+          <p className="mt-6 leading-relaxed text-foreground/80 break-words">{listing.description}</p>
 
           {listing.tenantPreferences && (
             <div className="mt-6 rounded-2xl border border-line p-4">
               <p className="text-sm font-medium">Who the landlord is looking for</p>
-              <p className="mt-1 text-sm text-foreground/70">{listing.tenantPreferences}</p>
+              <p className="mt-1 text-sm text-foreground/70 break-words">{listing.tenantPreferences}</p>
             </div>
           )}
 
@@ -102,8 +96,8 @@ export default async function ListingDetailPage({
             {!session?.user && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Log in and upgrade to Pro or Pro+ to contact Reallow about this property and book
-                  an inspection.
+                  Log in to contact Reallow about this property and book an inspection — it&apos;s
+                  free.
                 </p>
                 <Link
                   href="/login"
@@ -114,28 +108,13 @@ export default async function ListingDetailPage({
               </>
             )}
 
-            {session?.user && !tierConfig.canContactReallow && (
-              <>
-                <p className="mt-3 text-sm text-foreground/70">
-                  Upgrade to Pro or Pro+ to contact Reallow about this property and book an
-                  inspection.
-                </p>
-                <Link
-                  href="/pricing"
-                  className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
-                >
-                  View plans
-                </Link>
-              </>
-            )}
-
-            {session?.user && tierConfig.canContactReallow && session.user.role !== "tenant" && (
+            {session?.user && session.user.role !== "tenant" && (
               <p className="mt-3 text-sm text-foreground/70">
                 Inspection booking and inquiries are available to tenant accounts.
               </p>
             )}
 
-            {session?.user && tierConfig.canContactReallow && session.user.role === "tenant" && (
+            {session?.user && session.user.role === "tenant" && (
               <>
                 <ContactReallowForm
                   listingId={listing._id!.toString()}
@@ -143,16 +122,11 @@ export default async function ListingDetailPage({
                 />
 
                 <div className="mt-6 border-t border-line pt-4">
-                  <p className="text-sm text-foreground/70">
-                    {tierConfig.inspectionBookingLimit === null
-                      ? "You're on Pro+ — unlimited inspection bookings."
-                      : `You've used ${bookingsUsed} of ${tierConfig.inspectionBookingLimit} inspection bookings this month.`}
-                  </p>
                   {canBook ? (
                     <InspectionBookingForm listingId={listing._id!.toString()} />
-                  ) : !isVerified ? (
+                  ) : (
                     <>
-                      <p className="mt-2 text-sm text-red-600">
+                      <p className="text-sm text-red-600">
                         You can&apos;t book an inspection because your account has not been
                         verified.
                       </p>
@@ -161,18 +135,6 @@ export default async function ListingDetailPage({
                         className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
                       >
                         Verify your identity
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-2 text-sm text-red-600">
-                        You&apos;ve reached your monthly inspection booking limit.
-                      </p>
-                      <Link
-                        href="/pricing"
-                        className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
-                      >
-                        Upgrade to Pro+
                       </Link>
                     </>
                   )}

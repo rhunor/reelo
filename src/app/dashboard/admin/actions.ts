@@ -98,6 +98,38 @@ export async function checkInAtListing(formData: FormData) {
   return { flagged };
 }
 
+// Reallow holds rent/deposit money the moment Paystack confirms it (see the webhook) —
+// this only records that staff have since sent it on to the landlord by bank transfer.
+// It never moves money itself; that transfer happens outside this app, by design (see
+// the guardrail comment in lib/paystack.ts on why Paystack split payments aren't used).
+export async function markAgreementPaidOut(formData: FormData) {
+  const staff = await requireAdmin();
+  const agreementId = formData.get("agreementId") as string;
+
+  const { agreements } = await getCollections();
+  const agreement = await agreements.findOne({ _id: new ObjectId(agreementId) });
+  if (!agreement) throw new Error("Agreement not found");
+  if (agreement.payment.status !== "paid_to_reallow") {
+    throw new Error("This agreement isn't awaiting payout");
+  }
+
+  const now = new Date();
+  await agreements.updateOne(
+    { _id: agreement._id },
+    {
+      $set: {
+        "payment.status": "paid_out_to_landlord",
+        "payment.payoutAt": now,
+        "payment.payoutBy": new ObjectId(staff.id),
+        updatedAt: now,
+      },
+    },
+  );
+
+  revalidatePath(`/agreements/${agreementId}`);
+  revalidatePath("/dashboard/admin/agreements");
+}
+
 export async function rejectListing(formData: FormData) {
   const admin = await requireAdmin();
   const listingId = formData.get("listingId") as string;
