@@ -96,13 +96,13 @@ export default async function LandlordDashboardPage() {
         {listings.map((listing) => (
           <div key={listing._id!.toString()} className="rounded-lg border border-line p-4">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-medium">{listing.title}</p>
+              <div className="min-w-0">
+                <p className="font-medium break-words">{listing.title}</p>
                 <p className="mt-1 text-sm text-foreground/70">
                   {listing.location.city}, {listing.location.state}
                 </p>
               </div>
-              <span className={`text-sm font-medium ${STATUS_COLOR[listing.status]}`}>
+              <span className={`shrink-0 text-sm font-medium ${STATUS_COLOR[listing.status]}`}>
                 {STATUS_LABEL[listing.status]}
               </span>
             </div>

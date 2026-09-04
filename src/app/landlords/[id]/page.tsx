@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +30,23 @@ export default async function LandlordProfilePage({ params }: { params: Promise<
       </p>
 
       <h2 className="mt-8 text-lg font-medium">Listings</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <RevealGroup className="mt-4 grid gap-4 sm:grid-cols-2">
         {listings.map((listing) => (
-          <Link
-            key={listing._id!.toString()}
-            href={`/listings/${listing._id}`}
-            className="rounded-lg border border-line p-4"
-          >
-            <p className="font-medium">{listing.title}</p>
-            <p className="mt-1 text-sm text-foreground/70">
-              {listing.location.city}, {listing.location.state}
-            </p>
-          </Link>
+          <RevealItem key={listing._id!.toString()}>
+            <HoverLift>
+              <Link
+                href={`/listings/${listing._id}`}
+                className="block rounded-lg border border-line p-4 transition-colors hover:border-clay"
+              >
+                <p className="font-medium">{listing.title}</p>
+                <p className="mt-1 text-sm text-foreground/70">
+                  {listing.location.city}, {listing.location.state}
+                </p>
+              </Link>
+            </HoverLift>
+          </RevealItem>
         ))}
-      </div>
+      </RevealGroup>
     </div>
   );
 }

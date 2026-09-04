@@ -26,16 +26,18 @@ export default async function SupportDashboardPage() {
           <Link
             key={ticket._id!.toString()}
             href={`/dashboard/support/tickets/${ticket._id}`}
-            className="flex items-center justify-between rounded-lg border border-line p-4"
+            className="flex items-center justify-between gap-3 rounded-lg border border-line p-4"
           >
-            <div>
-              <p className="font-medium">{ticket.subject}</p>
+            <div className="min-w-0">
+              <p className="font-medium break-words">{ticket.subject}</p>
               <p className="mt-1 text-sm text-foreground/70">
                 From a {ticket.userRole}
                 {ticket.listingId ? " · about a listing" : ""}
               </p>
             </div>
-            <span className="text-sm capitalize text-foreground/50">{ticket.status.replace("_", " ")}</span>
+            <span className="shrink-0 text-sm capitalize text-foreground/50">
+              {ticket.status.replace("_", " ")}
+            </span>
           </Link>
         ))}
       </div>

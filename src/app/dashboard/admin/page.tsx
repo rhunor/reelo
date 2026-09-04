@@ -36,7 +36,7 @@ export default async function AdminDashboardPage() {
       <div className="mt-8 flex flex-col gap-4">
         {pending.map((listing) => (
           <div key={listing._id!.toString()} className="rounded-lg border border-line p-4">
-            <p className="font-medium">{listing.title}</p>
+            <p className="font-medium break-words">{listing.title}</p>
             <p className="mt-1 text-sm text-foreground/70">
               {listing.location.city}, {listing.location.state} · ₦{listing.priceNGN.toLocaleString()}
             </p>

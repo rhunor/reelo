@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { ListingsMap, type MapListing } from "@/components/listings-map";
 import { ReallowMark } from "@/components/reallow-logo";
+import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
 import type { Property } from "@/types/models";
 
 export const dynamic = "force-dynamic";
@@ -152,35 +153,38 @@ export default async function ListingsPage({
       )}
 
       <div className="mt-10 grid gap-8 lg:grid-cols-5">
-        <div className="grid gap-6 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">
+        <RevealGroup className="grid gap-6 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">
           {listings.map((listing) => (
-            <Link
-              key={listing._id!.toString()}
-              href={`/listings/${listing._id}`}
-              className="group overflow-hidden rounded-2xl border border-line transition-colors hover:border-clay"
-            >
-              <div className="relative aspect-4/3 w-full overflow-hidden">
-                <Image
-                  src={listing.photoUrls[0]}
-                  alt={listing.title}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="p-4">
-                <p className="font-medium">{listing.title}</p>
-                <p className="mt-1 text-sm text-foreground/60">
-                  {listing.location.area ? `${listing.location.area}, ` : ""}
-                  {listing.location.city}, {listing.location.state}
-                </p>
-                <p className="mt-2 font-mono font-medium">
-                  ₦{listing.priceNGN.toLocaleString()}
-                  {listing.listingType === "rent" ? "/year" : ""}
-                </p>
-              </div>
-            </Link>
+            <RevealItem key={listing._id!.toString()}>
+              <HoverLift>
+                <Link
+                  href={`/listings/${listing._id}`}
+                  className="group block overflow-hidden rounded-2xl border border-line transition-colors hover:border-clay hover:shadow-lg"
+                >
+                  <div className="relative aspect-4/3 w-full overflow-hidden">
+                    <Image
+                      src={listing.photoUrls[0]}
+                      alt={listing.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <p className="font-medium">{listing.title}</p>
+                    <p className="mt-1 text-sm text-foreground/60">
+                      {listing.location.area ? `${listing.location.area}, ` : ""}
+                      {listing.location.city}, {listing.location.state}
+                    </p>
+                    <p className="mt-2 font-mono font-medium">
+                      ₦{listing.priceNGN.toLocaleString()}
+                      {listing.listingType === "rent" ? "/year" : ""}
+                    </p>
+                  </div>
+                </Link>
+              </HoverLift>
+            </RevealItem>
           ))}
-        </div>
+        </RevealGroup>
 
         <div className="h-125 lg:sticky lg:top-24 lg:col-span-2 lg:h-[calc(100vh-8rem)]">
           <ListingsMap listings={mapListings} />

@@ -7,6 +7,7 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { PageTransition } from "@/components/page-transition";
 
 export const metadata: Metadata = {
   title: "Reallow",
@@ -30,7 +31,9 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col font-sans">
         <SiteHeader />
-        <main className="flex flex-1 flex-col">{children}</main>
+        <main className="flex flex-1 flex-col">
+          <PageTransition>{children}</PageTransition>
+        </main>
         <SiteFooter />
       </body>
     </html>

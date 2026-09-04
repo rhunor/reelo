@@ -8,6 +8,7 @@ import { InspectionBookingForm } from "@/components/inspection-booking-form";
 import { ContactReallowForm } from "@/components/contact-reallow-form";
 import { ListingsMap } from "@/components/listings-map";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { Reveal } from "@/components/reveal";
 
 export default async function ListingDetailPage({
   params,
@@ -38,7 +39,7 @@ export default async function ListingDetailPage({
       </div>
 
       <div className="mt-8 grid gap-12 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <Reveal direction="left" distance={32} className="lg:col-span-2">
           <h1 className="text-3xl font-semibold tracking-tight">{listing.title}</h1>
           <p className="mt-1 text-foreground/60">
             {listing.location.area ? `${listing.location.area}, ` : ""}
@@ -83,10 +84,11 @@ export default async function ListingDetailPage({
               {landlord.verifiedBadge && <VerifiedBadge />}
             </Link>
           )}
-        </div>
+        </Reveal>
 
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-line p-6 lg:sticky lg:top-24">
+            <Reveal direction="right" distance={28}>
             <p className="font-medium">Contact Reallow &amp; book inspection</p>
             <p className="mt-1 text-xs text-foreground/50">
               Landlords and tenants never contact each other directly — Reallow coordinates
@@ -141,6 +143,7 @@ export default async function ListingDetailPage({
                 </div>
               </>
             )}
+            </Reveal>
           </div>
         </div>
       </div>
