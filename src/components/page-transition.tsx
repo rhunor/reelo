@@ -15,7 +15,13 @@ export function PageTransition({ children }: { children: ReactNode }) {
   if (reduceMotion) return <>{children}</>;
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    // initial (not initial={false}) on purpose: AnimatePresence's `initial` prop doesn't
+    // just control this wrapper's own entrance — it tells every Framer Motion element
+    // anywhere in the tree whether to play its entrance animation on first mount at all.
+    // initial={false} was silently disabling every animation on the site on first page
+    // load/reload (the exact case being tested), while still working on client-side
+    // in-app navigation — which is why nothing ever appeared to animate.
+    <AnimatePresence mode="wait">
       <motion.div
         key={pathname}
         initial={{ opacity: 0, y: 8 }}
