@@ -11,6 +11,7 @@ peer-to-peer chat feature by design.
 ```bash
 cp .env.example .env.local   # fill in MONGODB_URI and AUTH_SECRET at minimum
 npm run seed                 # creates a demo landlord + mock published listings
+npm run create-admin -- you@example.com a-strong-password "Your Name"   # first admin account
 npm run dev
 ```
 
@@ -18,6 +19,12 @@ Visit `/api/health` to confirm the MongoDB connection is wired up correctly, and
 see the seeded mock properties.
 
 Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / `password123`
+
+There's no self-service way to register as admin or support staff — `POST /api/auth/register`
+only accepts `role: "tenant" | "landlord"`, by design. `npm run create-admin` (`scripts/create-admin.ts`)
+is the bootstrap path: it creates a new admin account, or promotes an existing tenant/landlord
+account to admin if the email already exists. There's no equivalent script for the `support` role
+yet — promote a user to it directly in MongoDB if you need one.
 
 ## Project structure
 
