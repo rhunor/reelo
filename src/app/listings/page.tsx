@@ -6,6 +6,7 @@ import { getCollections } from "@/lib/db";
 import { ListingsMap, type MapListing } from "@/components/listings-map";
 import { ReallowMark } from "@/components/reallow-logo";
 import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
+import { PROPERTY_TYPES } from "@/lib/property-types";
 import type { Property } from "@/types/models";
 
 export const dynamic = "force-dynamic";
@@ -100,12 +101,18 @@ export default async function ListingsPage({
           defaultValue={city}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
         />
-        <input
+        <select
           name="propertyType"
-          placeholder="Property type"
-          defaultValue={propertyType}
+          defaultValue={propertyType ?? ""}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
-        />
+        >
+          <option value="">All property types</option>
+          {PROPERTY_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
         <input
           name="maxPrice"
           type="number"

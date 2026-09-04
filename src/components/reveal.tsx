@@ -15,6 +15,10 @@ function offsetFor(direction: Direction, distance: number) {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// prefers-reduced-motion means "avoid large/vestibular-triggering movement," not "no
+// animation at all" — so reduced motion drops the slide distance to ~0 and keeps a quick
+// opacity fade, rather than disabling the effect outright (which made it look like nothing
+// had shipped at all for anyone with that OS setting on).
 export function Reveal({
   children,
   delay = 0,
@@ -29,15 +33,15 @@ export function Reveal({
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const offset = offsetFor(direction, distance);
+  const offset = offsetFor(direction, reduceMotion ? 0 : distance);
 
   return (
     <motion.div
       className={className}
-      initial={reduceMotion ? undefined : { opacity: 0, ...offset }}
-      whileInView={reduceMotion ? undefined : { opacity: 1, x: 0, y: 0 }}
+      initial={{ opacity: 0, ...offset }}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, delay, ease: EASE }}
+      transition={{ duration: reduceMotion ? 0.25 : 0.6, delay, ease: EASE }}
     >
       {children}
     </motion.div>
@@ -63,7 +67,7 @@ export function RevealGroup({
       viewport={{ once: true, margin: "-80px" }}
       variants={{
         hidden: {},
-        show: { transition: { staggerChildren: reduceMotion ? 0 : stagger } },
+        show: { transition: { staggerChildren: reduceMotion ? 0.02 : stagger } },
       }}
     >
       {children}
@@ -83,14 +87,14 @@ export function RevealItem({
   distance?: number;
 }) {
   const reduceMotion = useReducedMotion();
-  const offset = offsetFor(direction, distance);
+  const offset = offsetFor(direction, reduceMotion ? 0 : distance);
 
   return (
     <motion.div
       className={className}
       variants={{
-        hidden: reduceMotion ? {} : { opacity: 0, ...offset },
-        show: { opacity: 1, x: 0, y: 0, transition: { duration: 0.5, ease: EASE } },
+        hidden: { opacity: 0, ...offset },
+        show: { opacity: 1, x: 0, y: 0, transition: { duration: reduceMotion ? 0.2 : 0.5, ease: EASE } },
       }}
     >
       {children}
@@ -98,16 +102,30 @@ export function RevealItem({
   );
 }
 
+// Continuously-looping pulse — unlike Reveal/HoverLift, this never depends on scrolling,
+// hovering, or catching the right half-second after page load, so it's a reliable visual
+// check for "is any animation running at all."
+export function PulseDot({ className }: { className?: string }) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.span
+      className={className}
+      animate={reduceMotion ? { opacity: [1, 0.5, 1] } : { scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+    />
+  );
+}
+
 // Lift-on-hover/press wrapper for cards and tappable tiles — a small, tactile affordance.
 // Scale/translate only, so it's cheap and doesn't fight the card's own layout.
 export function HoverLift({ children, className }: { children: ReactNode; className?: string }) {
   const reduceMotion = useReducedMotion();
-  if (reduceMotion) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
       className={className}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: reduceMotion ? 0 : -4 }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2, ease: EASE }}
     >

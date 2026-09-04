@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
+import { PROPERTY_TYPES } from "@/lib/property-types";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
@@ -105,7 +106,16 @@ export function NewAdminListingForm() {
         </button>
       </div>
 
-      <input name="propertyType" placeholder="Property type (e.g. Duplex, Flat)" required className={inputClass} />
+      <select name="propertyType" required defaultValue="" className={inputClass}>
+        <option value="" disabled>
+          Property type
+        </option>
+        {PROPERTY_TYPES.map((type) => (
+          <option key={type} value={type}>
+            {type}
+          </option>
+        ))}
+      </select>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input

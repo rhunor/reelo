@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FeeLedger } from "@/components/fee-ledger";
-import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
+import { Reveal, RevealGroup, RevealItem, PulseDot } from "@/components/reveal";
 
 export default function Home() {
   return (
@@ -50,7 +50,7 @@ export default function Home() {
               />
             </div>
             <div className="absolute bottom-6 left-6 flex items-center gap-2 rounded-full bg-background px-4 py-2 shadow-lg">
-              <span className="h-2 w-2 rounded-full bg-verified" />
+              <PulseDot className="h-2 w-2 rounded-full bg-verified" />
               <span className="text-sm font-medium">Verified landlord</span>
             </div>
           </div>
