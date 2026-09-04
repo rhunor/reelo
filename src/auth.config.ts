@@ -15,6 +15,16 @@ export const authConfig = {
   session: { strategy: "jwt" },
   providers: [],
   callbacks: {
+    // Auth.js doesn't expose custom JWT fields on the session automatically — without this,
+    // the middleware below (which runs this config alone, not the full one in auth.ts) sees
+    // `auth.user.role` as undefined for every request, so every /dashboard/* route bounces
+    // any logged-in user back to /login regardless of their actual role.
+    session({ session, token }) {
+      session.user.id = token.sub as string;
+      session.user.role = token.role;
+      session.user.verifiedBadge = token.verifiedBadge;
+      return session;
+    },
     authorized({ auth, request }) {
       const { pathname, origin } = request.nextUrl;
       const requiredRole = roleForDashboardPath(pathname);

@@ -43,11 +43,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    session: async ({ session, token }) => {
-      session.user.id = token.sub as string;
-      session.user.role = token.role;
-      session.user.verifiedBadge = token.verifiedBadge;
-      return session;
-    },
   },
 });
