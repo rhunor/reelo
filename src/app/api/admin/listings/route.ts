@@ -5,11 +5,15 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { geocodeLocation } from "@/lib/maptiler";
 import { notifySavedSearchMatches } from "@/lib/notifications";
+import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 
 const listingSchema = z.object({
-  landlordEmail: z.string().email(),
+  // Left blank, this listing is attributed to Reallow itself rather than an outside
+  // landlord — see getOrCreateReallowLandlordId. Only validated as an email/looked up when
+  // actually provided.
+  landlordEmail: z.union([z.string().email(), z.literal("")]).optional(),
   title: z.string().min(5),
-  description: z.string().min(20),
+  description: z.string().optional(),
   listingType: z.enum(["rent", "sale"]),
   propertyType: z.string().min(2),
   priceNGN: z.coerce.number().positive(),
@@ -23,13 +27,15 @@ const listingSchema = z.object({
   amenities: z.string().optional(),
   tenantPreferences: z.string().max(500).optional(),
   photoUrls: z.array(z.string().url()).min(1),
+  videoUrls: z.array(z.string().url()).optional(),
 });
 
-// Admin can post a property directly, on behalf of a landlord who already has an account —
-// this skips the ₦15,000 fee and in-person inspection entirely and goes straight to
-// `published`, since the admin is vouching for it themselves. Landlord verification is
-// deliberately NOT required here (unlike the self-serve POST /api/listings flow) — that's
-// the point of the admin bypass.
+// Admin can post a property directly — this skips the ₦15,000 fee and in-person inspection
+// entirely and goes straight to `published`, since the admin is vouching for it themselves.
+// Landlord verification is deliberately NOT required here (unlike the self-serve
+// POST /api/listings flow) — that's the point of the admin bypass. If no landlord account
+// email is given, the listing is attributed to Reallow's own system landlord account
+// instead of requiring one to exist first.
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user || session.user.role !== "admin") {
@@ -45,9 +51,15 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const { properties, users } = await getCollections();
 
-  const landlord = await users.findOne({ email: data.landlordEmail.toLowerCase(), role: "landlord" });
-  if (!landlord) {
-    return NextResponse.json({ error: "No landlord found with that email" }, { status: 404 });
+  let landlordId: ObjectId;
+  if (data.landlordEmail) {
+    const landlord = await users.findOne({ email: data.landlordEmail.toLowerCase(), role: "landlord" });
+    if (!landlord) {
+      return NextResponse.json({ error: "No landlord found with that email" }, { status: 404 });
+    }
+    landlordId = landlord._id!;
+  } else {
+    landlordId = await getOrCreateReallowLandlordId();
   }
 
   const now = new Date();
@@ -55,7 +67,7 @@ export async function POST(request: Request) {
   const coordinates = await geocodeLocation(geocodeQuery);
 
   const { insertedId } = await properties.insertOne({
-    landlordId: landlord._id!,
+    landlordId,
     title: data.title,
     description: data.description,
     listingType: data.listingType,
@@ -76,6 +88,7 @@ export async function POST(request: Request) {
       : [],
     tenantPreferences: data.tenantPreferences,
     photoUrls: data.photoUrls,
+    videoUrls: data.videoUrls ?? [],
     status: "published",
     verification: {
       feeNGN: 0,

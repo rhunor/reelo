@@ -73,7 +73,7 @@ export interface Property {
   _id?: ObjectId;
   landlordId: ObjectId;
   title: string;
-  description: string;
+  description?: string;
   listingType: ListingType;
   propertyType: string;
   priceNGN: number;
@@ -89,6 +89,7 @@ export interface Property {
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
   amenities: string[];
   photoUrls: string[];
+  videoUrls: string[];
   // Free text the landlord writes describing who they're looking for (e.g. "working
   // professional, no pets, minimum 2-year stay"). Deliberately free-form rather than a
   // structured set of tenant attributes, so this can't become a checkbox list of

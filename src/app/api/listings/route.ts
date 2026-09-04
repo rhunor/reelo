@@ -8,7 +8,7 @@ import { geocodeLocation } from "@/lib/maptiler";
 
 const listingSchema = z.object({
   title: z.string().min(5),
-  description: z.string().min(20),
+  description: z.string().optional(),
   listingType: z.enum(["rent", "sale"]),
   propertyType: z.string().min(2),
   priceNGN: z.coerce.number().positive(),
@@ -22,6 +22,7 @@ const listingSchema = z.object({
   amenities: z.string().optional(),
   tenantPreferences: z.string().max(500).optional(),
   photoUrls: z.array(z.string().url()).min(1),
+  videoUrls: z.array(z.string().url()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
       : [],
     tenantPreferences: data.tenantPreferences,
     photoUrls: data.photoUrls,
+    videoUrls: data.videoUrls ?? [],
     status: "draft",
     verification: { feeNGN: LISTING_VERIFICATION_FEE_NGN },
     viewsCount: 0,

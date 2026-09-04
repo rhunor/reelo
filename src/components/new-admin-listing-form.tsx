@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
+import { VideoUploader } from "@/components/video-uploader";
 import { PROPERTY_TYPES } from "@/lib/property-types";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
@@ -14,6 +15,7 @@ export function NewAdminListingForm() {
     "unfurnished",
   );
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +48,7 @@ export function NewAdminListingForm() {
       amenities: formData.get("amenities") || undefined,
       tenantPreferences: formData.get("tenantPreferences") || undefined,
       photoUrls,
+      videoUrls,
     };
 
     const res = await fetch("/api/admin/listings", {
@@ -68,19 +71,21 @@ export function NewAdminListingForm() {
 
   return (
     <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-      <input
-        name="landlordEmail"
-        type="email"
-        placeholder="Landlord's account email"
-        required
-        className={inputClass}
-      />
+      <div>
+        <input
+          name="landlordEmail"
+          type="email"
+          placeholder="Landlord's account email (optional)"
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">
+          Leave blank to list this property as Reallow itself rather than an outside landlord.
+        </p>
+      </div>
       <input name="title" placeholder="Title" required className={inputClass} />
       <textarea
         name="description"
-        placeholder="Description"
-        required
-        minLength={20}
+        placeholder="Description (optional)"
         rows={4}
         className={inputClass}
       />
@@ -166,6 +171,11 @@ export function NewAdminListingForm() {
       <div>
         <p className="mb-2 text-sm">Photos</p>
         <PhotoUploader value={photoUrls} onChange={setPhotoUrls} />
+      </div>
+
+      <div>
+        <p className="mb-2 text-sm">Videos (optional)</p>
+        <VideoUploader value={videoUrls} onChange={setVideoUrls} />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -69,8 +69,14 @@ it. State machine on `Property.status`:
 `draft` → (landlord pays ₦15,000) → `pending_verification` → (admin schedules + approves/rejects) → `published` or `rejected`
 
 - `/dashboard/landlord/listings/new` — landlord creates a listing (`POST /api/listings`), saved as
-  `draft`. Photos go through `src/components/photo-uploader.tsx`, which gets a signed upload from
-  `/api/uploads/cloudinary-signature` and uploads directly to Cloudinary from the browser.
+  `draft`. Property type is a fixed dropdown (`src/lib/property-types.ts` — the single source of
+  truth also used by the admin form and the `/listings` search filter, so search terms actually
+  match what landlords picked). Description is optional. Photos go through
+  `src/components/photo-uploader.tsx`, videos through `src/components/video-uploader.tsx` — both
+  get a signed upload from `/api/uploads/cloudinary-signature` and upload directly to Cloudinary
+  from the browser; Cloudinary's `/auto/upload` endpoint detects image vs video itself, so no
+  separate signing path is needed. At least one photo is still required; video is optional and
+  shown alongside extra photos in a small gallery on `/listings/[id]`.
 - `/dashboard/landlord` — lists the landlord's own listings with status, and a "Pay ₦15,000 for
   verification inspection" button on `draft`/`rejected` listings
   (`POST /api/listings/[id]/verification-checkout` → Paystack). On `charge.success` the webhook
@@ -79,6 +85,11 @@ it. State machine on `Property.status`:
   `verification.scheduledFor` (the in-person visit date — coordinated manually, no calendar
   integration) and Approve (→ `published`) or Reject (→ `rejected`, with a reason shown to the
   landlord) via `src/app/dashboard/admin/actions.ts` server actions.
+- `/dashboard/admin/listings/new` — admin posts a listing directly (`POST /api/admin/listings`),
+  skipping the fee/inspection/queue and publishing immediately (see "Identity verification" below
+  for the verification-bypass angle). The landlord email field is optional: left blank, the
+  listing is attributed to a lazily-created system "Reallow" landlord account
+  (`src/lib/reallow-landlord.ts`) instead of requiring a real landlord to already have an account.
 - `/listings` only ever queries `status: "published"`, so nothing shows publicly until approved.
 
 ## Contacting Reallow (no landlord↔tenant chat)
@@ -232,10 +243,11 @@ pages, their own dashboard. Verification unlocks two gated actions:
 `/dashboard/verify-identity` is the shared NIN-entry page for both roles.
 
 **Admin bypass:** `POST /api/admin/listings` (`/dashboard/admin/listings/new`) lets an admin post a
-property directly on behalf of an existing landlord account (by email) — no landlord-verification
-check, no ₦15,000 fee, no inspection queue, published immediately with `verification.reviewedBy`
-set to the admin. This is the one path that skips both the landlord-verification gate and the
-normal listing pipeline, by design.
+property directly — optionally on behalf of an existing landlord account (by email), or with no
+landlord account at all (attributed to Reallow's own system landlord instead, see
+`src/lib/reallow-landlord.ts`) — no landlord-verification check, no ₦15,000 fee, no inspection
+queue, published immediately with `verification.reviewedBy` set to the admin. This is the one path
+that skips both the landlord-verification gate and the normal listing pipeline, by design.
 
 ## Theming (light/dark)
 

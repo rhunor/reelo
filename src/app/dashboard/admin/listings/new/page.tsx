@@ -5,8 +5,8 @@ export default function NewAdminListingPage() {
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold">Post a property directly</h1>
       <p className="mt-2 text-sm text-foreground/70">
-        Goes live immediately as a verified listing — no ₦15,000 fee, no in-person inspection
-        queue. The landlord must already have an account; enter the email they registered with.
+        Goes live immediately as a verified listing. Enter the landlord&apos;s account email to
+        attribute it to them, or leave it blank to list it as Reallow.
       </p>
       <NewAdminListingForm />
     </div>

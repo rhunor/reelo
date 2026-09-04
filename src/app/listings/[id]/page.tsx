@@ -49,7 +49,32 @@ export default async function ListingDetailPage({
             ₦{listing.priceNGN.toLocaleString()}
             {listing.listingType === "rent" ? <span className="text-base text-foreground/50">/year</span> : null}
           </p>
-          <p className="mt-6 leading-relaxed text-foreground/80 break-words">{listing.description}</p>
+          {listing.description && (
+            <p className="mt-6 leading-relaxed text-foreground/80 break-words">{listing.description}</p>
+          )}
+
+          {(listing.photoUrls.length > 1 || listing.videoUrls.length > 0) && (
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {listing.photoUrls.slice(1).map((url, index) => (
+                <div key={url} className="relative aspect-video overflow-hidden rounded-xl">
+                  <Image
+                    src={url}
+                    alt={`${listing.title} photo ${index + 2}`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+              {listing.videoUrls.map((url) => (
+                <video
+                  key={url}
+                  src={url}
+                  controls
+                  className="aspect-video w-full rounded-xl bg-black object-cover"
+                />
+              ))}
+            </div>
+          )}
 
           {listing.tenantPreferences && (
             <div className="mt-6 rounded-2xl border border-line p-4">
