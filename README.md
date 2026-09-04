@@ -36,7 +36,7 @@ Demo landlord login (created by `npm run seed`): `demo.landlord@reallow.test` / 
 - `src/lib/paystack.ts` — Paystack transaction initialize/verify + webhook signature check
 - `src/lib/youverify.ts` — Youverify NIN verification client
 - `src/lib/cloudinary.ts` — signed upload signature generation for the photo uploader
-- `src/lib/mapbox.ts` — geocoding for listing coordinates (also powers the browser map, see below)
+- `src/lib/maptiler.ts` — geocoding for listing coordinates (also powers the browser map, see below)
 - `src/lib/geo.ts` — haversine distance, used for the field-inspection check-in fraud check
 - `src/lib/notifications.ts` — matches newly-published listings against saved searches
 - `src/types/models.ts` — domain model types (User, Property, SupportTicket, InspectionBooking,
@@ -138,15 +138,18 @@ browsable).
 ## Map, search & saved-search alerts
 
 `/listings` has a location/type/price filter form (plain `GET` form, no client JS needed) and a
-Mapbox map (`src/components/listings-map.tsx`, `react-map-gl` + `mapbox-gl`) alongside the list,
-pinning every result that has coordinates. `/listings/[id]` shows the same map for just that one
-property. Needs `NEXT_PUBLIC_MAPBOX_TOKEN` — without it the map area shows a "not configured"
-placeholder rather than breaking the page. Mapbox's public token works for both browser rendering
-and server-side calls, so only one token is needed.
+MapTiler map (`src/components/listings-map.tsx`, `react-map-gl/maplibre` + `maplibre-gl`) alongside
+the list, pinning every result that has coordinates. `/listings/[id]` shows the same map for just
+that one property. Needs `NEXT_PUBLIC_MAPTILER_KEY` — without it the map area shows a "not
+configured" placeholder rather than breaking the page. MapTiler was chosen over Mapbox because its
+free tier needs no credit card; the same key works for both browser rendering and the server-side
+geocoding call below, so only one key is needed. Its free tier is capped (5,000 map
+sessions/month, 100,000 API requests/month as of writing) and labeled for testing/non-commercial
+use — fine to launch on, but revisit before serious production traffic.
 
-Listing coordinates are geocoded automatically (`src/lib/mapbox.ts`) from the state/city/area text
-when a landlord creates a listing (`POST /api/listings`) — best-effort, a geocoding miss just means
-no map pin, it never blocks listing creation.
+Listing coordinates are geocoded automatically (`src/lib/maptiler.ts`) from the state/city/area
+text when a landlord creates a listing (`POST /api/listings`) — best-effort, a geocoding miss just
+means no map pin, it never blocks listing creation.
 
 Search-demand tracking: whenever a signed-in tenant's search (`state`/`city`/`propertyType`/
 `maxPrice`) returns zero results, it's saved as a `SavedSearch` (`src/types/models.ts`). When an

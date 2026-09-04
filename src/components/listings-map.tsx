@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Map, Marker, NavigationControl, Popup } from "react-map-gl/mapbox";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { Map, Marker, NavigationControl, Popup } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 export interface MapListing {
   id: string;
@@ -18,7 +18,7 @@ const ABUJA_FALLBACK = { longitude: 7.4913, latitude: 9.0765 };
 
 export function ListingsMap({ listings }: { listings: MapListing[] }) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
   const center = useMemo(() => {
     if (listings.length === 0) return ABUJA_FALLBACK;
@@ -27,10 +27,10 @@ export function ListingsMap({ listings }: { listings: MapListing[] }) {
     return { longitude, latitude };
   }, [listings]);
 
-  if (!token) {
+  if (!key) {
     return (
       <div className="flex h-full min-h-80 items-center justify-center rounded-2xl border border-line bg-background p-6 text-center text-sm text-foreground/50">
-        Map view isn&apos;t configured yet — set NEXT_PUBLIC_MAPBOX_TOKEN to enable it.
+        Map view isn&apos;t configured yet — set NEXT_PUBLIC_MAPTILER_KEY to enable it.
       </div>
     );
   }
@@ -39,10 +39,9 @@ export function ListingsMap({ listings }: { listings: MapListing[] }) {
 
   return (
     <Map
-      mapboxAccessToken={token}
       initialViewState={{ ...center, zoom: 10 }}
       style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
-      mapStyle="mapbox://styles/mapbox/light-v11"
+      mapStyle={`https://api.maptiler.com/maps/basic-v2/style.json?key=${key}`}
     >
       <NavigationControl position="top-right" />
       {listings.map((listing) => (

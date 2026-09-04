@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { LISTING_VERIFICATION_FEE_NGN } from "@/lib/listing-verification";
-import { geocodeLocation } from "@/lib/mapbox";
+import { geocodeLocation } from "@/lib/maptiler";
 
 const listingSchema = z.object({
   title: z.string().min(5),

@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { geocodeLocation } from "@/lib/mapbox";
+import { geocodeLocation } from "@/lib/maptiler";
 import { notifySavedSearchMatches } from "@/lib/notifications";
 
 const listingSchema = z.object({
