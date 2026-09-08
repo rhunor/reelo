@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { TermsScrollAccept } from "@/components/terms-scroll-accept";
+import { PasswordInput } from "@/components/password-input";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -69,8 +70,10 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation, not router.push — see the identical comment on the login page.
+    // A client-side transition here can reach the proxy's auth check before the
+    // just-set session cookie is visible to it, bouncing back to /login.
+    window.location.href = "/dashboard";
   }
 
   return (
@@ -134,22 +137,8 @@ export default function RegisterPage() {
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          minLength={8}
-          required
-          className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
-        />
-        <input
-          name="confirmPassword"
-          type="password"
-          placeholder="Confirm password"
-          minLength={8}
-          required
-          className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
-        />
+        <PasswordInput name="password" placeholder="Password" minLength={8} required />
+        <PasswordInput name="confirmPassword" placeholder="Confirm password" minLength={8} required />
 
         <TermsScrollAccept />
 

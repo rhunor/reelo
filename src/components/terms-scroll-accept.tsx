@@ -31,12 +31,20 @@ export function TermsScrollAccept() {
   return (
     <div className="flex flex-col gap-2">
       <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="termsAccepted" checked={accepted} readOnly required className="mt-0.5" />
+        <input
+          type="checkbox"
+          name="termsAccepted"
+          checked={accepted}
+          onChange={(event) => setAccepted(event.target.checked)}
+          required
+          className="mt-0.5"
+        />
         <span>
-          I have read and agree to the{" "}
+          I agree to the{" "}
           <button type="button" onClick={() => setOpen(true)} className="text-clay underline">
             Terms of Service and Privacy Policy
-          </button>
+          </button>{" "}
+          <span className="text-foreground/50">(tap to read them first, or just tick to agree)</span>
         </span>
       </label>
 

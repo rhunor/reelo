@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { PasswordInput } from "@/components/password-input";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,15 +20,18 @@ export default function LoginPage() {
       redirect: false,
     });
 
-    setLoading(false);
-
     if (result?.error) {
+      setLoading(false);
       setError("Invalid email or password");
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    // A hard navigation here, not router.push — the session cookie next-auth just set needs
+    // to be present on the very next request to /dashboard for the proxy's auth check to see
+    // it. router.push sends that request as a client-side transition that can race the cookie
+    // (a documented next-auth + App Router gap), bouncing back to /login until a manual
+    // reload. window.location.href forces a real top-level request, cookie included.
+    window.location.href = "/dashboard";
   }
 
   return (
@@ -44,13 +46,7 @@ export default function LoginPage() {
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          required
-          className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
-        />
+        <PasswordInput name="password" placeholder="Password" required />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

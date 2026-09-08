@@ -26,6 +26,7 @@ export const ABUJA_DISTRICTS: District[] = [
   { value: "Utako", label: "Utako", coordinates: [7.4394, 9.0687] },
   { value: "Wuye", label: "Wuye", coordinates: [7.4614, 9.0512] },
   { value: "Lugbe", label: "Lugbe", coordinates: [7.3667, 8.9833] },
+  { value: "Galadimawa", label: "Galadimawa", coordinates: [7.4306, 8.9847] },
 ];
 
 export const DISTRICTS_BY_STATE: Record<SupportedState, District[]> = {
