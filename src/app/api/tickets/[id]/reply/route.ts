@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { notifyTicketReply } from "@/lib/notifications";
 
 const schema = z.object({ body: z.string().min(1) });
 
@@ -54,6 +55,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     },
   );
+
+  await notifyTicketReply(ticket, new ObjectId(session.user.id), isStaff);
 
   return NextResponse.json({ success: true });
 }

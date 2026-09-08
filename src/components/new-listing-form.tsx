@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { VideoUploader } from "@/components/video-uploader";
 import { PROPERTY_TYPES } from "@/lib/property-types";
+import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
+import { CAUTION_FEE_CAP_RATE } from "@/lib/fees";
+import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
@@ -14,6 +17,8 @@ export function NewListingForm() {
   const [furnishing, setFurnishing] = useState<"furnished" | "semi_furnished" | "unfurnished">(
     "unfurnished",
   );
+  const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
+  const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +43,13 @@ export function NewListingForm() {
       propertyType: formData.get("propertyType"),
       priceNGN: formData.get("priceNGN"),
       depositNGN: formData.get("depositNGN") || undefined,
+      estateChargeNGN: formData.get("estateChargeNGN") || undefined,
+      minimumTermMonths: formData.get("minimumTermMonths") || undefined,
+      dealBreakers: formData.get("dealBreakers") || undefined,
       state: formData.get("state"),
       city: formData.get("city"),
       area: formData.get("area") || undefined,
+      scheduledFor: formData.get("scheduledFor"),
       bedrooms: formData.get("bedrooms") || undefined,
       bathrooms: formData.get("bathrooms") || undefined,
       furnishing,
@@ -119,13 +128,74 @@ export function NewListingForm() {
           required
           className={inputClass}
         />
-        <input name="depositNGN" type="number" min={0} placeholder="Deposit (₦, optional)" className={inputClass} />
+        <input
+          name="depositNGN"
+          type="number"
+          min={0}
+          placeholder="Caution fee (₦, optional)"
+          className={inputClass}
+        />
+      </div>
+      <p className="-mt-2 text-xs text-foreground/50">
+        Caution fee is refundable and held by Reallow until move-out, capped at{" "}
+        {CAUTION_FEE_CAP_RATE * 100}% of annual rent — never paid out to you directly.
+      </p>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <input
+          name="estateChargeNGN"
+          type="number"
+          min={0}
+          placeholder="Estate charge (₦, optional)"
+          className={inputClass}
+        />
+        <input
+          name="minimumTermMonths"
+          type="number"
+          min={MINIMUM_LEASE_TERM_MONTHS}
+          placeholder={`Minimum tenancy (months, min. ${MINIMUM_LEASE_TERM_MONTHS})`}
+          className={inputClass}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <input name="state" placeholder="State" required className={inputClass} />
-        <input name="city" placeholder="City" required className={inputClass} />
-        <input name="area" placeholder="Area (optional)" className={inputClass} />
+        <select
+          name="state"
+          required
+          value={state}
+          onChange={(event) => setState(event.target.value as SupportedState)}
+          className={inputClass}
+        >
+          {SUPPORTED_STATES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <select name="city" required defaultValue="" className={inputClass}>
+          <option value="" disabled>
+            District
+          </option>
+          {districts.map((district) => (
+            <option key={district.value} value={district.value}>
+              {district.label}
+            </option>
+          ))}
+        </select>
+        <input name="area" placeholder="Estate / street (optional)" className={inputClass} />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm text-foreground/70" htmlFor="scheduledFor">
+          Propose a date for Reallow&apos;s free verification inspection
+        </label>
+        <input
+          id="scheduledFor"
+          name="scheduledFor"
+          type="datetime-local"
+          required
+          className={inputClass + " w-full"}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -149,6 +219,18 @@ export function NewListingForm() {
       </div>
 
       <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
+
+      <div>
+        <input
+          name="dealBreakers"
+          placeholder="Deal breakers, comma separated (optional — e.g. no pets, no smoking)"
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">
+          Hard rules for this property, not a description of who you want — shown publicly and
+          given to whoever drafts the real tenancy agreement.
+        </p>
+      </div>
 
       <div>
         <textarea
@@ -180,7 +262,7 @@ export function NewListingForm() {
         disabled={loading}
         className="h-11 rounded-full bg-clay text-white disabled:opacity-50"
       >
-        {loading ? "Saving…" : "Save as draft"}
+        {loading ? "Submitting…" : "Submit for inspection"}
       </button>
     </form>
   );

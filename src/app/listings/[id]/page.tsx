@@ -9,6 +9,8 @@ import { ContactReallowForm } from "@/components/contact-reallow-form";
 import { ListingsMap } from "@/components/listings-map";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { Reveal } from "@/components/reveal";
+import { computeListingCostBreakdown, getInspectionFee } from "@/lib/fees";
+import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 export default async function ListingDetailPage({
   params,
@@ -18,7 +20,7 @@ export default async function ListingDetailPage({
   const { id } = await params;
   if (!ObjectId.isValid(id)) notFound();
 
-  const { properties, users } = await getCollections();
+  const { properties, users, tickets, inspectionBookings } = await getCollections();
   const listing = await properties.findOne({ _id: new ObjectId(id) });
   if (!listing) notFound();
 
@@ -30,7 +32,30 @@ export default async function ListingDetailPage({
     : null;
 
   const isVerified = Boolean(currentUser?.verifiedBadge);
-  const canBook = currentUser ? isVerified : false;
+
+  // A tenant only ever has (at most) one inquiry ticket per listing — used both to avoid
+  // showing the "apply" form again and to gate the paid inspection-booking step on the
+  // landlord's decision.
+  const existingTicket =
+    session?.user?.role === "tenant"
+      ? await tickets.findOne({ userId: new ObjectId(session.user.id), listingId: listing._id })
+      : null;
+  const decision =
+    existingTicket?.landlordDecision ?? (existingTicket?.landlordPreferred ? "approved" : undefined);
+  const existingBooking = existingTicket
+    ? await inspectionBookings.findOne({ ticketId: existingTicket._id })
+    : null;
+  const inspectionFeeNGN = getInspectionFee(listing.location.city);
+
+  const costBreakdown =
+    listing.listingType === "rent"
+      ? computeListingCostBreakdown({
+          rentNGN: listing.priceNGN,
+          cautionFeeNGN: listing.depositNGN,
+          estateChargeNGN: listing.estateChargeNGN,
+        })
+      : null;
+  const minimumTermMonths = listing.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-16">
@@ -49,6 +74,63 @@ export default async function ListingDetailPage({
             ₦{listing.priceNGN.toLocaleString()}
             {listing.listingType === "rent" ? <span className="text-base text-foreground/50">/year</span> : null}
           </p>
+
+          {costBreakdown && (
+            <div className="mt-4 rounded-2xl border border-line p-4">
+              <p className="text-sm font-medium">What you&apos;d pay in total</p>
+              <dl className="mt-3 flex flex-col gap-2 text-sm">
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-foreground/70">Rent</dt>
+                  <dd className="font-mono">₦{costBreakdown.rentNGN.toLocaleString()}</dd>
+                </div>
+                {costBreakdown.cautionFeeNGN > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-foreground/70">+ Caution fee (refundable)</dt>
+                    <dd className="font-mono">₦{costBreakdown.cautionFeeNGN.toLocaleString()}</dd>
+                  </div>
+                )}
+                {costBreakdown.estateChargeNGN > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-foreground/70">+ Estate charge</dt>
+                    <dd className="font-mono">₦{costBreakdown.estateChargeNGN.toLocaleString()}</dd>
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-foreground/70">+ Reallow agency fee (5%)</dt>
+                  <dd className="font-mono">₦{costBreakdown.agencyFeeNGN.toLocaleString()}</dd>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-foreground/70">+ Legal fee</dt>
+                  <dd className="font-mono">₦{costBreakdown.legalFeeNGN.toLocaleString()}</dd>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between border-t border-line pt-2 font-medium">
+                  <dt>Total payable</dt>
+                  <dd className="font-mono">₦{costBreakdown.totalNGN.toLocaleString()}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs text-foreground/50">
+                Caution fee is refundable and held by Reallow until move-out, provided there&apos;s
+                no damage. Minimum tenancy: {minimumTermMonths} months.
+              </p>
+            </div>
+          )}
+
+          {listing.dealBreakers && listing.dealBreakers.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-clay/40 bg-clay/5 p-4">
+              <p className="text-sm font-medium">Deal breakers</p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {listing.dealBreakers.map((rule) => (
+                  <li
+                    key={rule}
+                    className="rounded-full border border-clay/40 px-3 py-1 text-xs font-medium text-clay"
+                  >
+                    {rule}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {listing.description && (
             <p className="mt-6 leading-relaxed text-foreground/80 break-words">{listing.description}</p>
           )}
@@ -123,8 +205,8 @@ export default async function ListingDetailPage({
             {!session?.user && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Log in to contact Reallow about this property and book an inspection — it&apos;s
-                  free.
+                  Log in to contact Reallow about this property — it&apos;s free to ask. A paid
+                  physical inspection is available once the landlord approves your interest.
                 </p>
                 <Link
                   href="/login"
@@ -141,32 +223,60 @@ export default async function ListingDetailPage({
               </p>
             )}
 
-            {session?.user && session.user.role === "tenant" && (
-              <>
-                <ContactReallowForm
-                  listingId={listing._id!.toString()}
-                  subject={`Inquiry about ${listing.title}`}
-                />
+            {session?.user && session.user.role === "tenant" && !existingTicket && (
+              <ContactReallowForm
+                listingId={listing._id!.toString()}
+                subject={`Inquiry about ${listing.title}`}
+              />
+            )}
 
-                <div className="mt-6 border-t border-line pt-4">
-                  {canBook ? (
-                    <InspectionBookingForm listingId={listing._id!.toString()} />
-                  ) : (
-                    <>
-                      <p className="text-sm text-red-600">
-                        You can&apos;t book an inspection because your account has not been
-                        verified.
-                      </p>
-                      <Link
-                        href="/dashboard/verify-identity"
-                        className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
-                      >
-                        Verify your identity
-                      </Link>
-                    </>
-                  )}
-                </div>
-              </>
+            {existingTicket && decision === undefined && (
+              <p className="mt-3 text-sm text-foreground/70">
+                Application sent — waiting on the landlord&apos;s decision.{" "}
+                <Link href={`/dashboard/tenant/tickets/${existingTicket._id}`} className="underline">
+                  View message
+                </Link>
+              </p>
+            )}
+
+            {existingTicket && decision === "declined" && (
+              <p className="mt-3 text-sm text-foreground/50">
+                The landlord has moved on from this application.
+              </p>
+            )}
+
+            {existingTicket && decision === "approved" && (
+              <div className="mt-6 border-t border-line pt-4">
+                {existingBooking ? (
+                  <p className="text-sm text-verified">
+                    Inspection booked for{" "}
+                    {new Date(existingBooking.scheduledFor).toLocaleString()}.
+                  </p>
+                ) : !isVerified ? (
+                  <>
+                    <p className="text-sm text-red-600">
+                      You can&apos;t book an inspection because your account has not been
+                      verified.
+                    </p>
+                    <Link
+                      href="/dashboard/verify-identity"
+                      className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
+                    >
+                      Verify your identity
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-verified">
+                      The landlord approved your application.
+                    </p>
+                    <InspectionBookingForm
+                      ticketId={existingTicket._id!.toString()}
+                      feeNGN={inspectionFeeNGN}
+                    />
+                  </>
+                )}
+              </div>
             )}
             </Reveal>
           </div>

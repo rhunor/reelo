@@ -30,7 +30,7 @@ export function AgreementPayButton({ agreementId, amountNGN }: { agreementId: st
         disabled={loading}
         className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
       >
-        {loading ? "Redirecting…" : `Pay ₦${amountNGN.toLocaleString()} rent & deposit via Reallow`}
+        {loading ? "Redirecting…" : `Pay ₦${amountNGN.toLocaleString()} via Reallow`}
       </button>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

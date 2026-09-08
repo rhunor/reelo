@@ -39,6 +39,16 @@ export default async function AdminAgreementsPage() {
                   paid out
                 </span>
               )}
+              {agreement.payment.refundStatus === "eligible" && (
+                <span className="rounded-full bg-clay/10 px-2 py-0.5 text-xs font-medium text-clay">
+                  refund pending
+                </span>
+              )}
+              {agreement.payment.refundStatus === "refunded" && (
+                <span className="rounded-full bg-verified/10 px-2 py-0.5 text-xs font-medium text-verified">
+                  refunded
+                </span>
+              )}
             </span>
           </Link>
         ))}

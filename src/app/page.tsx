@@ -9,7 +9,7 @@ export default function Home() {
       <section className="border-t border-line bg-clay/5">
         <RevealGroup className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-16 sm:grid-cols-3">
           <RevealItem>
-            <p className="font-display text-3xl font-semibold">NIN-verified</p>
+            <p className="font-display text-3xl font-semibold">NIN &amp; BVN verified</p>
             <p className="mt-2 text-sm text-foreground/70">
               Every landlord is identity-checked before a listing goes live — a real in-person
               inspection, not a rubber stamp.
@@ -18,8 +18,8 @@ export default function Home() {
           <RevealItem>
             <p className="font-display text-3xl font-semibold">Digital agreement</p>
             <p className="mt-2 text-sm text-foreground/70">
-              A standardised tenancy agreement with e-signature, included — no separate lawyer
-              fee for a copy-paste template.
+              A standardised tenancy agreement with e-signature — one clear legal fee, disclosed
+              upfront, not a surprise on top of everything else.
             </p>
           </RevealItem>
           <RevealItem>

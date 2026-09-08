@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { VideoUploader } from "@/components/video-uploader";
 import { PROPERTY_TYPES } from "@/lib/property-types";
+import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
+import { CAUTION_FEE_CAP_RATE } from "@/lib/fees";
+import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
@@ -14,6 +17,8 @@ export function NewAdminListingForm() {
   const [furnishing, setFurnishing] = useState<"furnished" | "semi_furnished" | "unfurnished">(
     "unfurnished",
   );
+  const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
+  const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +44,9 @@ export function NewAdminListingForm() {
       propertyType: formData.get("propertyType"),
       priceNGN: formData.get("priceNGN"),
       depositNGN: formData.get("depositNGN") || undefined,
+      estateChargeNGN: formData.get("estateChargeNGN") || undefined,
+      minimumTermMonths: formData.get("minimumTermMonths") || undefined,
+      dealBreakers: formData.get("dealBreakers") || undefined,
       state: formData.get("state"),
       city: formData.get("city"),
       area: formData.get("area") || undefined,
@@ -131,13 +139,61 @@ export function NewAdminListingForm() {
           required
           className={inputClass}
         />
-        <input name="depositNGN" type="number" min={0} placeholder="Deposit (₦, optional)" className={inputClass} />
+        <input
+          name="depositNGN"
+          type="number"
+          min={0}
+          placeholder="Caution fee (₦, optional)"
+          className={inputClass}
+        />
+      </div>
+      <p className="-mt-2 text-xs text-foreground/50">
+        Caution fee is refundable and held by Reallow until move-out, capped at{" "}
+        {CAUTION_FEE_CAP_RATE * 100}% of annual rent.
+      </p>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <input
+          name="estateChargeNGN"
+          type="number"
+          min={0}
+          placeholder="Estate charge (₦, optional)"
+          className={inputClass}
+        />
+        <input
+          name="minimumTermMonths"
+          type="number"
+          min={MINIMUM_LEASE_TERM_MONTHS}
+          placeholder={`Minimum tenancy (months, min. ${MINIMUM_LEASE_TERM_MONTHS})`}
+          className={inputClass}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <input name="state" placeholder="State" required className={inputClass} />
-        <input name="city" placeholder="City" required className={inputClass} />
-        <input name="area" placeholder="Area (optional)" className={inputClass} />
+        <select
+          name="state"
+          required
+          value={state}
+          onChange={(event) => setState(event.target.value as SupportedState)}
+          className={inputClass}
+        >
+          {SUPPORTED_STATES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <select name="city" required defaultValue="" className={inputClass}>
+          <option value="" disabled>
+            District
+          </option>
+          {districts.map((district) => (
+            <option key={district.value} value={district.value}>
+              {district.label}
+            </option>
+          ))}
+        </select>
+        <input name="area" placeholder="Estate / street (optional)" className={inputClass} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -161,6 +217,11 @@ export function NewAdminListingForm() {
       </div>
 
       <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
+      <input
+        name="dealBreakers"
+        placeholder="Deal breakers, comma separated (optional — e.g. no pets, no smoking)"
+        className={inputClass}
+      />
       <textarea
         name="tenantPreferences"
         placeholder="Landlord's tenant preferences (optional)"

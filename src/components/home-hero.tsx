@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { FeeLedger } from "@/components/fee-ledger";
 import { PulseDot } from "@/components/reveal";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -47,7 +46,7 @@ export function HomeHero() {
           variants={reduceMotion ? undefined : dropIn}
           className="font-mono text-xs tracking-widest text-clay uppercase"
         >
-          No agent. No hidden fees.
+          Renting, made simple.
         </motion.p>
         <motion.h1
           variants={reduceMotion ? undefined : hop}
@@ -55,15 +54,15 @@ export function HomeHero() {
         >
           Reallow.
           <br />
-          Rent direct, pay what&apos;s on the receipt.
+          Your next property is just a click away.
         </motion.h1>
         <motion.p
           variants={reduceMotion ? undefined : fadeUp}
           className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70"
         >
-          Reallow connects you straight to verified landlords across Lagos and Abuja — no
-          agent commission, no surprise legal fee, no inspection charge, and free to use.
-          Search, message, sign, and pay, all itemised before you commit.
+          Reallow connects you straight to verified landlords in Abuja — you get what you see,
+          you pay exactly what&apos;s on the receipt, no stress. Search, message, sign, and pay,
+          all through Reallow, all itemised before you commit.
         </motion.p>
 
         <motion.div variants={reduceMotion ? undefined : popIn} className="mt-8 flex flex-wrap gap-4">
@@ -73,10 +72,12 @@ export function HomeHero() {
           >
             Browse listings
           </Link>
-        </motion.div>
-
-        <motion.div variants={reduceMotion ? undefined : fadeUp} className="mt-10">
-          <FeeLedger />
+          <Link
+            href="/about"
+            className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
+          >
+            About Reallow
+          </Link>
         </motion.div>
       </motion.div>
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { verifyNin } from "@/lib/youverify";
+import { recomputeVerifiedBadge } from "@/lib/kyc";
 
 const schema = z.object({ nin: z.string().length(11) });
 
@@ -22,21 +23,22 @@ export async function POST(request: Request) {
   try {
     const result = await verifyNin(parsed.data.nin);
     const { users } = await getCollections();
+    const userId = new ObjectId(session.user.id);
 
     await users.updateOne(
-      { _id: new ObjectId(session.user.id) },
+      { _id: userId },
       {
         $set: {
           "nin.status": result.success ? "verified" : "failed",
           "nin.provider": "youverify",
           ...(result.success ? { "nin.verifiedAt": new Date() } : {}),
-          verifiedBadge: result.success,
           updatedAt: new Date(),
         },
       },
     );
+    const verifiedBadge = await recomputeVerifiedBadge(userId);
 
-    return NextResponse.json({ success: result.success, message: result.message });
+    return NextResponse.json({ success: result.success, message: result.message, verifiedBadge });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }

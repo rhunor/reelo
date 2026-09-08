@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { ListingVerificationPayButton } from "@/components/listing-verification-pay-button";
+import { ProposeInspectionForm } from "@/components/propose-inspection-form";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { ActiveTenancies } from "@/components/active-tenancies";
 import type { ListingStatus } from "@/types/models";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
-  draft: "Draft — payment needed",
-  pending_verification: "Awaiting admin verification",
+  draft: "Draft",
+  pending_verification: "Awaiting inspection & verification",
   published: "Live",
   rejected: "Rejected",
   rented: "Rented",
@@ -33,10 +34,11 @@ export default async function LandlordDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { properties, users } = await getCollections();
-  const [listings, user] = await Promise.all([
+  const { properties, users, agreements } = await getCollections();
+  const [listings, user, myAgreements] = await Promise.all([
     properties.find({ landlordId: new ObjectId(session.user.id) }).toArray(),
     users.findOne({ _id: new ObjectId(session.user.id) }),
+    agreements.find({ landlordId: new ObjectId(session.user.id) }).toArray(),
   ]);
   const isVerified = Boolean(user?.verifiedBadge);
 
@@ -68,8 +70,9 @@ export default async function LandlordDashboardPage() {
         <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm">
           <p className="font-medium">Verify your identity to list a property</p>
           <p className="mt-1 text-foreground/70">
-            Reallow verifies every landlord against the NIN database before they can publish a
-            listing — this is separate from the ₦15,000 in-person inspection fee.
+            Reallow verifies every landlord&apos;s NIN and BVN before they can publish a listing.
+            Listing is free — Reallow&apos;s agent still visits in person to confirm the property
+            before it goes live.
           </p>
         </div>
       )}
@@ -84,7 +87,15 @@ export default async function LandlordDashboardPage() {
         <Link href="/dashboard/landlord/agreements" className="underline">
           Tenancy agreements
         </Link>
+        <Link href="/dashboard/complete-profile" className="underline">
+          Complete your profile
+        </Link>
+        <Link href="/dashboard/landlord/transactions" className="underline">
+          Transaction history
+        </Link>
       </div>
+
+      <ActiveTenancies agreements={myAgreements} />
 
       {listings.length === 0 && (
         <p className="mt-8 text-foreground/70">
@@ -120,10 +131,7 @@ export default async function LandlordDashboardPage() {
                     Rejected: {listing.verification.rejectionReason}
                   </p>
                 )}
-                <ListingVerificationPayButton
-                  listingId={listing._id!.toString()}
-                  feeNGN={listing.verification.feeNGN}
-                />
+                <ProposeInspectionForm listingId={listing._id!.toString()} />
               </div>
             )}
           </div>

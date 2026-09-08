@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { TermsScrollAccept } from "@/components/terms-scroll-accept";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -13,14 +14,33 @@ export default function RegisterPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setLoading(true);
 
     const formData = new FormData(event.currentTarget);
+    const password = formData.get("password");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+    if (!formData.get("termsAccepted")) {
+      setError("You need to agree to the Terms of Service and Privacy Policy");
+      return;
+    }
+
+    setLoading(true);
+
     const payload = {
-      name: formData.get("name"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
+      otherNames: formData.get("otherNames") || undefined,
       email: formData.get("email"),
-      password: formData.get("password"),
+      phone: formData.get("phone"),
+      password,
+      confirmPassword,
       role,
+      termsAccepted: "true",
+      newsletterOptIn: formData.get("newsletterOptIn") ? "true" : "false",
     };
 
     const res = await fetch("/api/auth/register", {
@@ -78,17 +98,39 @@ export default function RegisterPage() {
         </button>
       </div>
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            name="firstName"
+            type="text"
+            placeholder="First name"
+            required
+            className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
+          />
+          <input
+            name="lastName"
+            type="text"
+            placeholder="Last name"
+            required
+            className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
+          />
+        </div>
         <input
-          name="name"
+          name="otherNames"
           type="text"
-          placeholder="Full name"
-          required
+          placeholder="Other names (optional)"
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
         <input
           name="email"
           type="email"
           placeholder="Email"
+          required
+          className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
+        />
+        <input
+          name="phone"
+          type="tel"
+          placeholder="Phone number"
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
@@ -100,6 +142,22 @@ export default function RegisterPage() {
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
+        <input
+          name="confirmPassword"
+          type="password"
+          placeholder="Confirm password"
+          minLength={8}
+          required
+          className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
+        />
+
+        <TermsScrollAccept />
+
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="newsletterOptIn" defaultChecked className="mt-0.5" />
+          <span>Keep me updated about Reallow by email</span>
+        </label>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

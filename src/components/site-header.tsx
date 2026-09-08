@@ -11,7 +11,7 @@ export async function SiteHeader() {
 
   // Best-effort — a notification-count hiccup shouldn't take down the whole site's header.
   let unreadCount = 0;
-  if (session?.user?.role === "tenant") {
+  if (session?.user) {
     try {
       const { notifications } = await getCollections();
       unreadCount = await notifications.countDocuments({
@@ -25,16 +25,14 @@ export async function SiteHeader() {
 
   const sessionLinks = session?.user ? (
     <>
-      {session.user.role === "tenant" && (
-        <Link href="/dashboard/tenant/notifications" className="relative hover:text-clay">
-          Notifications
-          {unreadCount > 0 && (
-            <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-medium text-white">
-              {unreadCount}
-            </span>
-          )}
-        </Link>
-      )}
+      <Link href="/dashboard/notifications" className="relative hover:text-clay">
+        Notifications
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-3 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[10px] font-medium text-white">
+            {unreadCount}
+          </span>
+        )}
+      </Link>
       <Link href="/dashboard" className="hover:text-clay">
         Dashboard
       </Link>

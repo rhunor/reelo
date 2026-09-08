@@ -19,10 +19,28 @@ export interface TenantProfile {
   visibleToLandlords: boolean;
 }
 
+// Who this user is, for KYC/payout purposes — deliberately separate from TenantProfile
+// above, which is about what a tenant shares with a landlord for one specific listing
+// candidacy. This is role-agnostic (landlords fill it in too) and feeds identity/payout
+// matching, not landlord matching.
+export interface UserProfile {
+  occupation?: string;
+  maritalStatus?: string;
+  religion?: string;
+  profilePictureUrl?: string;
+  occupationVisible?: boolean;
+  maritalStatusVisible?: boolean;
+  religionVisible?: boolean;
+  profilePictureVisible?: boolean;
+}
+
 export interface User {
   _id?: ObjectId;
   role: UserRole;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  otherNames?: string;
   email: string;
   phone?: string;
   passwordHash?: string;
@@ -31,7 +49,29 @@ export interface User {
     provider?: "youverify" | "prembly" | "smile_id";
     verifiedAt?: Date;
   };
+  // Optional so existing users predating BVN verification don't break — treated as
+  // "unverified" wherever read. See src/lib/kyc.ts recomputeVerifiedBadge: verifiedBadge
+  // requires NIN and BVN both verified, not NIN alone.
+  bvn?: {
+    status: VerificationStatus;
+    provider?: "youverify" | "prembly" | "smile_id";
+    verifiedAt?: Date;
+  };
+  // Never exposed via any "public" visibility toggle — collected for KYC/payout name
+  // matching only. Reallow won't pay out to a name that doesn't match across NIN/BVN/bank.
+  bankDetails?: {
+    accountName?: string;
+    accountNumber?: string;
+    bankName?: string;
+  };
   verifiedBadge: boolean;
+  termsAcceptedAt?: Date;
+  termsVersion?: string;
+  newsletterOptIn?: boolean;
+  emailVerified?: boolean;
+  emailVerificationToken?: string;
+  emailVerificationTokenExpiresAt?: Date;
+  profile?: UserProfile;
   tenantProfile?: TenantProfile;
   ratingAverage?: number;
   ratingCount?: number;
@@ -77,7 +117,20 @@ export interface Property {
   listingType: ListingType;
   propertyType: string;
   priceNGN: number;
+  // Internally still "depositNGN" to avoid a data migration — every UI surface labels this
+  // "Caution fee": refundable, held by Reallow, capped at CAUTION_FEE_CAP_RATE (see
+  // src/lib/fees.ts) of annual rent regardless of what a landlord tries to enter.
   depositNGN?: number;
+  // New, optional, uncapped — an additional estate/service charge on top of rent.
+  estateChargeNGN?: number;
+  // Per-listing minimum tenancy length in months. Falls back to the platform floor
+  // (MINIMUM_LEASE_TERM_MONTHS in src/lib/listing-verification.ts) when unset.
+  minimumTermMonths?: number;
+  // Hard rules for this specific property (e.g. "no pets", "no smoking") — distinct from
+  // tenantPreferences below, which is about who the landlord wants, not non-negotiable
+  // rules. Shown on the listing publicly and handed to whoever drafts the real tenancy
+  // agreement with a lawyer.
+  dealBreakers?: string[];
   location: {
     state: string;
     city: string;
@@ -111,8 +164,14 @@ export interface InspectionBooking {
   listingId: ObjectId;
   landlordId: ObjectId;
   tenantId: ObjectId;
+  ticketId?: ObjectId;
   scheduledFor: Date;
   status: InspectionStatus;
+  // Location-priced (src/lib/fees.ts) — covers Reallow's agent physically travelling to
+  // the property. Only ever created by the Paystack webhook, on confirmed payment. Older
+  // bookings created before this flow existed won't have these — treat as free/legacy.
+  feeNGN?: number;
+  transactionId?: ObjectId;
   createdAt: Date;
 }
 
@@ -137,6 +196,13 @@ export interface AgreementPayment {
   paidAt?: Date;
   payoutAt?: Date;
   payoutBy?: ObjectId;
+  // The caution fee is refund-eligible only once BOTH parties have confirmed the tenancy
+  // ended (see Agreement.terminatedBy*) — same manual, admin-flips-a-flag pattern as the
+  // landlord payout above, since "no damage" is a human judgment call, not automated.
+  refundStatus?: "eligible" | "refunded";
+  refundAmountNGN?: number;
+  refundedAt?: Date;
+  refundedBy?: ObjectId;
 }
 
 export interface Agreement {
@@ -148,6 +214,7 @@ export interface Agreement {
   terms: {
     rentNGN: number;
     depositNGN: number;
+    estateChargeNGN?: number;
     leaseStart: Date;
     leaseEndOrTermMonths: number | Date;
     responsibilities: string;
@@ -160,12 +227,27 @@ export interface Agreement {
     ipAddress: string;
   }>;
   payment: AgreementPayment;
+  // Either party can end the tenancy on their end at any time; the caution fee only
+  // becomes refund-eligible once both have. Renewing/continuing past the lease term is
+  // between the two of them — Reallow doesn't need to know unless one side terminates.
+  terminatedByLandlord?: boolean;
+  terminatedByLandlordAt?: Date;
+  terminatedByTenant?: boolean;
+  terminatedByTenantAt?: Date;
   pdfUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export type TransactionType = "rent" | "deposit" | "platform_commission" | "listing_verification";
+export type TransactionType =
+  | "rent"
+  | "deposit"
+  | "estate_charge"
+  | "platform_commission"
+  | "legal_fee"
+  | "listing_verification"
+  | "inspection_fee"
+  | "caution_fee_refund";
 export type TransactionStatus = "pending" | "success" | "failed" | "refunded";
 
 export interface Transaction {
@@ -214,10 +296,16 @@ export interface SupportTicket {
   status: TicketStatus;
   assignedTo?: ObjectId;
   // A landlord-scoped listing inquiry doubles as a "candidate" — see
-  // /dashboard/landlord/candidates. The landlord can mark who they'd prefer; Reallow staff
-  // sees that flag and takes it from there (still no direct landlord<->tenant contact).
+  // /dashboard/landlord/candidates. landlordPreferred/-At are kept for backward
+  // compatibility with tickets created before landlordDecision existed — every new read
+  // site treats `landlordPreferred: true` as `landlordDecision: "approved"`.
   landlordPreferred?: boolean;
   landlordPreferredAt?: Date;
+  // The real approve/decline decision on a tenant's interest in this listing. Approving
+  // unlocks booking a paid physical inspection (see InspectionBooking); declining ends it
+  // there — still no direct landlord<->tenant contact either way.
+  landlordDecision?: "approved" | "declined";
+  landlordDecisionAt?: Date;
   messages: Array<{
     senderId: ObjectId;
     senderRole: UserRole;
@@ -247,7 +335,11 @@ export interface SavedSearch {
   updatedAt: Date;
 }
 
-export type NotificationType = "saved_search_match";
+export type NotificationType =
+  | "saved_search_match"
+  | "ticket_new"
+  | "ticket_reply"
+  | "landlord_decision";
 
 export interface Notification {
   _id?: ObjectId;
@@ -256,6 +348,7 @@ export interface Notification {
   title: string;
   body: string;
   listingId?: ObjectId;
+  ticketId?: ObjectId;
   read: boolean;
   createdAt: Date;
 }

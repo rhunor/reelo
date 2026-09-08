@@ -3,10 +3,12 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { initializeTransaction } from "@/lib/paystack";
+import { computeAgreementTotal } from "@/lib/fees";
 
-// The tenant pays rent + deposit together, in one Paystack transaction, straight into
-// Reallow's account (see the guardrail comment in lib/paystack.ts) — never the landlord's.
-// Reallow holds the funds and pays the landlord out separately, out-of-band.
+// The tenant pays the full total — rent, caution fee, estate charge, Reallow's agency fee,
+// and the legal fee — together in one Paystack transaction, straight into Reallow's
+// account (see the guardrail comment in lib/paystack.ts) — never the landlord's. Reallow
+// holds the funds and pays the landlord out separately, out-of-band.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -37,13 +39,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "This agreement has already been paid" }, { status: 409 });
   }
 
-  const amountNGN = agreement.terms.rentNGN + agreement.terms.depositNGN;
+  const breakdown = computeAgreementTotal(agreement.terms);
   const reference = `agreementpay_${agreement._id}_${Date.now()}`;
 
   try {
     const { authorizationUrl } = await initializeTransaction({
       email: session.user.email,
-      amountKobo: amountNGN * 100,
+      amountKobo: breakdown.totalNGN * 100,
       reference,
       metadata: {
         kind: "agreement_payment",
@@ -53,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     });
 
-    return NextResponse.json({ authorizationUrl, reference });
+    return NextResponse.json({ authorizationUrl, reference, breakdown });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 502 });
   }

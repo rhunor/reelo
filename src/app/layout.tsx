@@ -12,7 +12,7 @@ import { PageTransition } from "@/components/page-transition";
 export const metadata: Metadata = {
   title: "Reallow",
   description:
-    "Find and rent properties directly from verified landlords in Nigeria — no agent fees.",
+    "Rent direct from verified landlords in Abuja — transparent, itemised, no traditional agent.",
 };
 
 // Runs before hydration so an explicit theme choice applies before first paint —

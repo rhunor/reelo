@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { formatCompactNaira } from "@/lib/format";
 
 export interface MapListing {
   id: string;
@@ -56,7 +57,7 @@ export function ListingsMap({ listings }: { listings: MapListing[] }) {
           }}
         >
           <div className="cursor-pointer rounded-full border-2 border-white bg-clay px-2 py-1 text-xs font-medium text-white shadow-md">
-            ₦{Math.round(listing.priceNGN / 1000)}k
+            {formatCompactNaira(listing.priceNGN)}
           </div>
         </Marker>
       ))}

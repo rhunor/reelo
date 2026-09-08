@@ -36,11 +36,24 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
         </p>
       )}
       <p className="mt-1 text-sm capitalize text-foreground/50">{ticket.status.replace("_", " ")}</p>
-      {ticket.landlordPreferred && (
-        <p className="mt-1 text-sm font-medium text-verified">
-          The landlord has marked this tenant as preferred.
-        </p>
-      )}
+      {(() => {
+        const decision = ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined);
+        if (decision === "approved") {
+          return (
+            <p className="mt-1 text-sm font-medium text-verified">
+              The landlord approved this tenant.
+            </p>
+          );
+        }
+        if (decision === "declined") {
+          return (
+            <p className="mt-1 text-sm font-medium text-foreground/50">
+              The landlord declined this tenant.
+            </p>
+          );
+        }
+        return null;
+      })()}
 
       <TicketMessages messages={ticket.messages} />
       <ReplyForm ticketId={ticket._id!.toString()} />

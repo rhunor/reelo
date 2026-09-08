@@ -4,17 +4,16 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
+import { capCautionFee } from "@/lib/fees";
 
 const schema = z.object({
   listingId: z.string(),
   tenantEmail: z.string().email(),
   rentNGN: z.coerce.number().positive(),
   depositNGN: z.coerce.number().nonnegative(),
+  estateChargeNGN: z.coerce.number().positive().optional(),
   leaseStart: z.string(),
-  leaseTermMonths: z.coerce
-    .number()
-    .int()
-    .min(MINIMUM_LEASE_TERM_MONTHS, `Lease term must be at least ${MINIMUM_LEASE_TERM_MONTHS} months`),
+  leaseTermMonths: z.coerce.number().int().positive(),
   responsibilities: z.string().min(10),
 });
 
@@ -48,6 +47,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No tenant found with that email" }, { status: 404 });
   }
 
+  // Validated against this specific listing's own terms, not just the platform floor —
+  // a landlord can require a longer minimum tenancy than the 6-month floor, and the
+  // caution fee is capped relative to whatever rent is actually being agreed here.
+  const requiredMinimumMonths = listing.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS;
+  if (parsed.data.leaseTermMonths < requiredMinimumMonths) {
+    return NextResponse.json(
+      { error: `This listing requires a minimum tenancy of ${requiredMinimumMonths} months` },
+      { status: 400 },
+    );
+  }
+  if (!capCautionFee(parsed.data.depositNGN, parsed.data.rentNGN)) {
+    return NextResponse.json({ error: "Caution fee can't exceed 12% of annual rent" }, { status: 400 });
+  }
+
   const now = new Date();
   const { insertedId } = await agreements.insertOne({
     listingId: listing._id!,
@@ -57,6 +70,7 @@ export async function POST(request: Request) {
     terms: {
       rentNGN: parsed.data.rentNGN,
       depositNGN: parsed.data.depositNGN,
+      estateChargeNGN: parsed.data.estateChargeNGN,
       leaseStart: new Date(parsed.data.leaseStart),
       leaseEndOrTermMonths: parsed.data.leaseTermMonths,
       responsibilities: parsed.data.responsibilities,

@@ -47,3 +47,46 @@ export async function verifyNin(nin: string): Promise<NinVerificationResult> {
     data: result?.data,
   };
 }
+
+export interface BvnVerificationResult {
+  success: boolean;
+  message: string;
+  data?: {
+    firstName?: string;
+    lastName?: string;
+    middleName?: string;
+    dateOfBirth?: string;
+    phoneNumber?: string;
+    [key: string]: unknown;
+  };
+}
+
+// Same parallel-endpoint shape Youverify documents for BVN as for NIN — same caveat as
+// verifyNin above: not verified against a live account, confirm before relying on it.
+export async function verifyBvn(bvn: string): Promise<BvnVerificationResult> {
+  const apiKey = process.env.YOUVERIFY_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing YOUVERIFY_API_KEY environment variable");
+  }
+
+  const response = await fetch(`${YOUVERIFY_BASE_URL}/v2/api/identity/ng/bvn`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      token: apiKey,
+    },
+    body: JSON.stringify({ id: bvn, isSubjectConsent: true }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result?.message ?? "BVN verification failed" };
+  }
+
+  return {
+    success: Boolean(result?.success ?? result?.data),
+    message: result?.message ?? "Verified",
+    data: result?.data,
+  };
+}

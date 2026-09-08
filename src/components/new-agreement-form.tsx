@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 const inputClass =
   "rounded-md border border-line px-3 py-2 bg-transparent";
 
-export function NewAgreementForm({ listingId: defaultListingId }: { listingId?: string }) {
+export function NewAgreementForm({
+  listingId: defaultListingId,
+  minimumTermMonths = 6,
+}: {
+  listingId?: string;
+  minimumTermMonths?: number;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,6 +28,7 @@ export function NewAgreementForm({ listingId: defaultListingId }: { listingId?: 
       tenantEmail: formData.get("tenantEmail"),
       rentNGN: formData.get("rentNGN"),
       depositNGN: formData.get("depositNGN"),
+      estateChargeNGN: formData.get("estateChargeNGN") || undefined,
       leaseStart: formData.get("leaseStart"),
       leaseTermMonths: formData.get("leaseTermMonths"),
       responsibilities: formData.get("responsibilities"),
@@ -57,16 +64,23 @@ export function NewAgreementForm({ listingId: defaultListingId }: { listingId?: 
       <input name="tenantEmail" type="email" placeholder="Tenant email" required className={inputClass} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input name="rentNGN" type="number" min={0} placeholder="Rent (₦/year)" required className={inputClass} />
-        <input name="depositNGN" type="number" min={0} placeholder="Deposit (₦)" required className={inputClass} />
+        <input name="depositNGN" type="number" min={0} placeholder="Caution fee (₦)" required className={inputClass} />
       </div>
+      <input
+        name="estateChargeNGN"
+        type="number"
+        min={0}
+        placeholder="Estate charge (₦, optional)"
+        className={inputClass}
+      />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <input name="leaseStart" type="date" required className={inputClass} />
         <input
           name="leaseTermMonths"
           type="number"
-          min={12}
-          defaultValue={12}
-          placeholder="Term (months, min. 12)"
+          min={minimumTermMonths}
+          defaultValue={minimumTermMonths}
+          placeholder={`Term (months, min. ${minimumTermMonths})`}
           required
           className={inputClass}
         />

@@ -37,8 +37,8 @@ export default async function LandlordCandidatesPage() {
       <p className="mt-2 text-sm text-foreground/70">
         Everyone who&apos;s asked Reallow about one of your listings. Verification status always
         shows; the rest of a tenant&apos;s profile only shows if they&apos;ve chosen to share it.
-        Marking a preference tells Reallow who you&apos;d like to move forward with — we handle
-        the rest.
+        Approving lets the tenant book a paid physical inspection; declining ends it there —
+        either way, we let them know.
       </p>
 
       {inquiries.length === 0 && (
@@ -100,7 +100,7 @@ export default async function LandlordCandidatesPage() {
               <div className="mt-4">
                 <PreferCandidateButton
                   ticketId={ticket._id!.toString()}
-                  preferred={Boolean(ticket.landlordPreferred)}
+                  decision={ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined)}
                 />
               </div>
             </div>

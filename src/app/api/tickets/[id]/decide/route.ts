@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { notifyLandlordDecision } from "@/lib/notifications";
 
-// A landlord marking which interested tenant they'd prefer for their listing — this is
-// the one landlord-initiated action in the whole candidates flow, and it still doesn't
-// hand the landlord any tenant contact info. It just flags the ticket for Reallow staff,
-// who take it from there (e.g. drafting the tenancy agreement).
+const schema = z.object({ decision: z.enum(["approved", "declined"]) });
+
+// A landlord approving or declining a tenant's interest in their listing — still doesn't
+// hand the landlord any tenant contact info, it just records the decision and notifies
+// the tenant. Approving is what unlocks the tenant booking a paid physical inspection.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -16,6 +19,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!ObjectId.isValid(id)) {
     return NextResponse.json({ error: "Invalid ticket" }, { status: 400 });
+  }
+
+  const body = await request.json();
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid decision" }, { status: 400 });
   }
 
   const { tickets, properties } = await getCollections();
@@ -30,10 +39,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const now = new Date();
+  const decision = parsed.data.decision;
   await tickets.updateOne(
     { _id: ticket._id },
-    { $set: { landlordPreferred: true, landlordPreferredAt: now, updatedAt: now } },
+    {
+      $set: {
+        landlordDecision: decision,
+        landlordDecisionAt: now,
+        landlordPreferred: decision === "approved",
+        landlordPreferredAt: decision === "approved" ? now : ticket.landlordPreferredAt,
+        updatedAt: now,
+      },
+    },
   );
+
+  await notifyLandlordDecision(ticket, decision);
 
   return NextResponse.json({ success: true });
 }

@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { notifySavedSearchMatches } from "@/lib/notifications";
 import { distanceMeters, CHECK_IN_DISTANCE_WARNING_METERS } from "@/lib/geo";
+import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 
 async function requireAdmin() {
   const session = await auth();
@@ -121,6 +122,57 @@ export async function markAgreementPaidOut(formData: FormData) {
         "payment.status": "paid_out_to_landlord",
         "payment.payoutAt": now,
         "payment.payoutBy": new ObjectId(staff.id),
+        updatedAt: now,
+      },
+    },
+  );
+
+  revalidatePath(`/agreements/${agreementId}`);
+  revalidatePath("/dashboard/admin/agreements");
+}
+
+// Same manual pattern as markAgreementPaidOut above: admin flips the flag once the actual
+// bank transfer to the tenant has happened out-of-band — this never moves money itself.
+// payerId reuses Reallow's own system account (getOrCreateReallowLandlordId) since the
+// refund comes from Reallow's held funds, not the landlord — a reuse of that helper
+// outside its original "admin-posted listing" purpose, but it's the one real User doc
+// that already stands in for "Reallow" as an account.
+export async function refundCautionFee(formData: FormData) {
+  const staff = await requireAdmin();
+  const agreementId = formData.get("agreementId") as string;
+
+  const { agreements, transactions } = await getCollections();
+  const agreement = await agreements.findOne({ _id: new ObjectId(agreementId) });
+  if (!agreement) throw new Error("Agreement not found");
+  if (agreement.payment.refundStatus !== "eligible") {
+    throw new Error("This agreement's caution fee isn't refund-eligible");
+  }
+
+  const now = new Date();
+  const reallowId = await getOrCreateReallowLandlordId();
+  const refundAmountNGN = agreement.terms.depositNGN;
+
+  await transactions.insertOne({
+    type: "caution_fee_refund",
+    amountNGN: refundAmountNGN,
+    payerId: reallowId,
+    payeeId: agreement.tenantId,
+    listingId: agreement.listingId,
+    agreementId: agreement._id!,
+    provider: "paystack",
+    providerReference: `refund_${agreement._id}_${now.getTime()}`,
+    status: "success",
+    createdAt: now,
+  });
+
+  await agreements.updateOne(
+    { _id: agreement._id },
+    {
+      $set: {
+        "payment.refundStatus": "refunded",
+        "payment.refundAmountNGN": refundAmountNGN,
+        "payment.refundedAt": now,
+        "payment.refundedBy": new ObjectId(staff.id),
         updatedAt: now,
       },
     },

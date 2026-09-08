@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { ActiveTenancies } from "@/components/active-tenancies";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,11 @@ export default async function TenantDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { users } = await getCollections();
-  const user = await users.findOne({ _id: new ObjectId(session.user.id) });
+  const { users, agreements } = await getCollections();
+  const [user, myAgreements] = await Promise.all([
+    users.findOne({ _id: new ObjectId(session.user.id) }),
+    agreements.find({ tenantId: new ObjectId(session.user.id) }).toArray(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
@@ -25,8 +29,9 @@ export default async function TenantDashboardPage() {
         <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm">
           <p className="font-medium">Verify your identity</p>
           <p className="mt-1 text-foreground/70">
-            You can browse and contact Reallow without verifying, but you&apos;ll need to verify
-            before booking an inspection.
+            You can browse listings and message Reallow with general questions without
+            verifying, but you&apos;ll need NIN and BVN verification before applying for a
+            listing or booking a paid inspection.
           </p>
           <Link href="/dashboard/verify-identity" className="mt-2 inline-block text-clay underline">
             Verify now
@@ -49,12 +54,20 @@ export default async function TenantDashboardPage() {
           Tenancy agreements
         </Link>
         <Link href="/dashboard/tenant/profile" className="underline">
-          Your profile
+          Share profile with landlords
+        </Link>
+        <Link href="/dashboard/complete-profile" className="underline">
+          Complete your profile
+        </Link>
+        <Link href="/dashboard/tenant/transactions" className="underline">
+          Transaction history
         </Link>
         <Link href="/listings" className="underline">
           Browse listings
         </Link>
       </div>
+
+      <ActiveTenancies agreements={myAgreements} />
     </div>
   );
 }

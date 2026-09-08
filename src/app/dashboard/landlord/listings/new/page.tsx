@@ -36,8 +36,8 @@ export default async function NewListingPage() {
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold">List a property</h1>
       <p className="mt-2 text-sm text-foreground/70">
-        This listing is saved as a draft. It won&apos;t appear on the site until you pay the
-        ₦15,000 verification fee and Reallow completes an in-person inspection and approves it.
+        Free to list. It won&apos;t appear on the site until Reallow completes the in-person
+        verification inspection you propose a date for below and approves it.
       </p>
       <NewListingForm />
     </div>

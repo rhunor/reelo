@@ -7,6 +7,7 @@ import { ListingsMap, type MapListing } from "@/components/listings-map";
 import { ReallowMark } from "@/components/reallow-logo";
 import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
 import { PROPERTY_TYPES } from "@/lib/property-types";
+import { SUPPORTED_STATES, ABUJA_DISTRICTS } from "@/lib/locations";
 import type { Property } from "@/types/models";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ interface ListingsSearchParams {
   state?: string;
   city?: string;
   propertyType?: string;
+  listingType?: string;
   maxPrice?: string;
 }
 
@@ -31,13 +33,15 @@ export default async function ListingsPage({
   const state = params.state?.trim();
   const city = params.city?.trim();
   const propertyType = params.propertyType?.trim();
+  const listingType = params.listingType === "rent" || params.listingType === "sale" ? params.listingType : undefined;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
-  const hasActiveSearch = Boolean(state || city || propertyType || maxPrice);
+  const hasActiveSearch = Boolean(state || city || propertyType || listingType || maxPrice);
 
   const filter: Filter<Property> = { status: "published" };
   if (state) filter["location.state"] = new RegExp(`^${escapeRegex(state)}$`, "i");
   if (city) filter["location.city"] = new RegExp(`^${escapeRegex(city)}$`, "i");
   if (propertyType) filter.propertyType = new RegExp(`^${escapeRegex(propertyType)}$`, "i");
+  if (listingType) filter.listingType = listingType;
   if (maxPrice && !Number.isNaN(maxPrice)) filter.priceNGN = { $lte: maxPrice };
 
   const { properties, savedSearches } = await getCollections();
@@ -56,12 +60,13 @@ export default async function ListingsPage({
           "query.state": state,
           "query.city": city,
           "query.propertyType": propertyType,
+          "query.listingType": listingType,
           "query.maxPriceNGN": maxPrice,
         },
         {
           $setOnInsert: {
             userId: new ObjectId(session.user.id),
-            query: { state, city, propertyType, maxPriceNGN: maxPrice },
+            query: { state, city, propertyType, listingType, maxPriceNGN: maxPrice },
             notifiedListingIds: [],
             createdAt: now,
           },
@@ -89,18 +94,39 @@ export default async function ListingsPage({
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">Browse verified properties</h1>
 
       <form method="GET" className="mt-6 flex flex-wrap gap-3">
-        <input
+        <select
+          name="listingType"
+          defaultValue={listingType ?? ""}
+          className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
+        >
+          <option value="">Rent or sale</option>
+          <option value="rent">For rent</option>
+          <option value="sale">For sale</option>
+        </select>
+        <select
           name="state"
-          placeholder="State"
-          defaultValue={state}
+          defaultValue={state ?? ""}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
-        />
-        <input
+        >
+          <option value="">All states</option>
+          {SUPPORTED_STATES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <select
           name="city"
-          placeholder="City"
-          defaultValue={city}
+          defaultValue={city ?? ""}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
-        />
+        >
+          <option value="">All districts</option>
+          {ABUJA_DISTRICTS.map((district) => (
+            <option key={district.value} value={district.value}>
+              {district.label}
+            </option>
+          ))}
+        </select>
         <select
           name="propertyType"
           defaultValue={propertyType ?? ""}
@@ -138,8 +164,8 @@ export default async function ListingsPage({
       </form>
 
       <p className="mt-4 text-sm text-foreground/70">
-        {listings.length} propert{listings.length === 1 ? "y" : "ies"} available — free to browse.
-        Upgrade to Pro or Pro+ to contact Reallow about a listing or book an inspection.
+        {listings.length} propert{listings.length === 1 ? "y" : "ies"} available — free to browse,
+        free to contact Reallow about.
       </p>
 
       {listings.length === 0 && hasActiveSearch && (

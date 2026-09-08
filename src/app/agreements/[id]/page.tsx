@@ -5,7 +5,10 @@ import { getCollections } from "@/lib/db";
 import { SignAgreementForm } from "@/components/sign-agreement-form";
 import { ReviewForm } from "@/components/review-form";
 import { AgreementPayButton } from "@/components/agreement-pay-button";
-import { markAgreementPaidOut } from "@/app/dashboard/admin/actions";
+import { TerminateAgreementButton } from "@/components/terminate-agreement-button";
+import { PaymentBreakdown } from "@/components/payment-breakdown";
+import { markAgreementPaidOut, refundCautionFee } from "@/app/dashboard/admin/actions";
+import { computeAgreementTotal } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +50,8 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
     typeof agreement.terms.leaseEndOrTermMonths === "number"
       ? `${agreement.terms.leaseEndOrTermMonths} months`
       : new Date(agreement.terms.leaseEndOrTermMonths).toLocaleDateString();
+
+  const paymentBreakdown = computeAgreementTotal(agreement.terms);
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
@@ -147,10 +152,24 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             </p>
 
             {agreement.payment.status === "unpaid" && isTenantParty && (
-              <div className="mt-3">
+              <div className="mt-3 flex flex-col gap-3">
+                <PaymentBreakdown
+                  lines={[
+                    { label: "Rent", amountNGN: paymentBreakdown.rentNGN },
+                    ...(paymentBreakdown.cautionFeeNGN > 0
+                      ? [{ label: "Caution fee (refundable)", amountNGN: paymentBreakdown.cautionFeeNGN }]
+                      : []),
+                    ...(paymentBreakdown.estateChargeNGN > 0
+                      ? [{ label: "Estate charge", amountNGN: paymentBreakdown.estateChargeNGN }]
+                      : []),
+                    { label: "Reallow agency fee (5%)", amountNGN: paymentBreakdown.agencyFeeNGN },
+                    { label: "Legal fee", amountNGN: paymentBreakdown.legalFeeNGN },
+                  ]}
+                  totalNGN={paymentBreakdown.totalNGN}
+                />
                 <AgreementPayButton
                   agreementId={agreement._id!.toString()}
-                  amountNGN={agreement.terms.rentNGN + agreement.terms.depositNGN}
+                  amountNGN={paymentBreakdown.totalNGN}
                 />
               </div>
             )}
@@ -161,10 +180,23 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             {agreement.payment.status === "paid_to_reallow" && (
               <>
                 <p className="mt-3 text-sm text-verified">
-                  Reallow received ₦{agreement.payment.amountNGN?.toLocaleString()}
+                  Reallow received ₦{agreement.payment.amountNGN?.toLocaleString()} in total
                   {agreement.payment.paidAt &&
-                    ` on ${new Date(agreement.payment.paidAt).toLocaleDateString()}`}{" "}
-                  — held pending payout to the landlord.
+                    ` on ${new Date(agreement.payment.paidAt).toLocaleDateString()}`}
+                  .
+                </p>
+                <p className="mt-1 text-sm text-foreground/70">
+                  Landlord&apos;s portion — rent, caution fee, and estate charge only, not the
+                  agency or legal fee — is{" "}
+                  <span className="font-medium">
+                    ₦
+                    {(
+                      paymentBreakdown.rentNGN +
+                      paymentBreakdown.cautionFeeNGN +
+                      paymentBreakdown.estateChargeNGN
+                    ).toLocaleString()}
+                  </span>
+                  , held pending payout.
                 </p>
                 {session.user.role === "admin" && (
                   <form action={markAgreementPaidOut} className="mt-3">
@@ -189,6 +221,70 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
               </p>
             )}
           </div>
+
+          {agreement.payment.status !== "unpaid" && (
+            <div className="mt-6 rounded-lg border border-line p-4">
+              <p className="text-sm font-medium">Ending the tenancy</p>
+              <p className="mt-1 text-xs text-foreground/50">
+                Both sides need to confirm before the caution fee can be refunded — continuing the
+                tenancy past the lease term is between you and the other party, Reallow doesn&apos;t
+                need to be told unless one of you is ending it.
+              </p>
+              <div className="mt-3 flex flex-col gap-1 text-sm">
+                <p>
+                  Landlord:{" "}
+                  {agreement.terminatedByLandlord
+                    ? `ended ${new Date(agreement.terminatedByLandlordAt!).toLocaleDateString()}`
+                    : "tenancy ongoing"}
+                </p>
+                <p>
+                  Tenant:{" "}
+                  {agreement.terminatedByTenant
+                    ? `ended ${new Date(agreement.terminatedByTenantAt!).toLocaleDateString()}`
+                    : "tenancy ongoing"}
+                </p>
+              </div>
+
+              {party === "landlord" && !agreement.terminatedByLandlord && (
+                <div className="mt-3">
+                  <TerminateAgreementButton agreementId={agreement._id!.toString()} />
+                </div>
+              )}
+              {party === "tenant" && !agreement.terminatedByTenant && (
+                <div className="mt-3">
+                  <TerminateAgreementButton agreementId={agreement._id!.toString()} />
+                </div>
+              )}
+
+              {agreement.payment.refundStatus === "eligible" && (
+                <>
+                  <p className="mt-3 text-sm font-medium text-verified">
+                    Caution fee (₦{agreement.terms.depositNGN.toLocaleString()}) is eligible for
+                    refund to the tenant.
+                  </p>
+                  {isStaff && session.user.role === "admin" && (
+                    <form action={refundCautionFee} className="mt-2">
+                      <input type="hidden" name="agreementId" value={agreement._id!.toString()} />
+                      <button
+                        type="submit"
+                        className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
+                      >
+                        Mark caution fee refunded
+                      </button>
+                    </form>
+                  )}
+                </>
+              )}
+              {agreement.payment.refundStatus === "refunded" && (
+                <p className="mt-3 text-sm text-verified">
+                  Caution fee refunded
+                  {agreement.payment.refundedAt &&
+                    ` on ${new Date(agreement.payment.refundedAt).toLocaleDateString()}`}
+                  .
+                </p>
+              )}
+            </div>
+          )}
 
           {party && agreement.payment.status === "unpaid" && (
             <p className="mt-4 text-sm text-foreground/50">

@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const { properties } = await getCollections();
-  const pending = await properties.find({ status: "pending_verification" }).sort({ "verification.paidAt": 1 }).toArray();
+  const pending = await properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray();
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold">Listings awaiting verification</h1>
       <p className="mt-2 text-foreground/70">
-        These landlords have paid the ₦15,000 in-person inspection fee. Approve once the physical
-        inspection confirms the listing, or reject with a reason.
+        Listing is free for landlords. Approve once the physical inspection confirms the listing,
+        or reject with a reason.
       </p>
 
       <div className="mt-4 flex gap-4 text-sm">
@@ -41,7 +41,7 @@ export default async function AdminDashboardPage() {
               {listing.location.city}, {listing.location.state} · ₦{listing.priceNGN.toLocaleString()}
             </p>
             <p className="mt-1 text-xs text-foreground/50">
-              Paid {listing.verification.paidAt ? new Date(listing.verification.paidAt).toLocaleDateString() : "—"}
+              Submitted {new Date(listing.createdAt).toLocaleDateString()}
               {listing.verification.scheduledFor && (
                 <> · Inspection scheduled {new Date(listing.verification.scheduledFor).toLocaleDateString()}</>
               )}

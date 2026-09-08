@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { verifyWebhookSignature } from "@/lib/paystack";
 import { getCollections } from "@/lib/db";
-import type { TransactionType } from "@/types/models";
+import { computeAgreementTotal } from "@/lib/fees";
+import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
+import type { Transaction, TransactionType } from "@/types/models";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -13,67 +15,87 @@ export async function POST(request: Request) {
   }
 
   const event = JSON.parse(rawBody);
-  const { properties, agreements, transactions } = await getCollections();
+  const { agreements, transactions, inspectionBookings, tickets, properties } = await getCollections();
   const now = new Date();
 
   if (event.event === "charge.success") {
     const { metadata, reference, amount } = event.data;
 
-    if (metadata?.kind === "listing_verification" && metadata?.listingId && metadata?.landlordId) {
-      await transactions.insertOne({
-        type: "listing_verification" as TransactionType,
-        amountNGN: amount / 100,
-        payerId: new ObjectId(metadata.landlordId),
-        listingId: new ObjectId(metadata.listingId),
-        provider: "paystack",
-        providerReference: reference,
-        status: "success",
-        createdAt: now,
-      });
+    if (metadata?.kind === "inspection_fee" && metadata?.ticketId) {
+      // Guard against double-processing (Paystack can redeliver a webhook) — the
+      // reference is unique per checkout attempt, so a repeat delivery is a no-op.
+      const alreadyProcessed = await transactions.findOne({ providerReference: reference });
+      if (!alreadyProcessed) {
+        const ticket = await tickets.findOne({ _id: new ObjectId(metadata.ticketId) });
+        const listing = metadata.listingId
+          ? await properties.findOne({ _id: new ObjectId(metadata.listingId) })
+          : null;
 
-      await properties.updateOne(
-        { _id: new ObjectId(metadata.listingId) },
-        {
-          $set: {
-            status: "pending_verification",
-            "verification.paymentReference": reference,
-            "verification.paidAt": now,
-            updatedAt: now,
-          },
-        },
-      );
+        if (ticket && listing) {
+          const { insertedId: transactionId } = await transactions.insertOne({
+            type: "inspection_fee",
+            amountNGN: amount / 100,
+            payerId: new ObjectId(metadata.tenantId),
+            payeeId: new ObjectId(metadata.landlordId),
+            listingId: listing._id!,
+            provider: "paystack",
+            providerReference: reference,
+            status: "success",
+            createdAt: now,
+          });
+
+          await inspectionBookings.insertOne({
+            listingId: listing._id!,
+            landlordId: listing.landlordId,
+            tenantId: new ObjectId(metadata.tenantId),
+            ticketId: ticket._id!,
+            scheduledFor: new Date(metadata.scheduledFor),
+            status: "requested",
+            feeNGN: amount / 100,
+            transactionId,
+            createdAt: now,
+          });
+        }
+      }
     } else if (metadata?.kind === "agreement_payment" && metadata?.agreementId) {
       const agreement = await agreements.findOne({ _id: new ObjectId(metadata.agreementId) });
 
       // Guard against double-processing (Paystack can redeliver a webhook) — once an
       // agreement's payment has landed with Reallow, a repeat delivery is a no-op.
       if (agreement && agreement.payment.status === "unpaid") {
-        await transactions.insertMany([
-          {
-            type: "rent" as TransactionType,
-            amountNGN: agreement.terms.rentNGN,
-            payerId: agreement.tenantId,
-            payeeId: agreement.landlordId,
-            listingId: agreement.listingId,
-            agreementId: agreement._id!,
-            provider: "paystack",
-            providerReference: reference,
-            status: "success",
-            createdAt: now,
-          },
-          {
-            type: "deposit" as TransactionType,
-            amountNGN: agreement.terms.depositNGN,
-            payerId: agreement.tenantId,
-            payeeId: agreement.landlordId,
-            listingId: agreement.listingId,
-            agreementId: agreement._id!,
-            provider: "paystack",
-            providerReference: reference,
-            status: "success",
-            createdAt: now,
-          },
-        ]);
+        const breakdown = computeAgreementTotal(agreement.terms);
+        const reallowId = await getOrCreateReallowLandlordId();
+
+        // Rent/deposit/estate charge are earmarked for the landlord (held by Reallow
+        // until payout); the agency and legal fees are Reallow's own revenue.
+        const lineItems: Array<{ type: TransactionType; amountNGN: number; payeeId: ObjectId }> = [
+          { type: "rent", amountNGN: breakdown.rentNGN, payeeId: agreement.landlordId },
+          ...(breakdown.cautionFeeNGN > 0
+            ? [{ type: "deposit" as TransactionType, amountNGN: breakdown.cautionFeeNGN, payeeId: agreement.landlordId }]
+            : []),
+          ...(breakdown.estateChargeNGN > 0
+            ? [{ type: "estate_charge" as TransactionType, amountNGN: breakdown.estateChargeNGN, payeeId: agreement.landlordId }]
+            : []),
+          { type: "platform_commission", amountNGN: breakdown.agencyFeeNGN, payeeId: reallowId },
+          { type: "legal_fee", amountNGN: breakdown.legalFeeNGN, payeeId: reallowId },
+        ];
+
+        await transactions.insertMany(
+          lineItems.map(
+            (item): Transaction => ({
+              type: item.type,
+              amountNGN: item.amountNGN,
+              payerId: agreement.tenantId,
+              payeeId: item.payeeId,
+              listingId: agreement.listingId,
+              agreementId: agreement._id!,
+              provider: "paystack",
+              providerReference: reference,
+              status: "success",
+              createdAt: now,
+            }),
+          ),
+        );
 
         await agreements.updateOne(
           { _id: agreement._id },
