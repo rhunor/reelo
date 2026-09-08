@@ -1,12 +1,12 @@
 import Link from "next/link";
 
-// Placeholder hrefs ("#") — swap these for Reallow's real social handles once you have
-// them; not guessing at real URLs here.
 const SOCIAL_LINKS = [
-  { label: "Instagram", href: "#" },
-  { label: "X", href: "#" },
-  { label: "Facebook", href: "#" },
-  { label: "LinkedIn", href: "#" },
+  { label: "X", href: "https://x.com/reallowofficial?s=11" },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/accounts/login/?next=https%3A%2F%2Fwww.instagram.com%2Freallowofficial%3Fstkn%3DMW55dXlmM2JncmVpdw%253D%253D&is_from_rle",
+  },
+  { label: "TikTok", href: "https://www.tiktok.com/@reallowofficial?_r=1&_t=ZS-99YfzJ4bart" },
 ];
 
 export function SiteFooter() {
@@ -35,7 +35,13 @@ export function SiteFooter() {
         </div>
         <div className="flex gap-5 border-t border-line pt-4">
           {SOCIAL_LINKS.map((social) => (
-            <a key={social.label} href={social.href} className="hover:text-clay">
+            <a
+              key={social.label}
+              href={social.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-clay"
+            >
               {social.label}
             </a>
           ))}
