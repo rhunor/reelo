@@ -72,6 +72,9 @@ export async function SiteHeader() {
           <Link href="/listings" className="hover:text-clay">
             Listings
           </Link>
+          <Link href="/about" className="hover:text-clay">
+            About
+          </Link>
         </nav>
 
         <div className="hidden items-center gap-3 text-sm sm:flex">
@@ -84,6 +87,9 @@ export async function SiteHeader() {
           <MobileNav>
             <Link href="/listings" className="hover:text-clay">
               Listings
+            </Link>
+            <Link href="/about" className="hover:text-clay">
+              About
             </Link>
             {sessionLinks}
           </MobileNav>

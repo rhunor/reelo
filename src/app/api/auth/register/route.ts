@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     nin: { status: "unverified" },
     verifiedBadge: false,
     termsAcceptedAt: now,
-    termsVersion: "draft-v1",
+    termsVersion: "2026-09-08",
     newsletterOptIn: newsletterOptIn === "false" || newsletterOptIn === false ? false : true,
     emailVerified: false,
     emailVerificationToken: token,

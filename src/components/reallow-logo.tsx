@@ -16,11 +16,33 @@ export function ReallowMark({ className }: { className?: string }) {
   );
 }
 
-export function ReallowLogo({ className }: { className?: string }) {
+// The full "REALLOW" wordmark (public/reallow_full_logo-2.svg), inlined rather than
+// loaded as an <img> so the text paths can use currentColor and stay legible across the
+// light/dark theme toggle — the source file hardcodes navy, which nearly disappears
+// against a dark background otherwise. Only the gold house-mark keeps its fixed gradient.
+export function ReallowFullLogo({ className }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <ReallowMark className="h-7 w-auto" />
-      <span className="font-display text-lg font-semibold tracking-tight">Reallow</span>
-    </span>
+    <svg viewBox="225 222 925 283" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="reallow-full-gold" x1="759" y1="304" x2="628" y2="446" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D1B276" />
+          <stop offset="100%" stopColor="#84693A" />
+        </linearGradient>
+      </defs>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M246,367 L245,370 L255,373 L259,377 L261,383 L261,466 L258,474 L252,478 L246,479 L246,483 L299,482 L299,479 L289,477 L283,470 L283,428 L295,428 L304,435 L322,466 L334,480 L345,483 L367,483 L367,479 L359,477 L350,469 L325,432 L315,424 L332,415 L340,402 L340,385 L337,379 L330,372 L313,366 Z M283,373 L296,372 L305,374 L315,382 L318,388 L318,406 L315,412 L305,420 L298,422 L282,421 L281,383 Z M957,365 L957,369 L964,371 L970,377 L974,385 L1010,485 L1016,484 L1042,413 L1067,485 L1074,485 L1111,387 L1118,376 L1130,371 L1130,367 L1090,367 L1090,371 L1097,372 L1102,376 L1103,382 L1077,450 L1053,379 L1056,373 L1066,371 L1066,367 L1017,366 L1018,370 L1025,372 L1029,376 L1038,399 L1019,449 L1014,439 L994,380 L994,374 L999,370 L1005,369 L1005,366 Z M460,362 L373,366 L374,369 L379,369 L387,375 L389,383 L389,464 L386,473 L379,478 L374,478 L373,482 L465,483 L471,460 L471,454 L467,454 L464,462 L456,471 L446,475 L420,475 L414,472 L410,465 L411,422 L437,423 L444,428 L446,437 L450,437 L450,402 L446,402 L444,410 L437,415 L410,414 L410,372 L415,370 L441,370 L452,376 L455,387 L458,388 L460,387 Z M862,361 L848,366 L837,373 L826,384 L818,398 L814,414 L814,431 L819,449 L834,469 L857,482 L870,485 L894,485 L912,480 L931,468 L938,460 L946,446 L950,429 L950,415 L945,396 L938,384 L927,373 L911,364 L889,359 Z M875,366 L891,367 L908,376 L914,382 L921,394 L926,413 L925,440 L918,459 L907,471 L892,478 L875,478 L858,470 L845,454 L838,432 L839,403 L846,385 L860,371 Z M548,355 L537,359 L493,465 L485,475 L475,479 L475,482 L520,482 L520,478 L511,476 L506,470 L506,463 L515,437 L518,433 L559,434 L572,467 L571,473 L565,478 L560,478 L559,482 L615,482 L614,478 L603,474 L594,463 Z M537,382 L554,421 L554,425 L521,424 Z"
+      />
+      <path
+        fill="url(#reallow-full-gold)"
+        fillRule="evenodd"
+        d="M719,303 L719,483 L800,484 L802,482 L801,457 L748,456 L748,324 L736,313 Z M655,303 L648,306 L639,314 L635,315 L627,322 L625,327 L626,482 L631,484 L708,484 L710,482 L709,457 L656,456 Z M670,302 L670,337 L704,337 L704,321 L691,320 L688,324 L689,333 L687,336 L685,321 L673,321 L671,319 L685,318 L687,315 L690,318 L703,318 L705,314 L704,302 Z M688,303 L689,313 L687,315 L686,304 Z M578,320 L578,324 L586,338 L591,342 L594,341 L613,325 L687,273 L781,341 L784,342 L788,339 L797,322 L797,320 L751,286 L751,249 L749,247 L720,247 L719,261 L717,262 L690,242 L685,242 Z"
+      />
+    </svg>
   );
+}
+
+export function ReallowLogo({ className }: { className?: string }) {
+  return <ReallowFullLogo className={className ?? "h-7 w-auto text-foreground"} />;
 }

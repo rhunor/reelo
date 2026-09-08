@@ -3,14 +3,8 @@ export const metadata = { title: "Privacy Policy — Reallow" };
 export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
-      <div className="rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm text-clay">
-        <strong>Draft — not legal advice.</strong> This is a placeholder Privacy Policy written to
-        describe how Reallow actually handles data today. Have a lawyer review and finalize this
-        before relying on it.
-      </div>
-
-      <h1 className="mt-8 text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-foreground/50">Last updated: draft, unreleased</p>
+      <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
+      <p className="mt-2 text-sm text-foreground/50">Last updated: September 8, 2026</p>
 
       <div className="mt-8 flex flex-col gap-6 text-sm leading-relaxed text-foreground/80">
         <section>
