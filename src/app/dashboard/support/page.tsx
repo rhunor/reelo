@@ -1,21 +1,36 @@
 import Link from "next/link";
 import { getCollections } from "@/lib/db";
+import { DashboardHeader, StatGrid, AccountSettingsLink } from "@/components/dashboard-shell";
 
 export const dynamic = "force-dynamic";
 
 export default async function SupportDashboardPage() {
   const { tickets } = await getCollections();
-  const openTickets = await tickets
-    .find({ status: { $in: ["open", "in_progress"] } })
-    .sort({ updatedAt: -1 })
-    .toArray();
+  const [openTickets, inProgressCount, resolvedCount] = await Promise.all([
+    tickets.find({ status: { $in: ["open", "in_progress"] } }).sort({ updatedAt: -1 }).toArray(),
+    tickets.countDocuments({ status: "in_progress" }),
+    tickets.countDocuments({ status: "resolved" }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Support queue</h1>
-      <p className="mt-2 text-foreground/70">
-        {openTickets.length} ticket{openTickets.length === 1 ? "" : "s"} needing attention.
-      </p>
+      <DashboardHeader
+        eyebrow="Support"
+        title="Support queue"
+        subtitle={`${openTickets.length} ticket${openTickets.length === 1 ? "" : "s"} needing attention.`}
+      />
+
+      <StatGrid
+        stats={[
+          { label: "Needing attention", value: openTickets.length, accent: openTickets.length > 0 ? "amber" : undefined },
+          { label: "In progress", value: inProgressCount, accent: inProgressCount > 0 ? "clay" : undefined },
+          { label: "Resolved", value: resolvedCount },
+        ]}
+      />
+
+      <div className="mt-6">
+        <AccountSettingsLink />
+      </div>
 
       {openTickets.length === 0 && (
         <p className="mt-8 text-foreground/70">Nothing open right now.</p>

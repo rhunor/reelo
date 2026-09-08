@@ -27,7 +27,15 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
 
       {open && (
         <div className="absolute inset-x-0 top-16 z-40 border-b border-line bg-background px-6 py-4 shadow-lg">
-          <div onClick={() => setOpen(false)} className="flex flex-col gap-4 text-sm">
+          <div
+            onClick={(event) => {
+              // Only close on an actual nav-link tap. A blanket "close on any click" here
+              // used to also fire for the logout button, unmounting its <form> before the
+              // server action's submit could go out — logout silently did nothing on mobile.
+              if ((event.target as HTMLElement).closest("a")) setOpen(false);
+            }}
+            className="flex flex-col gap-4 text-sm"
+          >
             {children}
           </div>
         </div>

@@ -1,39 +1,54 @@
-import Link from "next/link";
 import { getCollections } from "@/lib/db";
 import { approveListing, rejectListing, scheduleInspection } from "./actions";
 import { CheckInButton } from "@/components/check-in-button";
+import { DashboardHeader, StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const { properties } = await getCollections();
-  const pending = await properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray();
+  const { properties, tickets, agreements } = await getCollections();
+  const [pending, openTicketCount, payoutPendingCount, refundPendingCount] = await Promise.all([
+    properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray(),
+    tickets.countDocuments({ status: { $in: ["open", "in_progress"] } }),
+    agreements.countDocuments({ "payment.status": "paid_to_reallow" }),
+    agreements.countDocuments({ "payment.refundStatus": "eligible" }),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Listings awaiting verification</h1>
-      <p className="mt-2 text-foreground/70">
-        Listing is free for landlords. Approve once the physical inspection confirms the listing,
-        or reject with a reason.
-      </p>
+      <DashboardHeader
+        eyebrow="Admin"
+        title="Admin dashboard"
+        subtitle="Listing is free for landlords. Approve a listing once the physical inspection confirms it, or reject with a reason."
+      />
 
-      <div className="mt-4 flex gap-4 text-sm">
-        <Link href="/dashboard/admin/listings/new" className="underline">
-          Post a property directly
-        </Link>
-        <Link href="/dashboard/admin/agreements" className="underline">
-          Tenancy agreements
-        </Link>
-        <Link href="/dashboard/support" className="underline">
-          Support queue
-        </Link>
+      <StatGrid
+        stats={[
+          { label: "Awaiting verification", value: pending.length, accent: pending.length > 0 ? "amber" : undefined },
+          { label: "Open support tickets", value: openTicketCount, accent: openTicketCount > 0 ? "clay" : undefined },
+          { label: "Payouts pending", value: payoutPendingCount },
+          { label: "Refunds pending", value: refundPendingCount },
+        ]}
+      />
+
+      <QuickLinks
+        links={[
+          { href: "/dashboard/admin/listings/new", label: "Post a property directly" },
+          { href: "/dashboard/admin/agreements", label: "Tenancy agreements" },
+          { href: "/dashboard/support", label: "Support queue" },
+        ]}
+      />
+      <div className="mt-2">
+        <AccountSettingsLink />
       </div>
 
+      <h2 className="mt-10 text-lg font-semibold">Listings awaiting verification</h2>
+
       {pending.length === 0 && (
-        <p className="mt-8 text-foreground/70">Nothing pending right now.</p>
+        <p className="mt-4 text-foreground/70">Nothing pending right now.</p>
       )}
 
-      <div className="mt-8 flex flex-col gap-4">
+      <div className="mt-4 flex flex-col gap-4">
         {pending.map((listing) => (
           <div key={listing._id!.toString()} className="rounded-lg border border-line p-4">
             <p className="font-medium break-words">{listing.title}</p>

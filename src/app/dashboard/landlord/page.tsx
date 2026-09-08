@@ -6,6 +6,7 @@ import { getCollections } from "@/lib/db";
 import { ProposeInspectionForm } from "@/components/propose-inspection-form";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { ActiveTenancies } from "@/components/active-tenancies";
+import { DashboardHeader, StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
 import type { ListingStatus } from "@/types/models";
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
@@ -41,29 +42,49 @@ export default async function LandlordDashboardPage() {
     agreements.find({ landlordId: new ObjectId(session.user.id) }).toArray(),
   ]);
   const isVerified = Boolean(user?.verifiedBadge);
+  const activeCount = myAgreements.filter(
+    (a) => a.status === "fully_signed" && !(a.terminatedByLandlord && a.terminatedByTenant),
+  ).length;
+  const liveListingsCount = listings.filter((l) => l.status === "published").length;
+  const awaitingCount = listings.filter((l) => l.status === "pending_verification").length;
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Your listings</h1>
-          {isVerified && <VerifiedBadge />}
-        </div>
-        {isVerified ? (
-          <Link
-            href="/dashboard/landlord/listings/new"
-            className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
-          >
-            List a property
-          </Link>
-        ) : (
-          <Link
-            href="/dashboard/verify-identity"
-            className="h-10 rounded-full border border-clay px-5 text-sm font-medium leading-10 text-clay"
-          >
-            Verify to list a property
-          </Link>
-        )}
+      <DashboardHeader
+        eyebrow="Landlord"
+        title="Your listings"
+        badge={isVerified && <VerifiedBadge />}
+        action={
+          isVerified ? (
+            <Link
+              href="/dashboard/landlord/listings/new"
+              className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
+            >
+              List a property
+            </Link>
+          ) : undefined
+        }
+      />
+
+      <StatGrid
+        stats={[
+          { label: "Live listings", value: liveListingsCount },
+          { label: "Awaiting inspection", value: awaitingCount, accent: awaitingCount > 0 ? "amber" : undefined },
+          { label: "Active tenancies", value: activeCount },
+          { label: "Verification", value: isVerified ? "Verified" : "Pending", accent: isVerified ? "verified" : "amber" },
+        ]}
+      />
+
+      <QuickLinks
+        links={[
+          { href: "/dashboard/landlord/candidates", label: "Interested tenants" },
+          { href: "/dashboard/landlord/tickets", label: "Your messages to Reallow" },
+          { href: "/dashboard/landlord/agreements", label: "Tenancy agreements" },
+          { href: "/dashboard/landlord/transactions", label: "Transaction history" },
+        ]}
+      />
+      <div className="mt-2">
+        <AccountSettingsLink />
       </div>
 
       {!isVerified && (
@@ -74,26 +95,11 @@ export default async function LandlordDashboardPage() {
             Listing is free — Reallow&apos;s agent still visits in person to confirm the property
             before it goes live.
           </p>
+          <Link href="/dashboard/verify-identity" className="mt-2 inline-block text-clay underline">
+            Verify now
+          </Link>
         </div>
       )}
-
-      <div className="mt-4 flex gap-4 text-sm">
-        <Link href="/dashboard/landlord/candidates" className="underline">
-          Interested tenants
-        </Link>
-        <Link href="/dashboard/landlord/tickets" className="underline">
-          Your messages to Reallow
-        </Link>
-        <Link href="/dashboard/landlord/agreements" className="underline">
-          Tenancy agreements
-        </Link>
-        <Link href="/dashboard/complete-profile" className="underline">
-          Complete your profile
-        </Link>
-        <Link href="/dashboard/landlord/transactions" className="underline">
-          Transaction history
-        </Link>
-      </div>
 
       <ActiveTenancies agreements={myAgreements} />
 
