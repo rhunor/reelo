@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
@@ -7,6 +6,7 @@ import { getCollections } from "@/lib/db";
 import { InspectionBookingForm } from "@/components/inspection-booking-form";
 import { ContactReallowForm } from "@/components/contact-reallow-form";
 import { ListingsMap } from "@/components/listings-map";
+import { PropertyPhotoHero, PropertyPhotoThumbnail } from "@/components/property-photo-gallery";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { Reveal } from "@/components/reveal";
 import { computeListingCostBreakdown, getInspectionFee } from "@/lib/fees";
@@ -59,9 +59,7 @@ export default async function ListingDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 px-6 py-16">
-      <div className="relative aspect-video w-full overflow-hidden rounded-3xl">
-        <Image src={listing.photoUrls[0]} alt={listing.title} fill priority className="object-cover" />
-      </div>
+      <PropertyPhotoHero photos={listing.photoUrls} title={listing.title} />
 
       <div className="mt-8 grid gap-12 lg:grid-cols-3">
         <Reveal direction="left" distance={32} className="lg:col-span-2">
@@ -138,14 +136,13 @@ export default async function ListingDetailPage({
           {(listing.photoUrls.length > 1 || listing.videoUrls.length > 0) && (
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {listing.photoUrls.slice(1).map((url, index) => (
-                <div key={url} className="relative aspect-video overflow-hidden rounded-xl">
-                  <Image
-                    src={url}
-                    alt={`${listing.title} photo ${index + 2}`}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
+                <PropertyPhotoThumbnail
+                  key={url}
+                  url={url}
+                  index={index + 1}
+                  photos={listing.photoUrls}
+                  title={listing.title}
+                />
               ))}
               {listing.videoUrls.map((url) => (
                 <video
@@ -218,9 +215,22 @@ export default async function ListingDetailPage({
             )}
 
             {session?.user && session.user.role !== "tenant" && (
-              <p className="mt-3 text-sm text-foreground/70">
-                Inspection booking and inquiries are available to tenant accounts.
-              </p>
+              <>
+                <p className="mt-3 text-sm text-foreground/70">
+                  Inspection booking and property inquiries are available to tenant accounts.
+                  {session.user.role === "landlord"
+                    ? " Have a question about this listing, or need something from Reallow?"
+                    : ""}
+                </p>
+                {session.user.role === "landlord" && (
+                  <Link
+                    href="/dashboard/landlord/tickets/new"
+                    className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    Contact Reallow
+                  </Link>
+                )}
+              </>
             )}
 
             {session?.user && session.user.role === "tenant" && !existingTicket && (

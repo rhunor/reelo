@@ -1,4 +1,13 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+
+// Landlords clicking the footer's "Contact Reallow" used to get bounced — it was
+// hardcoded to the tenant-only ticket route, which the proxy's role gate silently
+// redirects anyone else away from. Route each role to the ticket form it actually has.
+const CONTACT_HREF_BY_ROLE: Record<string, string> = {
+  tenant: "/dashboard/tenant/tickets/new",
+  landlord: "/dashboard/landlord/tickets/new",
+};
 
 const SOCIAL_LINKS = [
   { label: "X", href: "https://x.com/reallowofficial?s=11" },
@@ -9,7 +18,10 @@ const SOCIAL_LINKS = [
   { label: "TikTok", href: "https://www.tiktok.com/@reallowofficial?_r=1&_t=ZS-99YfzJ4bart" },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const session = await auth();
+  const contactHref = (session?.user?.role && CONTACT_HREF_BY_ROLE[session.user.role]) || "/login";
+
   return (
     <footer className="border-t border-line">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-foreground/60">
@@ -22,7 +34,7 @@ export function SiteFooter() {
             <Link href="/listings" className="hover:text-clay">
               Listings
             </Link>
-            <Link href="/dashboard/tenant/tickets/new" className="hover:text-clay">
+            <Link href={contactHref} className="hover:text-clay">
               Contact Reallow
             </Link>
             <Link href="/terms" className="hover:text-clay">
