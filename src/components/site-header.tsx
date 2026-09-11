@@ -6,8 +6,23 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNav } from "@/components/mobile-nav";
 import { getCollections } from "@/lib/db";
 
+// /dashboard itself is only ever a `redirect()` to one of these — never link to the bare
+// path from a client-side <Link>. A Server Component that redirects mid-render during a
+// client-side (RSC) transition hits a known Next.js App Router bug where the internal
+// router's hook count between renders no longer matches ("Rendered more hooks than during
+// the previous render"), crashing the whole page (confirmed via a Playwright repro against
+// this exact click). Linking straight to the destination sidesteps the buggy code path
+// entirely instead of just working around its symptom.
+const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
+  landlord: "/dashboard/landlord",
+  tenant: "/dashboard/tenant",
+  admin: "/dashboard/admin",
+  support: "/dashboard/support",
+};
+
 export async function SiteHeader() {
   const session = await auth();
+  const dashboardHref = (session?.user?.role && DASHBOARD_PATH_BY_ROLE[session.user.role]) || "/dashboard";
 
   // Best-effort — a notification-count hiccup shouldn't take down the whole site's header.
   let unreadCount = 0;
@@ -33,7 +48,7 @@ export async function SiteHeader() {
           </span>
         )}
       </Link>
-      <Link href="/dashboard" className="hover:text-clay">
+      <Link href={dashboardHref} className="hover:text-clay">
         Dashboard
       </Link>
       <form

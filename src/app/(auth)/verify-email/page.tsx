@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -44,12 +43,17 @@ function VerifyEmailContent() {
         <>
           <h1 className="text-2xl font-semibold">Email verified</h1>
           <p className="mt-2 text-sm text-foreground/70">You&apos;re all set.</p>
-          <Link
+          {/* A plain <a>, not next/link — /dashboard is only ever a redirect() to a
+              role-specific page, and a client-side <Link> transition into a redirecting
+              Server Component hits a Next.js App Router bug (see the comment in
+              site-header.tsx). A hard navigation here is a fine trade for a page this
+              rarely hit. */}
+          <a
             href="/dashboard"
             className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-clay px-6 font-medium text-white transition-opacity hover:opacity-90"
           >
             Go to dashboard
-          </Link>
+          </a>
         </>
       )}
       {status === "error" && (
