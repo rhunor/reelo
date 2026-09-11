@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { TermsScrollAccept } from "@/components/terms-scroll-accept";
 import { PasswordInput } from "@/components/password-input";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
-  const [role, setRole] = useState<"tenant" | "landlord">("tenant");
+  const searchParams = useSearchParams();
+  // "List your property" in the nav links here with ?role=landlord so it opens straight
+  // into the landlord tab instead of defaulting to tenant.
+  const [role, setRole] = useState<"tenant" | "landlord">(
+    searchParams.get("role") === "landlord" ? "landlord" : "tenant",
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -163,5 +168,13 @@ export default function RegisterPage() {
         </a>
       </p>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

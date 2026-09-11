@@ -68,6 +68,18 @@ body {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+/* `color-scheme` on :root is supposed to make native form-control chrome (a <select>'s
+   open option list, in particular) follow the theme automatically, but that inheritance
+   isn't reliable across engines — the popup itself would fall back to the OS's native
+   white listbox while still inheriting our light "ink" text color in dark mode, making
+   every option unreadable (white text on a white popup). Setting background/color
+   explicitly on select/option is the actual cross-browser fix. */
+select,
+option {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
 h1,
 h2,
 h3,

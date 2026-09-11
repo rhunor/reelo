@@ -68,7 +68,7 @@ export async function SiteHeader() {
         Log in
       </Link>
       <Link
-        href="/register"
+        href="/register?role=landlord"
         className="inline-flex items-center rounded-full bg-clay px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
       >
         List your property

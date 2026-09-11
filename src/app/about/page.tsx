@@ -64,7 +64,7 @@ export default function AboutPage() {
               Browse listings
             </Link>
             <Link
-              href="/register"
+              href="/register?role=landlord"
               className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
             >
               List your property
@@ -217,7 +217,7 @@ export default function AboutPage() {
               Browse listings
             </Link>
             <Link
-              href="/register"
+              href="/register?role=landlord"
               className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
             >
               List your property
