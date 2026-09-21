@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { notifyNewTicket } from "@/lib/notifications";
+import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
   subject: z.string().min(3),
@@ -13,7 +14,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || (session.user.role !== "tenant" && session.user.role !== "landlord")) {
+  if (!session?.user || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,9 +43,12 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
+  // isStaffRole was already checked above, so this is guaranteed "tenant" | "landlord" —
+  // the cast just makes that explicit to the type checker.
+  const userRole = session.user.role as "tenant" | "landlord";
   const { insertedId } = await tickets.insertOne({
     userId: new ObjectId(session.user.id),
-    userRole: session.user.role,
+    userRole,
     listingId: parsed.data.listingId ? new ObjectId(parsed.data.listingId) : undefined,
     subject: parsed.data.subject,
     status: "open",

@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { ProposeInspectionForm } from "@/components/propose-inspection-form";
+import { confirmVerificationInspection } from "@/app/dashboard/admin/actions";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { ActiveTenancies } from "@/components/active-tenancies";
 import { DashboardHeader, StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
@@ -55,14 +56,12 @@ export default async function LandlordDashboardPage() {
         title="Your listings"
         badge={isVerified && <VerifiedBadge />}
         action={
-          isVerified ? (
-            <Link
-              href="/dashboard/landlord/listings/new"
-              className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
-            >
-              List a property
-            </Link>
-          ) : undefined
+          <Link
+            href="/dashboard/landlord/listings/new"
+            className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
+          >
+            List a property
+          </Link>
         }
       />
 
@@ -81,6 +80,7 @@ export default async function LandlordDashboardPage() {
           { href: "/dashboard/landlord/tickets", label: "Your messages to Reallow" },
           { href: "/dashboard/landlord/agreements", label: "Tenancy agreements" },
           { href: "/dashboard/landlord/transactions", label: "Transaction history" },
+          { href: "/listings", label: "Looking to rent or buy?" },
         ]}
       />
       <div className="mt-2">
@@ -89,11 +89,11 @@ export default async function LandlordDashboardPage() {
 
       {!isVerified && (
         <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-4 text-sm">
-          <p className="font-medium">Verify your identity to list a property</p>
+          <p className="font-medium">Verify your identity to get published</p>
           <p className="mt-1 text-foreground/70">
-            Reallow verifies every landlord&apos;s NIN and BVN before they can publish a listing.
-            Listing is free — Reallow&apos;s agent still visits in person to confirm the property
-            before it goes live.
+            You can list a property right away, free — but Reallow won&apos;t schedule or
+            approve the in-person verification that publishes it until your own NIN and BVN
+            are verified.
           </p>
           <Link href="/dashboard/verify-identity" className="mt-2 inline-block text-clay underline">
             Verify now
@@ -124,10 +124,30 @@ export default async function LandlordDashboardPage() {
               </span>
             </div>
 
-            {listing.status === "pending_verification" && listing.verification.scheduledFor && (
+            {listing.status === "pending_verification" && !listing.verification.scheduledFor && (
               <p className="mt-2 text-sm text-amber-600">
-                Inspection scheduled for {new Date(listing.verification.scheduledFor).toLocaleDateString()}
+                Awaiting verification — Reallow will call you to book an inspection date and time.
               </p>
+            )}
+
+            {listing.status === "pending_verification" && listing.verification.scheduledFor && (
+              <div className="mt-2">
+                <p className="text-sm text-amber-600">
+                  Inspection {listing.verification.landlordConfirmed ? "confirmed" : "proposed"} for{" "}
+                  {new Date(listing.verification.scheduledFor).toLocaleString()}
+                </p>
+                {!listing.verification.landlordConfirmed && (
+                  <form action={confirmVerificationInspection} className="mt-2">
+                    <input type="hidden" name="listingId" value={listing._id!.toString()} />
+                    <button
+                      type="submit"
+                      className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
+                    >
+                      Confirm this inspection time
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
 
             {(listing.status === "draft" || listing.status === "rejected") && (

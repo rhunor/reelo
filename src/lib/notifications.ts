@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import type { Property, SupportTicket } from "@/types/models";
+import type { InspectionBooking, Property, SupportTicket } from "@/types/models";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -123,6 +123,67 @@ export async function notifyTicketReply(ticket: SupportTicket, replierId: Object
       createdAt: now,
     })),
   );
+}
+
+// Reallow just set (or changed) the verification inspection date after calling the
+// landlord — this is the in-app half of that, prompting them to confirm it themselves.
+export async function notifyVerificationInspectionScheduled(listing: Property, scheduledFor: Date): Promise<void> {
+  const { notifications } = await getCollections();
+
+  await notifications.insertOne({
+    userId: listing.landlordId,
+    type: "verification_inspection_scheduled",
+    title: "Confirm your property verification visit",
+    body: `Reallow proposed ${scheduledFor.toLocaleString()} for ${listing.title} — confirm it in your dashboard.`,
+    listingId: listing._id,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// Either party can propose or counter an inspection meeting time (see
+// src/app/api/inspection-bookings/[id]/respond/route.ts) — notify whichever party didn't
+// just make the proposal.
+export async function notifyInspectionProposal(booking: InspectionBooking, toUserId: ObjectId): Promise<void> {
+  const { notifications } = await getCollections();
+
+  await notifications.insertOne({
+    userId: toUserId,
+    type: "inspection_time_proposed",
+    title: "New inspection time suggested",
+    body: `A new time was suggested: ${booking.proposedTime!.toLocaleString()}. Accept or suggest another.`,
+    listingId: booking.listingId,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// Both parties get told once a time is actually agreed — this is the point Reallow's
+// agent takes over logistics (see the copy in src/components/inspection-negotiation.tsx).
+export async function notifyInspectionConfirmed(booking: InspectionBooking): Promise<void> {
+  const { notifications } = await getCollections();
+  const when = booking.scheduledFor!.toLocaleString();
+
+  await notifications.insertMany([
+    {
+      userId: booking.tenantId,
+      type: "inspection_time_confirmed",
+      title: "Inspection confirmed",
+      body: `Confirmed for ${when}. Reallow's agent will contact you with how to get to the meeting point.`,
+      listingId: booking.listingId,
+      read: false,
+      createdAt: new Date(),
+    },
+    {
+      userId: booking.landlordId,
+      type: "inspection_time_confirmed",
+      title: "Inspection confirmed",
+      body: `Confirmed for ${when}. Reallow's agent will bring the tenant to you.`,
+      listingId: booking.listingId,
+      read: false,
+      createdAt: new Date(),
+    },
+  ]);
 }
 
 // Tells the tenant whether the landlord approved or declined their interest in a listing.

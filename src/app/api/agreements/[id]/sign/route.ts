@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { isStaffRole } from "@/lib/roles";
 import type { AgreementStatus } from "@/types/models";
 
 const schema = z.object({ fullName: z.string().min(2) });
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const session = await auth();
-  if (!session?.user || (session.user.role !== "landlord" && session.user.role !== "tenant")) {
+  if (!session?.user || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!ObjectId.isValid(id)) {
@@ -31,9 +32,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
   }
 
-  const party = session.user.role as "landlord" | "tenant";
-  const expectedPartyId = party === "landlord" ? agreement.landlordId : agreement.tenantId;
-  if (expectedPartyId.toString() !== session.user.id) {
+  // Which party a signer is depends on this specific agreement's relationship, not their
+  // account's `role` — one account can be a landlord on one agreement and a tenant on
+  // another now, so `session.user.role` is no longer a reliable stand-in for this.
+  const party: "landlord" | "tenant" | null =
+    agreement.landlordId.toString() === session.user.id
+      ? "landlord"
+      : agreement.tenantId.toString() === session.user.id
+        ? "tenant"
+        : null;
+  if (!party) {
     return NextResponse.json({ error: "You are not a party to this agreement" }, { status: 403 });
   }
   if (agreement.signatures.some((signature) => signature.party === party)) {

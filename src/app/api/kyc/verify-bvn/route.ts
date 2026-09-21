@@ -21,9 +21,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await verifyBvn(parsed.data.bvn);
     const { users } = await getCollections();
     const userId = new ObjectId(session.user.id);
+
+    if (
+      await users.findOne({ "bvn.value": parsed.data.bvn, "bvn.status": "verified", _id: { $ne: userId } })
+    ) {
+      return NextResponse.json(
+        { error: "This BVN is already linked to another Reallow account" },
+        { status: 409 },
+      );
+    }
+
+    const result = await verifyBvn(parsed.data.bvn);
 
     await users.updateOne(
       { _id: userId },
@@ -31,7 +41,7 @@ export async function POST(request: Request) {
         $set: {
           "bvn.status": result.success ? "verified" : "failed",
           "bvn.provider": "youverify",
-          ...(result.success ? { "bvn.verifiedAt": new Date() } : {}),
+          ...(result.success ? { "bvn.verifiedAt": new Date(), "bvn.value": parsed.data.bvn } : {}),
           updatedAt: new Date(),
         },
       },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createUploadSignature } from "@/lib/cloudinary";
+import { isStaffRole } from "@/lib/roles";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -9,12 +10,13 @@ export async function POST(request: Request) {
   }
 
   // Defaults to "listing" so existing callers (photo/video uploaders, which send no
-  // body) keep working unchanged. Only listing uploads are landlord/admin-gated —
-  // a profile picture is something any authenticated user can upload.
+  // body) keep working unchanged. Only support accounts are blocked from listing
+  // uploads — anyone else can list a property now — while a profile picture is
+  // something any authenticated user can upload.
   const body = await request.json().catch(() => ({}));
   const purpose = body?.purpose === "profile" ? "profile" : "listing";
 
-  if (purpose === "listing" && session.user.role !== "landlord" && session.user.role !== "admin") {
+  if (purpose === "listing" && session.user.role === "support") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

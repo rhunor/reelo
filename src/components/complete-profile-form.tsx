@@ -40,10 +40,17 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       occupation: formData.get("occupation") || undefined,
       maritalStatus: formData.get("maritalStatus") || undefined,
       religion: formData.get("religion") || undefined,
+      employmentStatus: formData.get("employmentStatus") || undefined,
+      gender: formData.get("gender") || undefined,
+      stateOfOrigin: formData.get("stateOfOrigin") || undefined,
+      presentAddress: formData.get("presentAddress") || undefined,
       profilePictureUrl: profilePictureUrl || undefined,
       occupationVisible: formData.get("occupationVisible") === "on",
       maritalStatusVisible: formData.get("maritalStatusVisible") === "on",
       religionVisible: formData.get("religionVisible") === "on",
+      employmentStatusVisible: formData.get("employmentStatusVisible") === "on",
+      genderVisible: formData.get("genderVisible") === "on",
+      stateOfOriginVisible: formData.get("stateOfOriginVisible") === "on",
       profilePictureVisible: formData.get("profilePictureVisible") === "on",
       bankAccountName: formData.get("bankAccountName") || undefined,
       bankAccountNumber: formData.get("bankAccountNumber") || undefined,
@@ -71,7 +78,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
   return (
     <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
       <div>
-        <p className="mb-2 text-sm font-medium">Profile picture</p>
+        <p className="mb-2 text-sm font-medium">Profile picture — take a selfie</p>
         <ProfilePictureUploader value={profilePictureUrl} onChange={setProfilePictureUrl} />
         <div className="mt-2">
           <VisibilityToggle name="profilePictureVisible" defaultChecked={user?.profile?.profilePictureVisible} />
@@ -106,6 +113,57 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
         <div className="mt-1">
           <VisibilityToggle name="religionVisible" defaultChecked={user?.profile?.religionVisible} />
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">Employment status</label>
+        <select
+          name="employmentStatus"
+          defaultValue={user?.profile?.employmentStatus ?? ""}
+          className={inputClass + " w-full"}
+        >
+          <option value="">Prefer not to say</option>
+          <option value="student">Student</option>
+          <option value="self_employed">Self-employed</option>
+          <option value="employed">Employed</option>
+        </select>
+        <div className="mt-1">
+          <VisibilityToggle name="employmentStatusVisible" defaultChecked={user?.profile?.employmentStatusVisible} />
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">Gender</label>
+        <select name="gender" defaultValue={user?.profile?.gender ?? ""} className={inputClass + " w-full"}>
+          <option value="">Prefer not to say</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+        <div className="mt-1">
+          <VisibilityToggle name="genderVisible" defaultChecked={user?.profile?.genderVisible} />
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">State of origin</label>
+        <input
+          name="stateOfOrigin"
+          defaultValue={user?.profile?.stateOfOrigin}
+          className={inputClass + " w-full"}
+        />
+        <div className="mt-1">
+          <VisibilityToggle name="stateOfOriginVisible" defaultChecked={user?.profile?.stateOfOriginVisible} />
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">Present address</label>
+        <input
+          name="presentAddress"
+          defaultValue={user?.profile?.presentAddress}
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">Never shown to other users.</p>
       </div>
 
       <div className="rounded-lg border border-line p-4">

@@ -14,5 +14,7 @@ export default async function DashboardIndexPage() {
       redirect("/dashboard/admin");
     case "support":
       redirect("/dashboard/support");
+    case "staff":
+      redirect("/dashboard/staff");
   }
 }

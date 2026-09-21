@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { initializeTransaction } from "@/lib/paystack";
 import { getInspectionFee } from "@/lib/fees";
+import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({ scheduledFor: z.string().min(1) });
 
@@ -17,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const session = await auth();
-  if (!session?.user?.email || session.user.role !== "tenant") {
+  if (!session?.user?.email || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!ObjectId.isValid(id)) {

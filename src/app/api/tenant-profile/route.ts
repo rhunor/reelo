@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
   occupation: z.string().max(100).optional(),
@@ -16,7 +17,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "tenant") {
+  if (!session?.user || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

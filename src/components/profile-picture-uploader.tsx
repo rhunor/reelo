@@ -61,10 +61,14 @@ export function ProfilePictureUploader({
         <input
           type="file"
           accept="image/*"
+          capture="user"
           disabled={uploading}
           onChange={(event) => handleFile(event.target.files?.[0])}
           className="text-sm"
         />
+        <p className="mt-1 text-xs text-foreground/50">
+          Opens your front camera on mobile. On desktop this still shows a normal file picker.
+        </p>
         {uploading && <p className="mt-1 text-xs text-foreground/50">Uploading…</p>}
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       </div>

@@ -15,7 +15,9 @@ export default async function VerifyIdentityPage() {
   const { users } = await getCollections();
   const user = await users.findOne({ _id: new ObjectId(session.user.id) });
 
-  const isTenant = session.user.role === "tenant";
+  // `role` is now just which dashboard defaults to "home" for this account — it doesn't
+  // limit what they can do, so used here only to pick which "contact Reallow" link to
+  // show, never to gate anything.
   const isLandlord = session.user.role === "landlord";
   const ninVerified = user?.nin.status === "verified";
   const bvnVerified = user?.bvn?.status === "verified";
@@ -25,9 +27,8 @@ export default async function VerifyIdentityPage() {
       <h1 className="text-2xl font-semibold">Verify your identity</h1>
       <p className="mt-2 text-sm text-foreground/70">
         Reallow verifies every account against the National Identity Number (NIN) and Bank
-        Verification Number (BVN) databases via Youverify — both are required.
-        {isTenant && " You'll need this before you can apply for a listing or book an inspection."}
-        {isLandlord && " You'll need this before you can list a property."}
+        Verification Number (BVN) databases via Youverify — both are required before you can
+        apply for a listing, book an inspection, or have a property you&apos;ve listed published.
       </p>
 
       {user?.verifiedBadge && (

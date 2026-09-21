@@ -6,6 +6,8 @@ import { getCollections } from "@/lib/db";
 import { TicketMessages } from "@/components/ticket-messages";
 import { ReplyForm } from "@/components/reply-form";
 import { InspectionBookingForm } from "@/components/inspection-booking-form";
+import { InspectionNegotiation } from "@/components/inspection-negotiation";
+import { ReportButton } from "@/components/report-button";
 import { getInspectionFee } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,15 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold break-words">{ticket.subject}</h1>
       <p className="mt-1 text-sm capitalize text-foreground/50">{ticket.status.replace("_", " ")}</p>
+      {listing && (
+        <div className="mt-1">
+          <ReportButton
+            targetType="user"
+            targetId={listing.landlordId.toString()}
+            label="Report this landlord"
+          />
+        </div>
+      )}
 
       {decision === "approved" && (
         <div className="mt-3 rounded-lg border border-line p-4">
@@ -38,9 +49,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
             The landlord approved you for this listing.
           </p>
           {existingBooking ? (
-            <p className="mt-2 text-sm text-foreground/70">
-              Inspection booked for {new Date(existingBooking.scheduledFor).toLocaleString()}.
-            </p>
+            <InspectionNegotiation booking={existingBooking} viewerRole="tenant" />
           ) : listing && user?.verifiedBadge ? (
             <InspectionBookingForm
               ticketId={ticket._id!.toString()}

@@ -2,15 +2,15 @@
 
 import { useRef, useState } from "react";
 
-const SUMMARY = `Reallow connects tenants and landlords directly — you never contact the other party yourself, Reallow coordinates everything.
+const SUMMARY = `Reallow connects you directly with the other party through Reallow — you never contact each other yourselves until a deal actually closes, Reallow coordinates everything up to that point.
 
-You'll need to verify your National Identification Number (NIN) and Bank Verification Number (BVN) before you can apply for a listing, book a paid inspection, or (if you're a landlord) publish a property. The name on your NIN, BVN, bank account, and profile must all match — Reallow won't pay out to a name that doesn't correspond with your verified identity.
+Anyone can start a listing free of charge, but it won't be visible to others until Reallow verifies it in person — and Reallow won't do that until your own identity is verified. You'll need to verify your National Identification Number (NIN) and Bank Verification Number (BVN) before you can apply for a listing, book a paid inspection, or have a listing published. The name on your NIN, BVN, bank account, and profile must all match — Reallow won't pay out to a name that doesn't correspond with your verified identity. Each NIN, BVN, phone number, and email can only ever be linked to one Reallow account.
 
-Every payment — inspection fees, rent, caution fees, estate charges, agency fees, and legal fees — goes into Reallow's own account, never directly to a landlord. Caution fees are refundable and held by Reallow until move-out, provided there's no damage.
-
-Every listing goes through an in-person verification inspection before it can go live.
+Every payment — inspection fees, rent, caution fees, estate charges, Reallow's agency fee, and the legal fee — goes into Reallow's own account, never directly to another user. Once rent or the sale price is paid and the property changes hands, that deal is complete — anything after that is between the two of you. The one thing Reallow keeps holding is the caution fee, to protect both sides and make the refund straightforward once the tenancy ends.
 
 Reallow collects your identity and bank details for verification and payout purposes only — they're never shown to other users or sold. You control whether optional profile details (occupation, marital status, religion, profile picture) are visible to others.
+
+Reallow can suspend any account or remove any listing for misconduct or suspected misconduct, and you can report a user or a listing directly from their page.
 
 By creating an account you agree to the full Terms of Service and Privacy Policy, linked below.`;
 

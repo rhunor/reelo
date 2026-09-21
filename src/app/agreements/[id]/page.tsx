@@ -8,7 +8,7 @@ import { AgreementPayButton } from "@/components/agreement-pay-button";
 import { TerminateAgreementButton } from "@/components/terminate-agreement-button";
 import { PaymentBreakdown } from "@/components/payment-breakdown";
 import { markAgreementPaidOut, refundCautionFee } from "@/app/dashboard/admin/actions";
-import { computeAgreementTotal } from "@/lib/fees";
+import { computeAgreementTotal, getAgencyFeeRate } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -162,7 +162,10 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                     ...(paymentBreakdown.estateChargeNGN > 0
                       ? [{ label: "Estate charge", amountNGN: paymentBreakdown.estateChargeNGN }]
                       : []),
-                    { label: "Reallow agency fee (5%)", amountNGN: paymentBreakdown.agencyFeeNGN },
+                    {
+                      label: `Reallow agency fee (${Math.round(getAgencyFeeRate(agreement.terms.state) * 100)}%)`,
+                      amountNGN: paymentBreakdown.agencyFeeNGN,
+                    },
                     { label: "Legal fee", amountNGN: paymentBreakdown.legalFeeNGN },
                   ]}
                   totalNGN={paymentBreakdown.totalNGN}

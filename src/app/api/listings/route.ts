@@ -6,6 +6,7 @@ import { getCollections } from "@/lib/db";
 import { findDistrict } from "@/lib/locations";
 import { capCautionFee } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
+import { isStaffRole } from "@/lib/roles";
 
 const listingSchema = z.object({
   title: z.string().min(5),
@@ -17,6 +18,7 @@ const listingSchema = z.object({
   estateChargeNGN: z.coerce.number().positive().optional(),
   minimumTermMonths: z.coerce.number().int().min(MINIMUM_LEASE_TERM_MONTHS).optional(),
   dealBreakers: z.string().optional(),
+  fullAddress: z.string().min(5).optional(),
   state: z.string().min(2),
   city: z.string().min(2),
   area: z.string().optional(),
@@ -35,8 +37,8 @@ const listingSchema = z.object({
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "landlord") {
-    return NextResponse.json({ error: "Only landlords can create listings" }, { status: 403 });
+  if (!session?.user || isStaffRole(session.user.role)) {
+    return NextResponse.json({ error: "Staff accounts can't list properties this way" }, { status: 403 });
   }
 
   const body = await request.json();
@@ -46,16 +48,13 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
-  const { properties, users } = await getCollections();
+  const { properties } = await getCollections();
   const now = new Date();
 
-  const landlord = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!landlord?.verifiedBadge) {
-    return NextResponse.json(
-      { error: "Verify your identity before listing a property" },
-      { status: 403 },
-    );
-  }
+  // Creating a listing no longer requires the landlord's identity to already be verified —
+  // that gate now lives at approval/scheduling time instead (see
+  // src/app/dashboard/admin/actions.ts), so a landlord can start listing while their KYC
+  // is still in progress. It just won't get scheduled for verification until that's done.
 
   // state/city come from a closed dropdown (src/lib/locations.ts), not free text, so the
   // coordinates are a known-good constant rather than a geocoder's best guess — this is
@@ -85,6 +84,7 @@ export async function POST(request: Request) {
     dealBreakers: data.dealBreakers
       ? data.dealBreakers.split(",").map((item) => item.trim()).filter(Boolean)
       : undefined,
+    fullAddress: data.fullAddress,
     location: {
       state: data.state,
       city: data.city,

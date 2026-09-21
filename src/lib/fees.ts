@@ -2,7 +2,21 @@
 // tenant/landlord is shown) and the API routes (what's actually validated/charged) import
 // from here, so the displayed number and the enforced number can never drift apart.
 
-export const AGENCY_FEE_RATE = 0.05; // 5% of annual rent
+// Agency fee varies by city — Reallow prices under the local market standard in each
+// (Abuja's standard is ~10%, PH's is ~20%; Reallow charges below both). Keyed by the same
+// `state` value used in src/lib/locations.ts.
+export const AGENCY_FEE_RATE_BY_STATE: Record<string, number> = {
+  Abuja: 0.09,
+  "Port Harcourt": 0.15,
+  Warri: 0.15,
+};
+export const DEFAULT_AGENCY_FEE_RATE = 0.09;
+
+export function getAgencyFeeRate(state?: string): number {
+  if (!state) return DEFAULT_AGENCY_FEE_RATE;
+  return AGENCY_FEE_RATE_BY_STATE[state] ?? DEFAULT_AGENCY_FEE_RATE;
+}
+
 export const LEGAL_FEE_NGN = 50_000; // flat
 export const CAUTION_FEE_CAP_RATE = 0.12; // caution fee can't exceed 12% of annual rent
 // The absolute platform floor for how short a lease can be lives in listing-verification.ts
@@ -50,12 +64,14 @@ export function computeListingCostBreakdown({
   rentNGN,
   cautionFeeNGN = 0,
   estateChargeNGN = 0,
+  state,
 }: {
   rentNGN: number;
   cautionFeeNGN?: number;
   estateChargeNGN?: number;
+  state?: string;
 }): ListingCostBreakdown {
-  const agencyFeeNGN = Math.round(rentNGN * AGENCY_FEE_RATE);
+  const agencyFeeNGN = Math.round(rentNGN * getAgencyFeeRate(state));
   const legalFeeNGN = LEGAL_FEE_NGN;
   const totalNGN = rentNGN + cautionFeeNGN + estateChargeNGN + agencyFeeNGN + legalFeeNGN;
 
@@ -63,15 +79,19 @@ export function computeListingCostBreakdown({
 }
 
 // Alias used at agreement-pay time — same shape, named for where it's called from so the
-// call site reads clearly (an Agreement's terms, not a Property's listed price).
+// call site reads clearly (an Agreement's terms, not a Property's listed price). `state` is
+// optional so agreements created before this field existed still compute (falling back to
+// DEFAULT_AGENCY_FEE_RATE) instead of crashing.
 export function computeAgreementTotal(terms: {
   rentNGN: number;
   depositNGN?: number;
   estateChargeNGN?: number;
+  state?: string;
 }): ListingCostBreakdown {
   return computeListingCostBreakdown({
     rentNGN: terms.rentNGN,
     cautionFeeNGN: terms.depositNGN,
     estateChargeNGN: terms.estateChargeNGN,
+    state: terms.state,
   });
 }

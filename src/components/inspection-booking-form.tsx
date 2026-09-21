@@ -34,7 +34,7 @@ export function InspectionBookingForm({ ticketId, feeNGN }: { ticketId: string; 
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
       <label className="flex flex-col gap-1 text-sm">
-        Preferred date &amp; time
+        Suggest a date &amp; time — the landlord can accept it or suggest another
         <input
           name="scheduledFor"
           type="datetime-local"

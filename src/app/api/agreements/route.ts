@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { capCautionFee } from "@/lib/fees";
+import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
   listingId: z.string(),
@@ -42,9 +43,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
 
-  const tenant = await users.findOne({ email: parsed.data.tenantEmail.toLowerCase(), role: "tenant" });
-  if (!tenant) {
+  const tenant = await users.findOne({ email: parsed.data.tenantEmail.toLowerCase() });
+  if (!tenant || isStaffRole(tenant.role)) {
     return NextResponse.json({ error: "No tenant found with that email" }, { status: 404 });
+  }
+  if (tenant._id!.toString() === listing.landlordId.toString()) {
+    return NextResponse.json({ error: "The tenant can't be this listing's own landlord" }, { status: 400 });
   }
 
   // Validated against this specific listing's own terms, not just the platform floor —
@@ -71,6 +75,7 @@ export async function POST(request: Request) {
       rentNGN: parsed.data.rentNGN,
       depositNGN: parsed.data.depositNGN,
       estateChargeNGN: parsed.data.estateChargeNGN,
+      state: listing.location.state,
       leaseStart: new Date(parsed.data.leaseStart),
       leaseEndOrTermMonths: parsed.data.leaseTermMonths,
       responsibilities: parsed.data.responsibilities,

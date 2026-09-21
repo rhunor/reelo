@@ -58,8 +58,8 @@ export async function POST(request: Request) {
 
   let landlordId: ObjectId;
   if (data.landlordEmail) {
-    const landlord = await users.findOne({ email: data.landlordEmail.toLowerCase(), role: "landlord" });
-    if (!landlord) {
+    const landlord = await users.findOne({ email: data.landlordEmail.toLowerCase() });
+    if (!landlord || landlord.role === "admin" || landlord.role === "support") {
       return NextResponse.json({ error: "No landlord found with that email" }, { status: 404 });
     }
     landlordId = landlord._id!;

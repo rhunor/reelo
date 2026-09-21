@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { PreferCandidateButton } from "@/components/prefer-candidate-button";
+import { InspectionNegotiation } from "@/components/inspection-negotiation";
+import { ReportButton } from "@/components/report-button";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +13,7 @@ export default async function LandlordCandidatesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { properties, tickets, users } = await getCollections();
+  const { properties, tickets, users, inspectionBookings } = await getCollections();
 
   const listings = await properties.find({ landlordId: new ObjectId(session.user.id) }).toArray();
   const listingIds = listings.map((listing) => listing._id!);
@@ -30,6 +32,15 @@ export default async function LandlordCandidatesPage() {
   const tenants = tenantIds.length === 0 ? [] : await users.find({ _id: { $in: tenantIds } }).toArray();
   const tenantById = new Map(tenants.map((tenant) => [tenant._id!.toString(), tenant]));
   const listingById = new Map(listings.map((listing) => [listing._id!.toString(), listing]));
+
+  const approvedTicketIds = inquiries
+    .filter((ticket) => (ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined)) === "approved")
+    .map((ticket) => ticket._id!);
+  const bookings =
+    approvedTicketIds.length === 0
+      ? []
+      : await inspectionBookings.find({ ticketId: { $in: approvedTicketIds } }).toArray();
+  const bookingByTicketId = new Map(bookings.map((booking) => [booking.ticketId!.toString(), booking]));
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
@@ -69,6 +80,12 @@ export default async function LandlordCandidatesPage() {
                 </div>
               </div>
 
+              {tenant && (
+                <div className="mt-1">
+                  <ReportButton targetType="user" targetId={tenant._id!.toString()} label="Report this tenant" />
+                </div>
+              )}
+
               {profile ? (
                 <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
                   {profile.occupation && (
@@ -103,6 +120,13 @@ export default async function LandlordCandidatesPage() {
                   decision={ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined)}
                 />
               </div>
+
+              {bookingByTicketId.has(ticket._id!.toString()) && (
+                <InspectionNegotiation
+                  booking={bookingByTicketId.get(ticket._id!.toString())!}
+                  viewerRole="landlord"
+                />
+              )}
             </div>
           );
         })}

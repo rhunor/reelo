@@ -5,10 +5,13 @@ import type {
   ListingReview,
   Notification,
   Property,
+  ReferralCommission,
+  Report,
   SavedSearch,
   SupportTicket,
   Transaction,
   User,
+  WithdrawalRequest,
 } from "@/types/models";
 
 const dbName = process.env.MONGODB_DB || "reallow";
@@ -30,5 +33,8 @@ export async function getCollections() {
     tickets: db.collection<SupportTicket>("tickets"),
     savedSearches: db.collection<SavedSearch>("savedSearches"),
     notifications: db.collection<Notification>("notifications"),
+    reports: db.collection<Report>("reports"),
+    referralCommissions: db.collection<ReferralCommission>("referralCommissions"),
+    withdrawalRequests: db.collection<WithdrawalRequest>("withdrawalRequests"),
   };
 }

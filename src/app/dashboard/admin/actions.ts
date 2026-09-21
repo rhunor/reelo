@@ -4,13 +4,24 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { notifySavedSearchMatches } from "@/lib/notifications";
+import { notifySavedSearchMatches, notifyVerificationInspectionScheduled } from "@/lib/notifications";
 import { distanceMeters, CHECK_IN_DISTANCE_WARNING_METERS } from "@/lib/geo";
 import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
+import { recomputeVerifiedBadge } from "@/lib/kyc";
 
 async function requireAdmin() {
   const session = await auth();
   if (!session?.user || session.user.role !== "admin") {
+    throw new Error("Unauthorized");
+  }
+  return session.user;
+}
+
+// checkInAtListing is the one admin action a field agent also legitimately needs — it's
+// literally their own action, not an admin decision.
+async function requireAdminOrStaff() {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "admin" && session.user.role !== "staff")) {
     throw new Error("Unauthorized");
   }
   return session.user;
@@ -21,27 +32,50 @@ export async function scheduleInspection(formData: FormData) {
   const listingId = formData.get("listingId") as string;
   const scheduledFor = formData.get("scheduledFor") as string;
 
-  const { properties } = await getCollections();
+  const { properties, users } = await getCollections();
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (!listing) throw new Error("Listing not found");
+
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  if (!landlord?.verifiedBadge) {
+    throw new Error("This listing's landlord hasn't verified their identity yet");
+  }
+
   const now = new Date();
+  const scheduledDate = new Date(scheduledFor);
 
   await properties.updateOne(
     { _id: new ObjectId(listingId) },
     {
       $set: {
-        "verification.scheduledFor": new Date(scheduledFor),
+        "verification.scheduledFor": scheduledDate,
+        // Re-confirmation is required any time the date changes, including the first time
+        // it's set — a phone call alone shouldn't be the only record of the agreed time.
+        "verification.landlordConfirmed": false,
         updatedAt: now,
       },
     },
   );
 
+  await notifyVerificationInspectionScheduled(listing, scheduledDate);
+
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/landlord");
 }
 
 export async function approveListing(formData: FormData) {
   const admin = await requireAdmin();
   const listingId = formData.get("listingId") as string;
 
-  const { properties } = await getCollections();
+  const { properties, users } = await getCollections();
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (!listing) throw new Error("Listing not found");
+
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  if (!landlord?.verifiedBadge) {
+    throw new Error("This listing's landlord hasn't verified their identity yet");
+  }
+
   const now = new Date();
 
   await properties.updateOne(
@@ -56,14 +90,13 @@ export async function approveListing(formData: FormData) {
     },
   );
 
-  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
-  if (listing) await notifySavedSearchMatches(listing);
+  await notifySavedSearchMatches(listing);
 
   revalidatePath("/dashboard/admin");
 }
 
 export async function checkInAtListing(formData: FormData) {
-  const staff = await requireAdmin();
+  const staff = await requireAdminOrStaff();
   const listingId = formData.get("listingId") as string;
   const lat = Number(formData.get("lat"));
   const lng = Number(formData.get("lng"));
@@ -96,6 +129,7 @@ export async function checkInAtListing(formData: FormData) {
   );
 
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/staff");
   return { flagged };
 }
 
@@ -204,4 +238,186 @@ export async function rejectListing(formData: FormData) {
   );
 
   revalidatePath("/dashboard/admin");
+}
+
+// Ban/unban and archive-listing enforcement — the practical teeth behind the "Reallow may
+// suspend any account or remove any listing for misconduct" Terms clause, and what the new
+// report review queue (src/app/dashboard/admin/reports/page.tsx) actually acts on.
+export async function banUser(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+
+  const { users } = await getCollections();
+  await users.updateOne({ _id: new ObjectId(userId) }, { $set: { status: "banned", updatedAt: new Date() } });
+
+  revalidatePath("/dashboard/admin/reports");
+  revalidatePath("/dashboard/admin/users");
+}
+
+export async function unbanUser(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+
+  const { users } = await getCollections();
+  await users.updateOne({ _id: new ObjectId(userId) }, { $set: { status: "active", updatedAt: new Date() } });
+
+  revalidatePath("/dashboard/admin/reports");
+  revalidatePath("/dashboard/admin/users");
+}
+
+export async function archiveListing(formData: FormData) {
+  await requireAdmin();
+  const listingId = formData.get("listingId") as string;
+
+  const { properties } = await getCollections();
+  await properties.updateOne(
+    { _id: new ObjectId(listingId) },
+    { $set: { status: "archived", updatedAt: new Date() } },
+  );
+
+  revalidatePath("/dashboard/admin/reports");
+  revalidatePath("/listings");
+}
+
+export async function updateReportStatus(formData: FormData) {
+  const admin = await requireAdmin();
+  const reportId = formData.get("reportId") as string;
+  const status = formData.get("status") as "reviewing" | "resolved" | "dismissed";
+  const isFinal = status === "resolved" || status === "dismissed";
+
+  const { reports } = await getCollections();
+  await reports.updateOne(
+    { _id: new ObjectId(reportId) },
+    {
+      $set: {
+        status,
+        ...(isFinal ? { resolvedAt: new Date(), resolvedBy: new ObjectId(admin.id) } : {}),
+      },
+    },
+  );
+
+  revalidatePath("/dashboard/admin/reports");
+}
+
+// The landlord's own confirmation that the date/time Reallow set after calling them is
+// correct — a deliberate extra in-app step, not just relying on the phone call alone.
+export async function confirmVerificationInspection(formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const listingId = formData.get("listingId") as string;
+  const { properties } = await getCollections();
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (!listing) throw new Error("Listing not found");
+  if (listing.landlordId.toString() !== session.user.id) throw new Error("Unauthorized");
+
+  await properties.updateOne(
+    { _id: listing._id },
+    { $set: { "verification.landlordConfirmed": true, updatedAt: new Date() } },
+  );
+
+  revalidatePath("/dashboard/landlord");
+}
+
+// Testing-only bypass for the real Youverify NIN/BVN calls — lets staff verify an account
+// manually so the verified-user flows (applying for a listing, booking inspections) can be
+// exercised without a live third-party check. Mirrors the exact status shape the real
+// verify-nin/verify-bvn routes set.
+export async function adminVerifyUser(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+
+  const { users } = await getCollections();
+  const now = new Date();
+
+  await users.updateOne(
+    { _id: new ObjectId(userId) },
+    {
+      $set: {
+        "nin.status": "verified",
+        "nin.verifiedAt": now,
+        "bvn.status": "verified",
+        "bvn.verifiedAt": now,
+        updatedAt: now,
+      },
+    },
+  );
+
+  await recomputeVerifiedBadge(new ObjectId(userId));
+
+  revalidatePath("/dashboard/admin/users");
+}
+
+// Approving is the actual credit event — nothing lands in a referrer's wallet until an
+// admin has looked at it. Deliberate fraud gate, not a formality.
+export async function approveReferralCommission(formData: FormData) {
+  const admin = await requireAdmin();
+  const commissionId = formData.get("commissionId") as string;
+
+  const { referralCommissions, users } = await getCollections();
+  const commission = await referralCommissions.findOne({ _id: new ObjectId(commissionId) });
+  if (!commission) throw new Error("Commission not found");
+  if (commission.status !== "pending") throw new Error("This commission has already been decided");
+
+  const now = new Date();
+  await users.updateOne(
+    { _id: commission.referrerId },
+    { $inc: { walletBalanceNGN: commission.amountNGN }, $set: { updatedAt: now } },
+  );
+  await referralCommissions.updateOne(
+    { _id: commission._id },
+    { $set: { status: "approved", approvedAt: now, approvedBy: new ObjectId(admin.id) } },
+  );
+
+  revalidatePath("/dashboard/admin/referrals");
+}
+
+export async function rejectReferralCommission(formData: FormData) {
+  const admin = await requireAdmin();
+  const commissionId = formData.get("commissionId") as string;
+
+  const { referralCommissions } = await getCollections();
+  await referralCommissions.updateOne(
+    { _id: new ObjectId(commissionId) },
+    { $set: { status: "rejected", approvedAt: new Date(), approvedBy: new ObjectId(admin.id) } },
+  );
+
+  revalidatePath("/dashboard/admin/referrals");
+}
+
+// Same manual, admin-marks-it-paid pattern as markAgreementPaidOut/refundCautionFee — the
+// actual bank transfer happens out-of-band; this only records that it did.
+export async function markWithdrawalPaid(formData: FormData) {
+  const admin = await requireAdmin();
+  const requestId = formData.get("requestId") as string;
+
+  const { withdrawalRequests, users } = await getCollections();
+  const request = await withdrawalRequests.findOne({ _id: new ObjectId(requestId) });
+  if (!request) throw new Error("Withdrawal request not found");
+  if (request.status !== "pending") throw new Error("This request has already been decided");
+
+  const now = new Date();
+  await users.updateOne(
+    { _id: request.userId },
+    { $inc: { walletBalanceNGN: -request.amountNGN }, $set: { updatedAt: now } },
+  );
+  await withdrawalRequests.updateOne(
+    { _id: request._id },
+    { $set: { status: "paid", paidAt: now, paidBy: new ObjectId(admin.id) } },
+  );
+
+  revalidatePath("/dashboard/admin/referrals");
+}
+
+export async function rejectWithdrawal(formData: FormData) {
+  await requireAdmin();
+  const requestId = formData.get("requestId") as string;
+
+  const { withdrawalRequests } = await getCollections();
+  await withdrawalRequests.updateOne(
+    { _id: new ObjectId(requestId) },
+    { $set: { status: "rejected" } },
+  );
+
+  revalidatePath("/dashboard/admin/referrals");
 }

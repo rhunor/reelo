@@ -21,9 +21,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await verifyNin(parsed.data.nin);
     const { users } = await getCollections();
     const userId = new ObjectId(session.user.id);
+
+    if (
+      await users.findOne({ "nin.value": parsed.data.nin, "nin.status": "verified", _id: { $ne: userId } })
+    ) {
+      return NextResponse.json(
+        { error: "This NIN is already linked to another Reallow account" },
+        { status: 409 },
+      );
+    }
+
+    const result = await verifyNin(parsed.data.nin);
 
     await users.updateOne(
       { _id: userId },
@@ -31,7 +41,7 @@ export async function POST(request: Request) {
         $set: {
           "nin.status": result.success ? "verified" : "failed",
           "nin.provider": "youverify",
-          ...(result.success ? { "nin.verifiedAt": new Date() } : {}),
+          ...(result.success ? { "nin.verifiedAt": new Date(), "nin.value": parsed.data.nin } : {}),
           updatedAt: new Date(),
         },
       },

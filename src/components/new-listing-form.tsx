@@ -11,6 +11,15 @@ import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
+const DEAL_BREAKER_OPTIONS = [
+  "No pets",
+  "No loud music/parties",
+  "No repainting without consent",
+  "No AC installation",
+  "No smoking indoors",
+  "No subletting",
+];
+
 export function NewListingForm() {
   const router = useRouter();
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
@@ -21,8 +30,16 @@ export function NewListingForm() {
   const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [dealBreakers, setDealBreakers] = useState<string[]>([]);
+  const [otherDealBreaker, setOtherDealBreaker] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function toggleDealBreaker(option: string) {
+    setDealBreakers((current) =>
+      current.includes(option) ? current.filter((o) => o !== option) : [...current, option],
+    );
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,10 +62,11 @@ export function NewListingForm() {
       depositNGN: formData.get("depositNGN") || undefined,
       estateChargeNGN: formData.get("estateChargeNGN") || undefined,
       minimumTermMonths: formData.get("minimumTermMonths") || undefined,
-      dealBreakers: formData.get("dealBreakers") || undefined,
+      dealBreakers: [...dealBreakers, ...(otherDealBreaker.trim() ? [otherDealBreaker.trim()] : [])].join(", ") || undefined,
       state: formData.get("state"),
       city: formData.get("city"),
       area: formData.get("area") || undefined,
+      fullAddress: formData.get("fullAddress") || undefined,
       scheduledFor: formData.get("scheduledFor"),
       bedrooms: formData.get("bedrooms") || undefined,
       bathrooms: formData.get("bathrooms") || undefined,
@@ -186,6 +204,18 @@ export function NewListingForm() {
       </div>
 
       <div>
+        <textarea
+          name="fullAddress"
+          placeholder="Full property address (optional but recommended)"
+          rows={2}
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">
+          Used only by Reallow to verify this property in person — never shown publicly.
+        </p>
+      </div>
+
+      <div>
         <label className="mb-1 block text-sm text-foreground/70" htmlFor="scheduledFor">
           Propose a date for Reallow&apos;s free verification inspection
         </label>
@@ -221,15 +251,31 @@ export function NewListingForm() {
       <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
 
       <div>
-        <input
-          name="dealBreakers"
-          placeholder="Deal breakers, comma separated (optional — e.g. no pets, no smoking)"
-          className={inputClass + " w-full"}
-        />
+        <p className="text-sm">Deal breakers (optional)</p>
         <p className="mt-1 text-xs text-foreground/50">
           Hard rules for this property, not a description of who you want — shown publicly and
           given to whoever drafts the real tenancy agreement.
         </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {DEAL_BREAKER_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => toggleDealBreaker(option)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                dealBreakers.includes(option) ? "border-transparent bg-clay text-white" : "border-line"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <input
+          value={otherDealBreaker}
+          onChange={(event) => setOtherDealBreaker(event.target.value)}
+          placeholder="Other (optional)"
+          className={inputClass + " mt-2 w-full"}
+        />
       </div>
 
       <div>

@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { CompleteProfileForm } from "@/components/complete-profile-form";
+import { WalletPanel } from "@/components/wallet-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,13 @@ export default async function CompleteProfilePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { users } = await getCollections();
-  const user = await users.findOne({ _id: new ObjectId(session.user.id) });
+  const { users, referralCommissions, withdrawalRequests } = await getCollections();
+  const userId = new ObjectId(session.user.id);
+  const [user, commissions, withdrawals] = await Promise.all([
+    users.findOne({ _id: userId }),
+    referralCommissions.find({ referrerId: userId }).sort({ createdAt: -1 }).toArray(),
+    withdrawalRequests.find({ userId }).sort({ createdAt: -1 }).toArray(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-6 py-16">
@@ -27,6 +33,15 @@ export default async function CompleteProfilePage() {
       </p>
 
       <CompleteProfileForm user={user ?? undefined} />
+
+      {user?.referralCode && (
+        <WalletPanel
+          referralCode={user.referralCode}
+          walletBalanceNGN={user.walletBalanceNGN ?? 0}
+          commissions={commissions}
+          withdrawals={withdrawals}
+        />
+      )}
     </div>
   );
 }

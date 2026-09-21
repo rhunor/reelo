@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
   agreementId: z.string(),
@@ -12,7 +13,7 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || (session.user.role !== "tenant" && session.user.role !== "landlord")) {
+  if (!session?.user || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -34,9 +35,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const role = session.user.role as "tenant" | "landlord";
-  const expectedPartyId = role === "landlord" ? agreement.landlordId : agreement.tenantId;
-  if (expectedPartyId.toString() !== session.user.id) {
+  // Which party the reviewer is depends on this agreement's relationship, not their
+  // account's global role — see the identical fix in agreements/[id]/sign/route.ts.
+  const role: "landlord" | "tenant" | null =
+    agreement.landlordId.toString() === session.user.id
+      ? "landlord"
+      : agreement.tenantId.toString() === session.user.id
+        ? "tenant"
+        : null;
+  if (!role) {
     return NextResponse.json({ error: "You are not a party to this agreement" }, { status: 403 });
   }
 

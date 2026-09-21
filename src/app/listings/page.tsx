@@ -7,7 +7,8 @@ import { ListingsMap, type MapListing } from "@/components/listings-map";
 import { ReallowMark } from "@/components/reallow-logo";
 import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
 import { PROPERTY_TYPES } from "@/lib/property-types";
-import { SUPPORTED_STATES, ABUJA_DISTRICTS } from "@/lib/locations";
+import { LocationFilterSelects } from "@/components/location-filter-selects";
+import { isStaffRole } from "@/lib/roles";
 import type { Property } from "@/types/models";
 
 export const dynamic = "force-dynamic";
@@ -47,12 +48,12 @@ export default async function ListingsPage({
   const { properties, savedSearches } = await getCollections();
   const listings = await properties.find(filter).sort({ createdAt: -1 }).toArray();
 
-  // Zero-result searches are both the signal for "we should notify this tenant later"
-  // and, in aggregate, the record of demand for locations/types Reallow has no supply
-  // in yet. Only logged for signed-in tenants — there's no one to notify otherwise.
+  // Zero-result searches are both the signal for "we should notify this user later" and,
+  // in aggregate, the record of demand for locations/types Reallow has no supply in yet.
+  // Only logged for signed-in, non-staff accounts — there's no one to notify otherwise.
   if (hasActiveSearch && listings.length === 0) {
     const session = await auth();
-    if (session?.user?.role === "tenant") {
+    if (session?.user && !isStaffRole(session.user.role)) {
       const now = new Date();
       await savedSearches.updateOne(
         {
@@ -103,30 +104,7 @@ export default async function ListingsPage({
           <option value="rent">For rent</option>
           <option value="sale">For sale</option>
         </select>
-        <select
-          name="state"
-          defaultValue={state ?? ""}
-          className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
-        >
-          <option value="">All states</option>
-          {SUPPORTED_STATES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select
-          name="city"
-          defaultValue={city ?? ""}
-          className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
-        >
-          <option value="">All districts</option>
-          {ABUJA_DISTRICTS.map((district) => (
-            <option key={district.value} value={district.value}>
-              {district.label}
-            </option>
-          ))}
-        </select>
+        <LocationFilterSelects defaultState={state ?? ""} defaultCity={city ?? ""} />
         <select
           name="propertyType"
           defaultValue={propertyType ?? ""}

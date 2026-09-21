@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { isStaffRole } from "@/lib/roles";
 
 // Either party marks their own end of the tenancy as over — once BOTH have, the caution
 // fee becomes eligible for refund (an admin still has to actually action the refund, see
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const session = await auth();
-  if (!session?.user || (session.user.role !== "landlord" && session.user.role !== "tenant")) {
+  if (!session?.user || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!ObjectId.isValid(id)) {
@@ -25,9 +26,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
   }
 
-  const party = session.user.role as "landlord" | "tenant";
-  const expectedPartyId = party === "landlord" ? agreement.landlordId : agreement.tenantId;
-  if (expectedPartyId.toString() !== session.user.id) {
+  // See the identical comment in sign/route.ts — party is this agreement's relationship,
+  // not the account's global role.
+  const party: "landlord" | "tenant" | null =
+    agreement.landlordId.toString() === session.user.id
+      ? "landlord"
+      : agreement.tenantId.toString() === session.user.id
+        ? "tenant"
+        : null;
+  if (!party) {
     return NextResponse.json({ error: "You are not a party to this agreement" }, { status: 403 });
   }
   if (agreement.status !== "fully_signed") {

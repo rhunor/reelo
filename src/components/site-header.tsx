@@ -18,6 +18,7 @@ const DASHBOARD_PATH_BY_ROLE: Record<string, string> = {
   tenant: "/dashboard/tenant",
   admin: "/dashboard/admin",
   support: "/dashboard/support",
+  staff: "/dashboard/staff",
 };
 
 export async function SiteHeader() {

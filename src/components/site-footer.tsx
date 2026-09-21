@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { SOCIAL_LINKS } from "@/lib/social-links";
 
 // Landlords clicking the footer's "Contact Reallow" used to get bounced — it was
 // hardcoded to the tenant-only ticket route, which the proxy's role gate silently
@@ -8,15 +9,6 @@ const CONTACT_HREF_BY_ROLE: Record<string, string> = {
   tenant: "/dashboard/tenant/tickets/new",
   landlord: "/dashboard/landlord/tickets/new",
 };
-
-const SOCIAL_LINKS = [
-  { label: "X", href: "https://x.com/reallowofficial?s=11" },
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/accounts/login/?next=https%3A%2F%2Fwww.instagram.com%2Freallowofficial%3Fstkn%3DMW55dXlmM2JncmVpdw%253D%253D&is_from_rle",
-  },
-  { label: "TikTok", href: "https://www.tiktok.com/@reallowofficial?_r=1&_t=ZS-99YfzJ4bart" },
-];
 
 export async function SiteFooter() {
   const session = await auth();
@@ -36,6 +28,9 @@ export async function SiteFooter() {
             </Link>
             <Link href={contactHref} className="hover:text-clay">
               Contact Reallow
+            </Link>
+            <Link href="/contact" className="hover:text-clay">
+              Contact info
             </Link>
             <Link href="/terms" className="hover:text-clay">
               Terms

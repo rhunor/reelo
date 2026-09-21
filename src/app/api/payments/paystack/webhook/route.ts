@@ -4,6 +4,7 @@ import { verifyWebhookSignature } from "@/lib/paystack";
 import { getCollections } from "@/lib/db";
 import { computeAgreementTotal } from "@/lib/fees";
 import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
+import { computeReferralCommission, referralRateFor } from "@/lib/referrals";
 import type { Transaction, TransactionType } from "@/types/models";
 
 export async function POST(request: Request) {
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
   }
 
   const event = JSON.parse(rawBody);
-  const { agreements, transactions, inspectionBookings, tickets, properties } = await getCollections();
+  const { agreements, transactions, inspectionBookings, tickets, properties, users, referralCommissions } =
+    await getCollections();
   const now = new Date();
 
   if (event.event === "charge.success") {
@@ -44,13 +46,17 @@ export async function POST(request: Request) {
             createdAt: now,
           });
 
+          // The tenant's checkout-time pick becomes the first proposal, not a final time —
+          // either party can accept or counter it from here (see
+          // src/app/api/inspection-bookings/[id]/respond/route.ts).
           await inspectionBookings.insertOne({
             listingId: listing._id!,
             landlordId: listing.landlordId,
             tenantId: new ObjectId(metadata.tenantId),
             ticketId: ticket._id!,
-            scheduledFor: new Date(metadata.scheduledFor),
-            status: "requested",
+            proposedTime: new Date(metadata.scheduledFor),
+            proposedBy: "tenant",
+            status: "pending_response",
             feeNGN: amount / 100,
             transactionId,
             createdAt: now,
@@ -109,6 +115,27 @@ export async function POST(request: Request) {
             },
           },
         );
+
+        // Referral commission — created pending, never auto-credited. Either party on
+        // this agreement could have been the one referred (either could have signed up
+        // via someone's link, regardless of which side of the deal they ended up on).
+        for (const partyId of [agreement.landlordId, agreement.tenantId]) {
+          const party = await users.findOne({ _id: partyId });
+          if (!party?.referredBy) continue;
+
+          const referrer = await users.findOne({ _id: party.referredBy });
+          if (!referrer) continue;
+
+          await referralCommissions.insertOne({
+            referrerId: referrer._id!,
+            referredUserId: party._id!,
+            agreementId: agreement._id!,
+            amountNGN: computeReferralCommission(agreement.terms.rentNGN, referrer.role),
+            rateApplied: referralRateFor(referrer.role),
+            status: "pending",
+            createdAt: now,
+          });
+        }
       }
     }
   }

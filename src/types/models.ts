@@ -1,6 +1,10 @@
 import type { ObjectId } from "mongodb";
 
-export type UserRole = "tenant" | "landlord" | "admin" | "support";
+// "staff" is Reallow's field agents — the people who physically visit a property to
+// verify it, or meet a tenant for a paid inspection. Distinct from "admin" (decisions)
+// and "support" (tickets). Like both of those, a "staff" account can't transact as a
+// customer — see isStaffRole in src/lib/roles.ts.
+export type UserRole = "tenant" | "landlord" | "admin" | "support" | "staff";
 
 export type VerificationStatus = "unverified" | "pending" | "verified" | "failed";
 
@@ -27,16 +31,29 @@ export interface UserProfile {
   occupation?: string;
   maritalStatus?: string;
   religion?: string;
+  employmentStatus?: "student" | "self_employed" | "employed" | "prefer_not_to_say";
+  gender?: string;
+  stateOfOrigin?: string;
+  // Never toggle-able to public — same treatment as bankDetails, collected for KYC/service
+  // purposes only.
+  presentAddress?: string;
   profilePictureUrl?: string;
   occupationVisible?: boolean;
   maritalStatusVisible?: boolean;
   religionVisible?: boolean;
+  employmentStatusVisible?: boolean;
+  genderVisible?: boolean;
+  stateOfOriginVisible?: boolean;
   profilePictureVisible?: boolean;
 }
 
 export interface User {
   _id?: ObjectId;
   role: UserRole;
+  // What the user said they're using Reallow for at signup (see src/lib/intents.ts) —
+  // multi-select, purely for personalization/copy. `role` above (derived from this at
+  // signup) remains the single field that actually gates dashboards/permissions.
+  intents?: string[];
   name: string;
   firstName?: string;
   lastName?: string;
@@ -48,6 +65,11 @@ export interface User {
     status: VerificationStatus;
     provider?: "youverify" | "prembly" | "smile_id";
     verifiedAt?: Date;
+    // The actual verified number — never stored before this, needed to enforce "no two
+    // accounts share a NIN" (see the uniqueness check in api/kyc/verify-nin/route.ts).
+    // Treated exactly like bankDetails: never exposed via any API response or visibility
+    // toggle.
+    value?: string;
   };
   // Optional so existing users predating BVN verification don't break — treated as
   // "unverified" wherever read. See src/lib/kyc.ts recomputeVerifiedBadge: verifiedBadge
@@ -56,6 +78,7 @@ export interface User {
     status: VerificationStatus;
     provider?: "youverify" | "prembly" | "smile_id";
     verifiedAt?: Date;
+    value?: string;
   };
   // Never exposed via any "public" visibility toggle — collected for KYC/payout name
   // matching only. Reallow won't pay out to a name that doesn't match across NIN/BVN/bank.
@@ -65,6 +88,9 @@ export interface User {
     bankName?: string;
   };
   verifiedBadge: boolean;
+  // Unset/"active" means active — only ever set to "banned" by an admin action (see
+  // banUser in dashboard/admin/actions.ts), checked at login in src/auth.ts.
+  status?: "active" | "banned";
   termsAcceptedAt?: Date;
   termsVersion?: string;
   newsletterOptIn?: boolean;
@@ -75,6 +101,13 @@ export interface User {
   tenantProfile?: TenantProfile;
   ratingAverage?: number;
   ratingCount?: number;
+  // Referral program (see src/lib/referrals.ts) — every account gets a code; walletBalanceNGN
+  // only ever moves via an admin-approved ReferralCommission (up) or a paid
+  // WithdrawalRequest (down), never automatically. The commission rate itself is
+  // deliberately never exposed anywhere client-facing — see referrals.ts.
+  referralCode?: string;
+  referredBy?: ObjectId;
+  walletBalanceNGN?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,6 +140,18 @@ export interface ListingVerification {
   reviewedBy?: ObjectId;
   reviewedAt?: Date;
   rejectionReason?: string;
+  // Set once the landlord has confirmed (in-app) the inspection date/time Reallow set
+  // after calling them — a deliberate extra step so nothing gets locked in from a phone
+  // call alone. Reset to false whenever admin changes scheduledFor (see scheduleInspection).
+  landlordConfirmed?: boolean;
+  // The field agent's checklist for this visit (see src/app/dashboard/staff/page.tsx) —
+  // all default false/unset. The actual media they capture gets appended straight onto
+  // Property.photoUrls/videoUrls, since that media *is* the listing's verification media.
+  tasks?: {
+    videoOfProperty: boolean;
+    videoOfRoad: boolean;
+    photos: boolean;
+  };
 }
 
 export interface Property {
@@ -131,6 +176,10 @@ export interface Property {
   // rules. Shown on the listing publicly and handed to whoever drafts the real tenancy
   // agreement with a lawyer.
   dealBreakers?: string[];
+  // Collected for Reallow's own in-person verification visit only — never rendered on the
+  // public listing page. Distinct from `location`, which is the closed-dropdown
+  // district/coordinates every other feature (map, search, fees) actually relies on.
+  fullAddress?: string;
   location: {
     state: string;
     city: string;
@@ -157,7 +206,7 @@ export interface Property {
   updatedAt: Date;
 }
 
-export type InspectionStatus = "requested" | "confirmed" | "completed" | "cancelled";
+export type InspectionStatus = "requested" | "pending_response" | "confirmed" | "completed" | "cancelled";
 
 export interface InspectionBooking {
   _id?: ObjectId;
@@ -165,7 +214,14 @@ export interface InspectionBooking {
   landlordId: ObjectId;
   tenantId: ObjectId;
   ticketId?: ObjectId;
-  scheduledFor: Date;
+  // Only set once a time is actually confirmed — before that, see `proposedTime` below.
+  scheduledFor?: Date;
+  // The time currently on the table and who put it there — either party can accept it
+  // (→ status "confirmed", scheduledFor = proposedTime) or counter with a new one (updates
+  // proposedTime, flips proposedBy to themselves, stays "pending_response"). Created by the
+  // Paystack webhook on confirmed payment, seeded from the tenant's checkout-time pick.
+  proposedTime?: Date;
+  proposedBy?: "landlord" | "tenant";
   status: InspectionStatus;
   // Location-priced (src/lib/fees.ts) — covers Reallow's agent physically travelling to
   // the property. Only ever created by the Paystack webhook, on confirmed payment. Older
@@ -215,6 +271,11 @@ export interface Agreement {
     rentNGN: number;
     depositNGN: number;
     estateChargeNGN?: number;
+    // Captured once from the source listing at agreement-creation time, so a state's
+    // agency-fee rate changing later never retroactively changes an existing agreement's
+    // math. Optional so agreements created before this field existed still read fine
+    // (see computeAgreementTotal's fallback in src/lib/fees.ts).
+    state?: string;
     leaseStart: Date;
     leaseEndOrTermMonths: number | Date;
     responsibilities: string;
@@ -263,6 +324,36 @@ export interface Transaction {
   providerReference: string;
   status: TransactionStatus;
   createdAt: Date;
+}
+
+// A pending referral payout — created when a referred user's agreement payment
+// completes (see the paystack webhook), but never credited to the referrer's wallet
+// until an admin approves it (see approveReferralCommission in
+// dashboard/admin/actions.ts). This manual gate is deliberate, not a formality.
+export interface ReferralCommission {
+  _id?: ObjectId;
+  referrerId: ObjectId;
+  referredUserId: ObjectId;
+  agreementId: ObjectId;
+  amountNGN: number;
+  rateApplied: number;
+  status: "pending" | "approved" | "rejected";
+  createdAt: Date;
+  approvedAt?: Date;
+  approvedBy?: ObjectId;
+}
+
+// A user's request to move their wallet balance out to their bank account — same manual,
+// admin-marks-it-paid pattern as markAgreementPaidOut/refundCautionFee; nothing here moves
+// money itself, the transfer happens out-of-band.
+export interface WithdrawalRequest {
+  _id?: ObjectId;
+  userId: ObjectId;
+  amountNGN: number;
+  status: "pending" | "paid" | "rejected";
+  createdAt: Date;
+  paidAt?: Date;
+  paidBy?: ObjectId;
 }
 
 export interface ListingReview {
@@ -339,7 +430,31 @@ export type NotificationType =
   | "saved_search_match"
   | "ticket_new"
   | "ticket_reply"
-  | "landlord_decision";
+  | "landlord_decision"
+  | "verification_inspection_scheduled"
+  | "inspection_time_proposed"
+  | "inspection_time_confirmed";
+
+export type ReportTargetType = "user" | "listing";
+export type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
+
+// Any authenticated user can report another user or a listing for misconduct or suspected
+// misconduct — see src/components/report-button.tsx and the admin review queue at
+// src/app/dashboard/admin/reports/page.tsx. Kept as one generic collection rather than
+// separate "report a user"/"report a listing" models since the review workflow (open →
+// reviewing → resolved/dismissed) is identical either way.
+export interface Report {
+  _id?: ObjectId;
+  reporterId: ObjectId;
+  targetType: ReportTargetType;
+  targetId: ObjectId;
+  reason: string;
+  details?: string;
+  status: ReportStatus;
+  createdAt: Date;
+  resolvedAt?: Date;
+  resolvedBy?: ObjectId;
+}
 
 export interface Notification {
   _id?: ObjectId;

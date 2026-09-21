@@ -64,6 +64,7 @@ export default async function TenantDashboardPage() {
           { href: "/dashboard/tenant/agreements", label: "Tenancy agreements" },
           { href: "/dashboard/tenant/profile", label: "Share profile with landlords" },
           { href: "/dashboard/tenant/transactions", label: "Transaction history" },
+          { href: "/dashboard/landlord", label: "Have a property to list?" },
         ]}
       />
       <div className="mt-2">

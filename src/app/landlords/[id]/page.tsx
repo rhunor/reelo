@@ -12,10 +12,13 @@ export default async function LandlordProfilePage({ params }: { params: Promise<
   if (!ObjectId.isValid(id)) notFound();
 
   const { users, properties } = await getCollections();
-  const landlord = await users.findOne({ _id: new ObjectId(id), role: "landlord" });
-  if (!landlord) notFound();
+  const landlord = await users.findOne({ _id: new ObjectId(id) });
+  if (!landlord || landlord.role === "admin" || landlord.role === "support") notFound();
 
   const listings = await properties.find({ landlordId: landlord._id, status: "published" }).toArray();
+  // This page only makes sense for someone who actually has listings — anyone can list a
+  // property now regardless of what `role` they signed up with.
+  if (listings.length === 0) notFound();
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">

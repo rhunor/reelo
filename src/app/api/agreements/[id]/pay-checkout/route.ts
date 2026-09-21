@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { initializeTransaction } from "@/lib/paystack";
 import { computeAgreementTotal } from "@/lib/fees";
+import { isStaffRole } from "@/lib/roles";
 
 // The tenant pays the full total — rent, caution fee, estate charge, Reallow's agency fee,
 // and the legal fee — together in one Paystack transaction, straight into Reallow's
@@ -13,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const session = await auth();
-  if (!session?.user?.email || session.user.role !== "tenant") {
+  if (!session?.user?.email || isStaffRole(session.user.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!ObjectId.isValid(id)) {
