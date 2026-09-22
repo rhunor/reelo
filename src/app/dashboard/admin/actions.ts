@@ -2,12 +2,15 @@
 
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { notifySavedSearchMatches, notifyVerificationInspectionScheduled } from "@/lib/notifications";
 import { distanceMeters, CHECK_IN_DISTANCE_WARNING_METERS } from "@/lib/geo";
 import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 import { recomputeVerifiedBadge } from "@/lib/kyc";
+import { generateReferralCode } from "@/lib/referrals";
+import type { User } from "@/types/models";
 
 async function requireAdmin() {
   const session = await auth();
@@ -420,4 +423,43 @@ export async function rejectWithdrawal(formData: FormData) {
   );
 
   revalidatePath("/dashboard/admin/referrals");
+}
+
+// The in-app equivalent of `npm run create-staff-account` — there's still no self-service
+// signup path for a "staff" (field agent) account, by design, but admin no longer needs
+// CLI/database access to create one.
+export async function createStaffAccount(formData: FormData) {
+  await requireAdmin();
+  const email = (formData.get("email") as string)?.toLowerCase().trim();
+  const password = formData.get("password") as string;
+  const name = (formData.get("name") as string)?.trim();
+
+  if (!email || !password || password.length < 8) {
+    throw new Error("Email and an 8+ character password are required");
+  }
+
+  const { users } = await getCollections();
+  const existing = await users.findOne({ email });
+  if (existing) {
+    throw new Error("An account with that email already exists");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const now = new Date();
+  const referralCode = await generateReferralCode(name?.split(" ")[0] || "STAFF");
+
+  await users.insertOne({
+    role: "staff",
+    name: name || "Reallow Staff",
+    email,
+    passwordHash,
+    nin: { status: "verified" },
+    verifiedBadge: true,
+    referralCode,
+    walletBalanceNGN: 0,
+    createdAt: now,
+    updatedAt: now,
+  } as User);
+
+  revalidatePath("/dashboard/admin/users");
 }

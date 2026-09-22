@@ -3,11 +3,8 @@ import { SOCIAL_LINKS } from "@/lib/social-links";
 
 export const metadata = { title: "Contact — Reallow" };
 
-// Placeholder support email/phone — swap these for the real ones. Kept clearly marked
-// (see the CTA below) rather than left blank, matching how social handles were handled:
-// added for real once actually supplied.
-const SUPPORT_EMAIL = "hello@reallow.ng";
-const SUPPORT_PHONE = "+234 XXX XXX XXXX";
+const SUPPORT_EMAIL = "reallowng@gmail.com";
+const SUPPORT_PHONES = ["08104669006", "09067487805"];
 
 export default function ContactPage() {
   return (
@@ -32,7 +29,13 @@ export default function ContactPage() {
         </div>
         <div className="rounded-lg border border-line p-4">
           <p className="font-medium">Phone</p>
-          <p className="mt-1 text-foreground/70">{SUPPORT_PHONE}</p>
+          <div className="mt-1 flex flex-col gap-1">
+            {SUPPORT_PHONES.map((phone) => (
+              <a key={phone} href={`tel:${phone}`} className="inline-block text-clay underline">
+                {phone}
+              </a>
+            ))}
+          </div>
         </div>
         <div className="rounded-lg border border-line p-4">
           <p className="font-medium">Hours</p>

@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
+import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { TicketMessages } from "@/components/ticket-messages";
 import { ReplyForm } from "@/components/reply-form";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function SupportTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await auth();
+  if (!session?.user) redirect("/login");
   if (!ObjectId.isValid(id)) notFound();
 
   const { tickets, users, properties } = await getCollections();
@@ -55,7 +58,7 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
         return null;
       })()}
 
-      <TicketMessages messages={ticket.messages} />
+      <TicketMessages messages={ticket.messages} viewerId={session.user.id} />
       <ReplyForm ticketId={ticket._id!.toString()} />
 
       <div className="mt-6">

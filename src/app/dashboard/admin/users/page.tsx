@@ -1,5 +1,5 @@
 import { getCollections } from "@/lib/db";
-import { adminVerifyUser } from "@/app/dashboard/admin/actions";
+import { adminVerifyUser, createStaffAccount } from "@/app/dashboard/admin/actions";
 import { VerifiedBadge } from "@/components/verified-badge";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,42 @@ export default async function AdminUsersPage({
           Search
         </button>
       </form>
+
+      <div className="mt-8 rounded-lg border border-line p-4">
+        <p className="font-medium">Create a staff (field agent) account</p>
+        <p className="mt-1 text-xs text-foreground/50">
+          There&apos;s no self-service signup for staff — this is the only way to create one
+          short of running a script directly against the database.
+        </p>
+        <form action={createStaffAccount} className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <input
+            name="name"
+            placeholder="Full name"
+            className="h-10 rounded-md border border-line bg-transparent px-3 text-sm"
+          />
+          <input
+            name="email"
+            type="email"
+            placeholder="Email"
+            required
+            className="h-10 rounded-md border border-line bg-transparent px-3 text-sm"
+          />
+          <input
+            name="password"
+            type="password"
+            placeholder="Password (8+ characters)"
+            required
+            minLength={8}
+            className="h-10 rounded-md border border-line bg-transparent px-3 text-sm"
+          />
+          <button
+            type="submit"
+            className="h-10 rounded-full bg-clay px-4 text-sm font-medium text-white sm:col-span-3 sm:w-fit"
+          >
+            Create staff account
+          </button>
+        </form>
+      </div>
 
       <div className="mt-6 flex flex-col gap-3">
         {results.map((user) => {

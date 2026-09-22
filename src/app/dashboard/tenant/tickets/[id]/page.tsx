@@ -73,7 +73,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
         </p>
       )}
 
-      <TicketMessages messages={ticket.messages} />
+      <TicketMessages messages={ticket.messages} viewerId={session.user.id} />
       <ReplyForm ticketId={ticket._id!.toString()} />
     </div>
   );
