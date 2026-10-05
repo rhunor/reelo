@@ -7,7 +7,7 @@ import type { NextAuthConfig } from "next-auth";
 // everything (see the `role !== "admin"` override below).
 function allowedRolesForDashboardPath(pathname: string): string[] | null {
   if (pathname.startsWith("/dashboard/landlord") || pathname.startsWith("/dashboard/tenant")) {
-    return ["landlord", "tenant"];
+    return ["user", "landlord", "tenant"];
   }
   if (pathname.startsWith("/dashboard/admin")) return ["admin"];
   if (pathname.startsWith("/dashboard/support")) return ["support"];

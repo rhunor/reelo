@@ -3,6 +3,9 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { notifyNewReport } from "@/lib/notifications";
+import { sendSupportInboxEmail } from "@/lib/email";
+import { SUPPORT_EMAIL } from "@/lib/contact-info";
 
 const schema = z.object({
   targetType: z.enum(["user", "listing"]),
@@ -29,15 +32,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid target" }, { status: 400 });
   }
 
-  const { reports } = await getCollections();
-  await reports.insertOne({
-    reporterId: new ObjectId(session.user.id),
+  const { reports, users, properties } = await getCollections();
+  const reporterId = new ObjectId(session.user.id);
+  const targetId = new ObjectId(parsed.data.targetId);
+  const target =
+    parsed.data.targetType === "listing"
+      ? await properties.findOne({ _id: targetId }, { projection: { title: 1 } })
+      : await users.findOne({ _id: targetId }, { projection: { name: 1 } });
+  if (!target) {
+    return NextResponse.json({ error: "We couldn't find what you're reporting" }, { status: 404 });
+  }
+  if (await reports.findOne({ reporterId, targetId, status: { $in: ["open", "reviewing"] } })) {
+    return NextResponse.json({ error: "You've already reported this — Reallow is looking into it" }, { status: 409 });
+  }
+
+  const report = {
+    reporterId,
     targetType: parsed.data.targetType,
-    targetId: new ObjectId(parsed.data.targetId),
+    targetId,
     reason: parsed.data.reason,
     details: parsed.data.details,
-    status: "open",
+    status: "open" as const,
     createdAt: new Date(),
+  };
+  const { insertedId } = await reports.insertOne(report);
+
+  await notifyNewReport({ ...report, _id: insertedId });
+  const reporter = await users.findOne({ _id: reporterId });
+  const targetLabel = "title" in target ? `listing “${target.title}”` : `user ${"name" in target ? target.name : ""}`;
+  await sendSupportInboxEmail({
+    supportEmail: SUPPORT_EMAIL,
+    fromName: reporter?.name ?? "A Reallow user",
+    fromEmail: reporter?.email ?? SUPPORT_EMAIL,
+    fromPhone: reporter?.phone,
+    topic: "Report",
+    subject: `Report on ${targetLabel}: ${parsed.data.reason}`,
+    message: parsed.data.details || "(no extra details)",
   });
 
   return NextResponse.json({ success: true });

@@ -67,10 +67,9 @@ export default function PrivacyPage() {
             If you refer people to Reallow, you may earn a percentage of sales completed using
             your referral code, credited to a balance on your Reallow account. Reallow holds that
             balance until you request a withdrawal, which Reallow then pays out to the bank
-            details on your profile by bank transfer. Separately, if you&apos;re a tenant, your
-            caution fee is held by Reallow — not the landlord — for the duration of your tenancy,
-            and refunded once both parties confirm the tenancy has ended with no damage found.
-            Both of these are custodial: Reallow is holding money on your behalf, not spending it.
+            details on your profile by bank transfer. That balance is custodial: Reallow is
+            holding money on your behalf, not spending it. (Reallow does not hold caution fees —
+            those go to the landlord with the rent.)
           </p>
         </section>
 

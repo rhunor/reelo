@@ -86,19 +86,20 @@ export default function TermsPage() {
           <h2 className="font-display text-lg font-semibold text-foreground">6. Payments &amp; Fees</h2>
           <p className="mt-2">
             All payments made through Reallow — inspection fees, rent, caution fees, estate
-            charges, Reallow&apos;s agency fee, and the legal fee — are paid into Reallow&apos;s own
-            account, never directly into another user&apos;s account. Reallow&apos;s agency fee
-            varies by city; the exact breakdown for a given listing is always shown before you pay
+            charges, and Reallow&apos;s service charge — are paid into Reallow&apos;s own account, never
+            directly into another user&apos;s account. Reallow drafts the tenancy agreement itself,
+            at no separate charge. Reallow&apos;s service charge is 10% of the annual rent on a
+            tenancy and 5% of the price on a sale; the exact breakdown for a given listing is always shown before you pay
             anything. Fees are subject to change, and the fee shown at the time of a transaction is
             the fee that applies to it.
           </p>
           <p className="mt-2">
             Once rent (or the sale price) has been paid and access to the property has been handed
             over, that transaction is complete — any further payments or arrangements between the
-            two parties are their own responsibility, not Reallow&apos;s. The one exception is the
-            caution fee on a tenancy: Reallow continues to hold it, specifically to protect both
-            sides and to make the eventual refund straightforward, until both parties confirm the
-            tenancy has ended and no damage is found.
+            two parties are their own responsibility, not Reallow&apos;s. This includes the caution
+            fee on a tenancy: it is collected with the rent and paid to the landlord, and Reallow
+            does not hold it. Whether and how it is returned at the end of the tenancy is between
+            the landlord and the tenant.
           </p>
         </section>
 

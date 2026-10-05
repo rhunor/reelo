@@ -37,10 +37,10 @@ export default async function NewAgreementPage({
             Listing caution fee: ₦{(selectedListing.depositNGN ?? 0).toLocaleString()} · Minimum
             term: {selectedListing.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS} months
           </p>
-          {selectedListing.dealBreakers && selectedListing.dealBreakers.length > 0 && (
+          {selectedListing.tenantPreferences && (
             <div className="mt-2">
-              <p className="font-medium">Deal breakers to include</p>
-              <p className="mt-1 text-foreground/70">{selectedListing.dealBreakers.join(", ")}</p>
+              <p className="font-medium">What the landlord said they&apos;re looking for</p>
+              <p className="mt-1 text-foreground/70 break-words">{selectedListing.tenantPreferences}</p>
             </div>
           )}
         </div>

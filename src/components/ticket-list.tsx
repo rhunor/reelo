@@ -15,7 +15,12 @@ export function TicketList({ tickets, basePath }: { tickets: SupportTicket[]; ba
           className="flex items-center justify-between gap-3 rounded-lg border border-line p-4"
         >
           <div className="min-w-0">
-            <p className="font-medium break-words">{ticket.subject}</p>
+            <p className="flex items-center gap-2 font-medium break-words">
+              {ticket.subject}
+              {ticket.unreadReplyForUser && (
+                <span className="rounded-full bg-clay px-2 py-0.5 text-[10px] font-semibold text-white">New reply</span>
+              )}
+            </p>
             <p className="mt-1 text-sm text-foreground/70">
               {ticket.messages.length} message{ticket.messages.length === 1 ? "" : "s"}
             </p>

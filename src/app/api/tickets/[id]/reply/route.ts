@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { notifyTicketReply } from "@/lib/notifications";
+import { sendSupportReplyEmail } from "@/lib/email";
 
 const schema = z.object({ body: z.string().min(1) });
 
@@ -24,14 +25,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Message can't be empty" }, { status: 400 });
   }
 
-  const { tickets } = await getCollections();
+  const { tickets, users } = await getCollections();
   const ticket = await tickets.findOne({ _id: new ObjectId(id) });
   if (!ticket) {
     return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
   }
 
   const isOwner = ticket.userId.toString() === session.user.id;
-  const isStaff = session.user.role === "admin" || session.user.role === "support";
+  const isStaff = (session.user.role === "admin" || session.user.role === "support") && !isOwner;
   if (!isOwner && !isStaff) {
     return NextResponse.json({ error: "Not your ticket" }, { status: 403 });
   }
@@ -52,11 +53,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       $set: {
         updatedAt: now,
         status: isStaff ? "in_progress" : "open",
+        unreadReplyForUser: isStaff,
       },
     },
   );
 
   await notifyTicketReply(ticket, new ObjectId(session.user.id), isStaff);
+  if (isStaff) {
+    const owner = await users.findOne({ _id: ticket.userId });
+    if (owner?.email) {
+      await sendSupportReplyEmail(owner.email, owner.firstName ?? owner.name, ticket.subject, parsed.data.body, ticket._id!.toString());
+    }
+  }
 
   return NextResponse.json({ success: true });
 }

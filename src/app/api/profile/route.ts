@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 
@@ -8,12 +9,21 @@ import { getCollections } from "@/lib/db";
 // tenantProfile (which is scoped to sharing background info with a specific landlord):
 // this is about who this user is, for KYC/payout purposes.
 const schema = z.object({
-  occupation: z.string().max(100).optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date of birth")
+    .refine((value) => {
+      const date = new Date(value);
+      const age = (Date.now() - date.getTime()) / (365.25 * 24 * 3600 * 1000);
+      return !Number.isNaN(date.getTime()) && age >= 16 && age <= 120;
+    }, "Enter a valid date of birth")
+    .optional(),
+  occupation: z.string().max(100).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   maritalStatus: z.string().max(50).optional(),
-  religion: z.string().max(50).optional(),
+  religion: z.string().max(50).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   employmentStatus: z.enum(["student", "self_employed", "employed", "prefer_not_to_say"]).optional(),
   gender: z.string().max(30).optional(),
-  stateOfOrigin: z.string().max(50).optional(),
+  stateOfOrigin: z.string().max(50).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   // Never exposed via any visibility toggle — same treatment as bank details below.
   presentAddress: z.string().max(300).optional(),
   profilePictureUrl: z.string().url().optional(),
@@ -51,6 +61,7 @@ export async function POST(request: Request) {
     {
       $set: {
         profile: {
+          dateOfBirth: data.dateOfBirth,
           occupation: data.occupation,
           maritalStatus: data.maritalStatus,
           religion: data.religion,

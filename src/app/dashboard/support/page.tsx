@@ -1,11 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ObjectId } from "mongodb";
+import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { DashboardHeader, StatGrid, AccountSettingsLink } from "@/components/dashboard-shell";
+import { StatGrid } from "@/components/dashboard-shell";
+import { IdentityHeader } from "@/components/dashboard/identity-header";
 
 export const dynamic = "force-dynamic";
 
 export default async function SupportDashboardPage() {
-  const { tickets } = await getCollections();
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const { tickets, users } = await getCollections();
+  const me = await users.findOne({ _id: new ObjectId(session.user.id) });
+  if (!me) redirect("/login");
   const [openTickets, inProgressCount, resolvedCount] = await Promise.all([
     tickets.find({ status: { $in: ["open", "in_progress"] } }).sort({ updatedAt: -1 }).toArray(),
     tickets.countDocuments({ status: "in_progress" }),
@@ -13,12 +21,8 @@ export default async function SupportDashboardPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <DashboardHeader
-        eyebrow="Support"
-        title="Support queue"
-        subtitle={`${openTickets.length} ticket${openTickets.length === 1 ? "" : "s"} needing attention.`}
-      />
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
+      <IdentityHeader user={me} greeting="Support queue" />
 
       <StatGrid
         stats={[
@@ -28,9 +32,6 @@ export default async function SupportDashboardPage() {
         ]}
       />
 
-      <div className="mt-6">
-        <AccountSettingsLink />
-      </div>
 
       {openTickets.length === 0 && (
         <p className="mt-8 text-foreground/70">Nothing open right now.</p>

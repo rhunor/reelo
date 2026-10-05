@@ -8,7 +8,7 @@ const steps = [
   {
     number: "01",
     title: "Search & compare",
-    body: "Browse verified listings across Abuja, Port Harcourt, and Warri with a full, itemised cost breakdown up front — rent or price, caution fee, estate charge, agency fee, legal fee. No hidden line items later.",
+    body: "Browse verified listings across Abuja, Port Harcourt, and Warri with a full, itemised cost breakdown up front — rent or price, caution fee, estate charge, Reallow service charge. No hidden line items later.",
   },
   {
     number: "02",
@@ -34,7 +34,7 @@ const values = [
   },
   {
     title: "Transparent pricing",
-    body: "Every cost is itemised and shown before you pay anything — rent or price, caution fee, estate charge, agency fee, legal fee. What you're quoted is what you pay.",
+    body: "Every cost is itemised and shown before you pay anything — rent or price, caution fee, estate charge, Reallow service charge. What you're quoted is what you pay.",
   },
   {
     title: "Effortless, start to finish",

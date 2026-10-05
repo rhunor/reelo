@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
-import { capCautionFee } from "@/lib/fees";
+import { capCautionFee, getServiceChargeRate } from "@/lib/fees";
 import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
@@ -15,7 +15,12 @@ const schema = z.object({
   estateChargeNGN: z.coerce.number().positive().optional(),
   leaseStart: z.string(),
   leaseTermMonths: z.coerce.number().int().positive(),
-  responsibilities: z.string().min(10),
+  // Optional now — the generated document's standard clauses cover the defaults; this is
+  // only for anything specific to this deal on top of them.
+  responsibilities: z.string().max(3000).optional(),
+  // Entered by Reallow when drafting the agreement (one rule per line) — landlords no longer
+  // set rules on the listing itself.
+  houseRules: z.string().max(3000).optional(),
 });
 
 // Reallow organizes everything between landlord and tenant, so admin — not the landlord —
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   // Validated against this specific listing's own terms, not just the platform floor —
-  // a landlord can require a longer minimum tenancy than the 6-month floor, and the
+  // a landlord can require a longer minimum tenancy than the platform floor, and the
   // caution fee is capped relative to whatever rent is actually being agreed here.
   const requiredMinimumMonths = listing.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS;
   if (parsed.data.leaseTermMonths < requiredMinimumMonths) {
@@ -65,20 +70,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Caution fee can't exceed 12% of annual rent" }, { status: 400 });
   }
 
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  const district = [listing.location.area, listing.location.city, listing.location.state]
+    .filter(Boolean)
+    .join(", ");
+  const propertyDescription = [
+    listing.bedrooms ? `${listing.bedrooms}-bedroom` : null,
+    listing.propertyType,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const now = new Date();
   const { insertedId } = await agreements.insertOne({
     listingId: listing._id!,
     landlordId: listing.landlordId,
     tenantId: tenant._id!,
-    templateVersion: "v1",
+    templateVersion: "v2",
     terms: {
       rentNGN: parsed.data.rentNGN,
       depositNGN: parsed.data.depositNGN,
       estateChargeNGN: parsed.data.estateChargeNGN,
       state: listing.location.state,
+      serviceChargeRate: getServiceChargeRate("rent"),
       leaseStart: new Date(parsed.data.leaseStart),
       leaseEndOrTermMonths: parsed.data.leaseTermMonths,
-      responsibilities: parsed.data.responsibilities,
+      responsibilities: parsed.data.responsibilities?.trim() ?? "",
+      houseRules: (parsed.data.houseRules ?? "")
+        .split("\n")
+        .map((rule) => rule.trim())
+        .filter(Boolean),
+      propertyAddress: listing.fullAddress?.trim() || district,
+      propertyDescription,
+      landlordName: landlord?.name,
+      tenantName: tenant.name,
     },
     status: "sent",
     signatures: [],

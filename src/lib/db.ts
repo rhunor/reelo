@@ -3,6 +3,8 @@ import type {
   Agreement,
   InspectionBooking,
   ListingReview,
+  Meeting,
+  MeetingFeedback,
   Notification,
   Property,
   ReferralCommission,
@@ -36,5 +38,7 @@ export async function getCollections() {
     reports: db.collection<Report>("reports"),
     referralCommissions: db.collection<ReferralCommission>("referralCommissions"),
     withdrawalRequests: db.collection<WithdrawalRequest>("withdrawalRequests"),
+    meetings: db.collection<Meeting>("meetings"),
+    meetingFeedback: db.collection<MeetingFeedback>("meetingFeedback"),
   };
 }

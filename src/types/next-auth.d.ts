@@ -20,5 +20,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     role: UserRole;
     verifiedBadge: boolean;
+    // Last time the session re-checked the account (blocked/role) — see src/auth.ts.
+    checkedAt?: number;
   }
 }

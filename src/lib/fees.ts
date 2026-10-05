@@ -2,22 +2,23 @@
 // tenant/landlord is shown) and the API routes (what's actually validated/charged) import
 // from here, so the displayed number and the enforced number can never drift apart.
 
-// Agency fee varies by city — Reallow prices under the local market standard in each
-// (Abuja's standard is ~10%, PH's is ~20%; Reallow charges below both). Keyed by the same
-// `state` value used in src/lib/locations.ts.
-export const AGENCY_FEE_RATE_BY_STATE: Record<string, number> = {
-  Abuja: 0.09,
-  "Port Harcourt": 0.15,
-  Warri: 0.15,
-};
-export const DEFAULT_AGENCY_FEE_RATE = 0.09;
+import type { ListingType } from "@/types/models";
 
-export function getAgencyFeeRate(state?: string): number {
-  if (!state) return DEFAULT_AGENCY_FEE_RATE;
-  return AGENCY_FEE_RATE_BY_STATE[state] ?? DEFAULT_AGENCY_FEE_RATE;
+// Reallow's service charge — paid by the tenant/buyer on top of the price, so the
+// landlord/seller always receives their full asking amount. Flat in every city.
+export const SERVICE_CHARGE_RATE: Record<ListingType, number> = {
+  rent: 0.1, // 10% of annual rent
+  sale: 0.05, // 5% of sale price
+};
+
+export function getServiceChargeRate(listingType: ListingType = "rent"): number {
+  return SERVICE_CHARGE_RATE[listingType];
 }
 
-export const LEGAL_FEE_NGN = 50_000; // flat
+export function formatRate(rate: number): string {
+  return `${Math.round(rate * 1000) / 10}%`;
+}
+
 export const CAUTION_FEE_CAP_RATE = 0.12; // caution fee can't exceed 12% of annual rent
 // The absolute platform floor for how short a lease can be lives in listing-verification.ts
 // (MINIMUM_LEASE_TERM_MONTHS) — each listing can set its own minimum at or above that floor.
@@ -50,48 +51,72 @@ export function capCautionFee(cautionFeeNGN: number, annualRentNGN: number): boo
 }
 
 export interface ListingCostBreakdown {
-  rentNGN: number;
+  listingType: ListingType;
+  // Annual rent, or the sale price.
+  priceNGN: number;
+  // Rent only — always 0 for a sale.
   cautionFeeNGN: number;
   estateChargeNGN: number;
-  agencyFeeNGN: number;
-  legalFeeNGN: number;
+  serviceChargeRate: number;
+  serviceChargeNGN: number;
+  // What the tenant/buyer pays in total.
   totalNGN: number;
+  // What reaches the landlord/seller: everything except Reallow's service charge.
+  toOwnerNGN: number;
+  // What Reallow keeps — the service charge.
+  toReallowNGN: number;
 }
 
-// Used both for display (listing detail page) and for what's actually charged at
-// agreement-pay time (src/app/api/agreements/[id]/pay-checkout/route.ts).
+// Used for the listing review step, the listing page, and what's actually charged at
+// agreement-pay time (src/app/api/agreements/[id]/pay-checkout/route.ts) — one function so
+// those numbers can never disagree.
 export function computeListingCostBreakdown({
-  rentNGN,
+  listingType = "rent",
+  priceNGN,
   cautionFeeNGN = 0,
   estateChargeNGN = 0,
-  state,
+  serviceChargeRate,
 }: {
-  rentNGN: number;
+  listingType?: ListingType;
+  priceNGN: number;
   cautionFeeNGN?: number;
   estateChargeNGN?: number;
-  state?: string;
+  // Override for agreements that recorded the rate they were created at.
+  serviceChargeRate?: number;
 }): ListingCostBreakdown {
-  const agencyFeeNGN = Math.round(rentNGN * getAgencyFeeRate(state));
-  const legalFeeNGN = LEGAL_FEE_NGN;
-  const totalNGN = rentNGN + cautionFeeNGN + estateChargeNGN + agencyFeeNGN + legalFeeNGN;
+  const isRent = listingType === "rent";
+  const caution = isRent ? cautionFeeNGN : 0;
+  const estate = isRent ? estateChargeNGN : 0;
+  const rate = serviceChargeRate ?? getServiceChargeRate(listingType);
+  const serviceChargeNGN = Math.round(priceNGN * rate);
+  const toOwnerNGN = priceNGN + caution + estate;
 
-  return { rentNGN, cautionFeeNGN, estateChargeNGN, agencyFeeNGN, legalFeeNGN, totalNGN };
+  return {
+    listingType,
+    priceNGN,
+    cautionFeeNGN: caution,
+    estateChargeNGN: estate,
+    serviceChargeRate: rate,
+    serviceChargeNGN,
+    totalNGN: toOwnerNGN + serviceChargeNGN,
+    toOwnerNGN,
+    toReallowNGN: serviceChargeNGN,
+  };
 }
 
-// Alias used at agreement-pay time — same shape, named for where it's called from so the
-// call site reads clearly (an Agreement's terms, not a Property's listed price). `state` is
-// optional so agreements created before this field existed still compute (falling back to
-// DEFAULT_AGENCY_FEE_RATE) instead of crashing.
+// Tenancy agreements are rentals. Uses the rate snapshotted on the agreement when present,
+// so a later rate change never alters an agreement that's already been drafted.
 export function computeAgreementTotal(terms: {
   rentNGN: number;
   depositNGN?: number;
   estateChargeNGN?: number;
-  state?: string;
+  serviceChargeRate?: number;
 }): ListingCostBreakdown {
   return computeListingCostBreakdown({
-    rentNGN: terms.rentNGN,
+    listingType: "rent",
+    priceNGN: terms.rentNGN,
     cautionFeeNGN: terms.depositNGN,
     estateChargeNGN: terms.estateChargeNGN,
-    state: terms.state,
+    serviceChargeRate: terms.serviceChargeRate,
   });
 }

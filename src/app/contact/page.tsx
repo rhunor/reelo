@@ -1,63 +1,83 @@
 import Link from "next/link";
-import { SOCIAL_LINKS } from "@/lib/social-links";
+import { auth } from "@/auth";
+import { ContactMessageForm } from "@/components/contact-message-form";
+import { SocialIcons } from "@/components/social-icons";
+import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_EMAIL, SUPPORT_PHONES } from "@/lib/contact-info";
 
 export const metadata = { title: "Contact — Reallow" };
 
-const SUPPORT_EMAIL = "reallowng@gmail.com";
-const SUPPORT_PHONES = ["08104669006", "09067487805"];
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ topic?: string }> }) {
+  const session = await auth();
+  const { topic } = await searchParams;
 
-export default function ContactPage() {
   return (
-    <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6 sm:py-16">
       <p className="font-mono text-xs tracking-widest text-clay uppercase">Get in touch</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">Contact Reallow</h1>
-      <p className="mt-4 text-sm leading-relaxed text-foreground/70">
-        For anything tied to a specific listing, application, or inspection, use the{" "}
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-foreground/70">
+        Pick a topic to see quick answers, or send us a message. For anything about a specific listing, application,
+        or inspection, apply from the listing or use{" "}
         <Link href="/dashboard" className="underline">
-          Contact Reallow
+          your dashboard
         </Link>{" "}
-        option in your dashboard — it keeps your conversation attached to the right context.
-        For everything else, reach us directly:
+        so the conversation stays attached to it.
       </p>
 
-      <div className="mt-8 flex flex-col gap-4 text-sm">
-        <div className="rounded-lg border border-line p-4">
-          <p className="font-medium">Email</p>
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-1 inline-block text-clay underline">
-            {SUPPORT_EMAIL}
-          </a>
-        </div>
-        <div className="rounded-lg border border-line p-4">
-          <p className="font-medium">Phone</p>
-          <div className="mt-1 flex flex-col gap-1">
-            {SUPPORT_PHONES.map((phone) => (
-              <a key={phone} href={`tel:${phone}`} className="inline-block text-clay underline">
-                {phone}
-              </a>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-lg border border-line p-4">
-          <p className="font-medium">Hours</p>
-          <p className="mt-1 text-foreground/70">Weekdays, 8am–6pm (WAT)</p>
-        </div>
-      </div>
+      <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_340px]">
+        <section className="rounded-3xl border border-line p-5 sm:p-7">
+          <h2 className="text-lg font-semibold">Send us a message</h2>
+          <p className="mt-1 mb-5 text-sm text-foreground/60">We usually reply within one working day.</p>
+          <ContactMessageForm signedIn={Boolean(session?.user)} initialTopic={topic} />
+        </section>
 
-      <div className="mt-8">
-        <p className="text-sm font-medium">Follow Reallow</p>
-        <div className="mt-2 flex gap-5 text-sm">
-          {SOCIAL_LINKS.map((social) => (
-            <a
-              key={social.label}
-              href={social.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-clay hover:underline"
-            >
-              {social.label}
+        <aside className="flex flex-col gap-4 text-sm">
+          <div className="rounded-2xl border border-line p-5">
+            <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">Office</p>
+            <address className="mt-2 not-italic leading-relaxed">
+              {OFFICE_ADDRESS.lines.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </address>
+            <a href={OFFICE_ADDRESS.mapsUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-clay underline">
+              Get directions
             </a>
-          ))}
-        </div>
+          </div>
+
+          <div className="rounded-2xl border border-line p-5">
+            <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">Opening hours (WAT)</p>
+            <dl className="mt-2 flex flex-col gap-1.5">
+              {OPENING_HOURS.map((row) => (
+                <div key={row.days} className="flex justify-between gap-3">
+                  <dt className="text-foreground/70">{row.days}</dt>
+                  <dd className="text-right font-medium">{row.hours}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="rounded-2xl border border-line p-5">
+            <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">Call or email</p>
+            <div className="mt-2 flex flex-col gap-1">
+              {SUPPORT_PHONES.map((phone) => (
+                <a key={phone} href={`tel:${phone}`} className="text-clay underline">
+                  {phone}
+                </a>
+              ))}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-1 text-clay underline">
+                {SUPPORT_EMAIL}
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-line p-5">
+            <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">Follow Reallow</p>
+            <div className="mt-3">
+              <SocialIcons />
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

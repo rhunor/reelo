@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { verifyWebhookSignature } from "@/lib/paystack";
 import { getCollections } from "@/lib/db";
-import { computeAgreementTotal } from "@/lib/fees";
-import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
-import { computeReferralCommission, referralRateFor } from "@/lib/referrals";
-import type { Transaction, TransactionType } from "@/types/models";
+import { recordAgreementPayment } from "@/lib/agreement-payment";
+import { recordMeetingPayment } from "@/lib/meetings";
+import { notifyWalletFunded } from "@/lib/notifications";
+import { parseLagosDateTimeLocal } from "@/lib/time";
+import { creditWallet } from "@/lib/wallet";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -16,8 +17,7 @@ export async function POST(request: Request) {
   }
 
   const event = JSON.parse(rawBody);
-  const { agreements, transactions, inspectionBookings, tickets, properties, users, referralCommissions } =
-    await getCollections();
+  const { agreements, transactions, inspectionBookings, tickets, properties, meetings } = await getCollections();
   const now = new Date();
 
   if (event.event === "charge.success") {
@@ -46,7 +46,8 @@ export async function POST(request: Request) {
             createdAt: now,
           });
 
-          // The tenant's checkout-time pick becomes the first proposal, not a final time —
+          // Legacy pay-first inspection flow — kept so any checkout started before the
+          // Meetings flow existed still completes. The tenant's checkout-time pick becomes the first proposal, not a final time —
           // either party can accept or counter it from here (see
           // src/app/api/inspection-bookings/[id]/respond/route.ts).
           await inspectionBookings.insertOne({
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
             landlordId: listing.landlordId,
             tenantId: new ObjectId(metadata.tenantId),
             ticketId: ticket._id!,
-            proposedTime: new Date(metadata.scheduledFor),
+            proposedTime: parseLagosDateTimeLocal(metadata.scheduledFor),
             proposedBy: "tenant",
             status: "pending_response",
             feeNGN: amount / 100,
@@ -69,73 +70,35 @@ export async function POST(request: Request) {
       // Guard against double-processing (Paystack can redeliver a webhook) — once an
       // agreement's payment has landed with Reallow, a repeat delivery is a no-op.
       if (agreement && agreement.payment.status === "unpaid") {
-        const breakdown = computeAgreementTotal(agreement.terms);
-        const reallowId = await getOrCreateReallowLandlordId();
-
-        // Rent/deposit/estate charge are earmarked for the landlord (held by Reallow
-        // until payout); the agency and legal fees are Reallow's own revenue.
-        const lineItems: Array<{ type: TransactionType; amountNGN: number; payeeId: ObjectId }> = [
-          { type: "rent", amountNGN: breakdown.rentNGN, payeeId: agreement.landlordId },
-          ...(breakdown.cautionFeeNGN > 0
-            ? [{ type: "deposit" as TransactionType, amountNGN: breakdown.cautionFeeNGN, payeeId: agreement.landlordId }]
-            : []),
-          ...(breakdown.estateChargeNGN > 0
-            ? [{ type: "estate_charge" as TransactionType, amountNGN: breakdown.estateChargeNGN, payeeId: agreement.landlordId }]
-            : []),
-          { type: "platform_commission", amountNGN: breakdown.agencyFeeNGN, payeeId: reallowId },
-          { type: "legal_fee", amountNGN: breakdown.legalFeeNGN, payeeId: reallowId },
-        ];
-
-        await transactions.insertMany(
-          lineItems.map(
-            (item): Transaction => ({
-              type: item.type,
-              amountNGN: item.amountNGN,
-              payerId: agreement.tenantId,
-              payeeId: item.payeeId,
-              listingId: agreement.listingId,
-              agreementId: agreement._id!,
-              provider: "paystack",
-              providerReference: reference,
-              status: "success",
-              createdAt: now,
-            }),
-          ),
-        );
-
-        await agreements.updateOne(
-          { _id: agreement._id },
-          {
-            $set: {
-              "payment.status": "paid_to_reallow",
-              "payment.amountNGN": amount / 100,
-              "payment.reference": reference,
-              "payment.paidAt": now,
-              updatedAt: now,
-            },
-          },
-        );
-
-        // Referral commission — created pending, never auto-credited. Either party on
-        // this agreement could have been the one referred (either could have signed up
-        // via someone's link, regardless of which side of the deal they ended up on).
-        for (const partyId of [agreement.landlordId, agreement.tenantId]) {
-          const party = await users.findOne({ _id: partyId });
-          if (!party?.referredBy) continue;
-
-          const referrer = await users.findOne({ _id: party.referredBy });
-          if (!referrer) continue;
-
-          await referralCommissions.insertOne({
-            referrerId: referrer._id!,
-            referredUserId: party._id!,
-            agreementId: agreement._id!,
-            amountNGN: computeReferralCommission(agreement.terms.rentNGN, referrer.role),
-            rateApplied: referralRateFor(referrer.role),
-            status: "pending",
-            createdAt: now,
-          });
-        }
+        await recordAgreementPayment(agreement, { reference, amountNGN: amount / 100, provider: "paystack" });
+      }
+    } else if (metadata?.kind === "meeting_inspection_fee" && metadata?.meetingId) {
+      // Claimed with a conditional update so a redelivery (or a wallet payment racing this
+      // one) can't record the fee twice.
+      const claimed = await meetings.findOneAndUpdate(
+        { _id: new ObjectId(metadata.meetingId), paidAt: { $exists: false } },
+        { $set: { paidAt: now } },
+      );
+      if (claimed) {
+        await recordMeetingPayment(claimed, { reference, amountNGN: amount / 100, provider: "paystack" });
+      }
+    } else if (metadata?.kind === "wallet_funding" && metadata?.userId) {
+      const alreadyProcessed = await transactions.findOne({ providerReference: reference });
+      if (!alreadyProcessed) {
+        const userId = new ObjectId(metadata.userId);
+        const amountNGN = amount / 100;
+        await transactions.insertOne({
+          type: "wallet_funding",
+          amountNGN,
+          payerId: userId,
+          payeeId: userId,
+          provider: "paystack",
+          providerReference: reference,
+          status: "success",
+          createdAt: now,
+        });
+        await creditWallet(userId, amountNGN);
+        await notifyWalletFunded(userId, amountNGN);
       }
     }
   }

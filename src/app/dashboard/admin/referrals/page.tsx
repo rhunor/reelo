@@ -79,6 +79,7 @@ export default async function AdminReferralsPage() {
             <div key={request._id!.toString()} className="rounded-lg border border-line p-4">
               <p className="text-sm">
                 <strong>{user?.name ?? "Unknown"}</strong> — {user?.email}
+                {user?.phone && ` · ${user.phone}`}
               </p>
               <p className="mt-1 font-mono text-lg">₦{request.amountNGN.toLocaleString()}</p>
               {user?.bankDetails && (

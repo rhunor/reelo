@@ -1,6 +1,10 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import type { InspectionBooking, Property, SupportTicket } from "@/types/models";
+import type { InspectionBooking, Meeting, Property, SupportTicket } from "@/types/models";
+import { sendListingReceivedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
+import { formatLagos } from "@/lib/time";
+
+export const MEETINGS_HREF = "/dashboard?panel=meetings";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -90,6 +94,21 @@ export async function notifyNewTicket(ticket: SupportTicket): Promise<void> {
   );
 }
 
+// The sender's own receipt for a general message to Reallow.
+export async function notifyMessageReceived(ticket: SupportTicket): Promise<void> {
+  const { notifications } = await getCollections();
+  await notifications.insertOne({
+    userId: ticket.userId,
+    type: "ticket_new",
+    title: "We've received your message",
+    body: `“${ticket.subject}” — we'll reply as soon as possible. We'll notify you here and by email.`,
+    ticketId: ticket._id,
+    href: `/dashboard/tenant/tickets/${ticket._id}`,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
 // Notifies whichever side of the thread didn't just send this reply.
 export async function notifyTicketReply(ticket: SupportTicket, replierId: ObjectId, isStaffReply: boolean): Promise<void> {
   const { users, notifications } = await getCollections();
@@ -102,6 +121,7 @@ export async function notifyTicketReply(ticket: SupportTicket, replierId: Object
       title: "Reallow replied to your message",
       body: ticket.subject,
       ticketId: ticket._id,
+      href: `/dashboard/tenant/tickets/${ticket._id}`,
       read: false,
       createdAt: now,
     });
@@ -128,17 +148,72 @@ export async function notifyTicketReply(ticket: SupportTicket, replierId: Object
 // Reallow just set (or changed) the verification inspection date after calling the
 // landlord — this is the in-app half of that, prompting them to confirm it themselves.
 export async function notifyVerificationInspectionScheduled(listing: Property, scheduledFor: Date): Promise<void> {
-  const { notifications } = await getCollections();
+  const { notifications, users } = await getCollections();
 
   await notifications.insertOne({
     userId: listing.landlordId,
     type: "verification_inspection_scheduled",
     title: "Confirm your property verification visit",
-    body: `Reallow proposed ${scheduledFor.toLocaleString()} for ${listing.title} — confirm it in your dashboard.`,
+    body: `Reallow scheduled the verification visit for ${listing.title} on ${formatLagos(scheduledFor)} — confirm it, or ask for a different time.`,
     listingId: listing._id,
+    href: `/dashboard/landlord/listings/${listing._id}/verification`,
     read: false,
     createdAt: new Date(),
   });
+
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  if (landlord?.email) {
+    await sendVerificationVisitScheduledEmail(
+      landlord.email,
+      landlord.firstName ?? landlord.name,
+      listing.title,
+      scheduledFor,
+      listing._id!.toString(),
+    );
+  }
+}
+
+// Sent the moment a listing is submitted — there's no date to propose anymore; Reallow's
+// agent reaches out to arrange the verification visit.
+export async function notifyListingReceived(listing: Property): Promise<void> {
+  const { notifications, users } = await getCollections();
+
+  await notifications.insertOne({
+    userId: listing.landlordId,
+    type: "listing_received",
+    title: "We've received your listing",
+    body: `Good news — we've received ${listing.title}. A Reallow agent will contact you to arrange an in-person verification visit.`,
+    listingId: listing._id,
+    href: "/dashboard",
+    read: false,
+    createdAt: new Date(),
+  });
+
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  if (landlord?.email) {
+    await sendListingReceivedEmail(landlord.email, landlord.firstName ?? landlord.name, listing.title);
+  }
+}
+
+// The landlord said the scheduled time doesn't work — every admin and field agent hears
+// about it so someone calls them back to rearrange.
+export async function notifyVerificationVisitDeclined(listing: Property): Promise<void> {
+  const { notifications, users } = await getCollections();
+  const staff = await users.find({ role: { $in: ["admin", "staff"] } }).project({ _id: 1 }).toArray();
+  if (staff.length === 0) return;
+
+  const now = new Date();
+  await notifications.insertMany(
+    staff.map((member) => ({
+      userId: member._id as ObjectId,
+      type: "verification_inspection_declined" as const,
+      title: "Landlord needs a different verification time",
+      body: `${listing.title} — call the landlord to rearrange the visit.`,
+      listingId: listing._id,
+      read: false,
+      createdAt: now,
+    })),
+  );
 }
 
 // Either party can propose or counter an inspection meeting time (see
@@ -151,8 +226,9 @@ export async function notifyInspectionProposal(booking: InspectionBooking, toUse
     userId: toUserId,
     type: "inspection_time_proposed",
     title: "New inspection time suggested",
-    body: `A new time was suggested: ${booking.proposedTime!.toLocaleString()}. Accept or suggest another.`,
+    body: `A new time was suggested: ${formatLagos(booking.proposedTime!)}. Accept or suggest another.`,
     listingId: booking.listingId,
+    href: MEETINGS_HREF,
     read: false,
     createdAt: new Date(),
   });
@@ -162,7 +238,7 @@ export async function notifyInspectionProposal(booking: InspectionBooking, toUse
 // agent takes over logistics (see the copy in src/components/inspection-negotiation.tsx).
 export async function notifyInspectionConfirmed(booking: InspectionBooking): Promise<void> {
   const { notifications } = await getCollections();
-  const when = booking.scheduledFor!.toLocaleString();
+  const when = formatLagos(booking.scheduledFor!);
 
   await notifications.insertMany([
     {
@@ -171,6 +247,7 @@ export async function notifyInspectionConfirmed(booking: InspectionBooking): Pro
       title: "Inspection confirmed",
       body: `Confirmed for ${when}. Reallow's agent will contact you with how to get to the meeting point.`,
       listingId: booking.listingId,
+      href: MEETINGS_HREF,
       read: false,
       createdAt: new Date(),
     },
@@ -180,13 +257,15 @@ export async function notifyInspectionConfirmed(booking: InspectionBooking): Pro
       title: "Inspection confirmed",
       body: `Confirmed for ${when}. Reallow's agent will bring the tenant to you.`,
       listingId: booking.listingId,
+      href: MEETINGS_HREF,
       read: false,
       createdAt: new Date(),
     },
   ]);
 }
 
-// Tells the tenant whether the landlord approved or declined their interest in a listing.
+// Tells the applicant whether the landlord accepted or declined their interest in a
+// listing. An acceptance links straight into booking a meeting or inspection.
 export async function notifyLandlordDecision(ticket: SupportTicket, decision: "approved" | "declined"): Promise<void> {
   const { notifications } = await getCollections();
 
@@ -195,10 +274,240 @@ export async function notifyLandlordDecision(ticket: SupportTicket, decision: "a
     type: "landlord_decision",
     title:
       decision === "approved"
-        ? "The landlord is interested in you"
+        ? "The landlord accepted your application"
         : "The landlord has moved on from your application",
-    body: ticket.subject,
+    body:
+      decision === "approved"
+        ? `${ticket.subject} — you can now book an inspection or a meeting.`
+        : ticket.subject,
     ticketId: ticket._id,
+    href: decision === "approved" ? `${MEETINGS_HREF}&ticket=${ticket._id}` : undefined,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// Sent the moment an account is created — a welcome, then a nudge to finish the profile.
+export async function notifyWelcome(userId: ObjectId, firstName: string): Promise<void> {
+  const { notifications } = await getCollections();
+  const now = new Date();
+
+  await notifications.insertMany([
+    {
+      userId,
+      type: "welcome",
+      title: `Welcome to Reallow, ${firstName}!`,
+      body: "Thanks for joining. Every listing here is verified in person by Reallow, and every payment goes through us — no agents, no surprises.",
+      href: "/dashboard",
+      read: false,
+      createdAt: now,
+    },
+    {
+      userId,
+      type: "complete_profile",
+      title: "Complete your profile",
+      body: "Add your photo and a few details so landlords and Reallow know who they're dealing with.",
+      href: "/dashboard/settings#profile",
+      read: false,
+      // A millisecond later so it sorts directly under the welcome message.
+      createdAt: new Date(now.getTime() + 1),
+    },
+  ]);
+}
+
+// Someone applied for one of this landlord's listings — tapping it opens the applicant's
+// shared profile with accept/reject.
+export async function notifyNewApplication(ticket: SupportTicket, listing: Property): Promise<void> {
+  const { notifications } = await getCollections();
+
+  await notifications.insertOne({
+    userId: listing.landlordId,
+    type: "new_application",
+    title: "Someone applied for your property",
+    body: `New application for ${listing.title}. View their profile to accept or decline.`,
+    listingId: listing._id,
+    ticketId: ticket._id,
+    href: `/dashboard/applications/${ticket._id}`,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+const MEETING_NOUN: Record<Meeting["kind"], string> = { inspection: "inspection", meeting: "meeting" };
+
+export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId, isCounter: boolean): Promise<void> {
+  const { notifications } = await getCollections();
+  const noun = MEETING_NOUN[meeting.kind];
+
+  await notifications.insertOne({
+    userId: toUserId,
+    type: "meeting_proposed",
+    title: isCounter ? `A different ${noun} time was suggested` : `New ${noun} request`,
+    body: `Proposed for ${formatLagos(meeting.proposedTime)}. Accept, decline, or suggest another time.`,
+    listingId: meeting.listingId,
+    href: MEETINGS_HREF,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
+  const { notifications } = await getCollections();
+  const when = formatLagos(meeting.scheduledFor!);
+  const isInspection = meeting.kind === "inspection";
+  const now = new Date();
+
+  await notifications.insertMany([
+    {
+      userId: meeting.tenantId,
+      type: "meeting_confirmed" as const,
+      title: isInspection ? "Inspection time agreed" : "Meeting confirmed",
+      body: isInspection
+        ? `Agreed for ${when}. Pay the inspection fee to lock it in — Reallow's agent will then contact you.`
+        : `Your meeting is confirmed for ${when}.`,
+      listingId: meeting.listingId,
+      href: MEETINGS_HREF,
+      read: false,
+      createdAt: now,
+    },
+    {
+      userId: meeting.landlordId,
+      type: "meeting_confirmed" as const,
+      title: isInspection ? "Inspection time agreed" : "Meeting confirmed",
+      body: isInspection
+        ? `Agreed for ${when}. It goes ahead once the applicant pays the inspection fee.`
+        : `Your meeting is confirmed for ${when}.`,
+      listingId: meeting.listingId,
+      href: MEETINGS_HREF,
+      read: false,
+      createdAt: now,
+    },
+  ]);
+}
+
+export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId): Promise<void> {
+  const { notifications } = await getCollections();
+
+  await notifications.insertOne({
+    userId: toUserId,
+    type: "meeting_declined",
+    title: `${meeting.kind === "inspection" ? "Inspection" : "Meeting"} request declined`,
+    body: `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. You can book a new time from Meetings.`,
+    listingId: meeting.listingId,
+    href: MEETINGS_HREF,
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// The applicant paid for an agreed inspection — the landlord hears it's on, and every
+// field agent/admin sees there's a visit to staff.
+export async function notifyMeetingPaid(meeting: Meeting): Promise<void> {
+  const { notifications, users } = await getCollections();
+  const when = formatLagos(meeting.scheduledFor ?? meeting.proposedTime);
+  const now = new Date();
+  const staff = await users.find({ role: { $in: ["admin", "staff"] } }).project({ _id: 1 }).toArray();
+
+  await notifications.insertMany([
+    {
+      userId: meeting.landlordId,
+      type: "meeting_paid" as const,
+      title: "Inspection is on",
+      body: `The inspection fee is paid — ${when}. Reallow's agent will bring the applicant to you.`,
+      listingId: meeting.listingId,
+      href: MEETINGS_HREF,
+      read: false,
+      createdAt: now,
+    },
+    ...staff.map((member) => ({
+      userId: member._id as ObjectId,
+      type: "meeting_paid" as const,
+      title: "Paid inspection to staff",
+      body: `Inspection booked for ${when}.`,
+      listingId: meeting.listingId,
+      href: "/dashboard/staff",
+      read: false,
+      createdAt: now,
+    })),
+  ]);
+}
+
+export async function notifyWalletFunded(userId: ObjectId, amountNGN: number): Promise<void> {
+  const { notifications } = await getCollections();
+
+  await notifications.insertOne({
+    userId,
+    type: "wallet_funded",
+    title: "Wallet funded",
+    body: `₦${amountNGN.toLocaleString()} was added to your Reallow wallet.`,
+    href: "/dashboard?panel=wallet",
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+const LISTING_STATUS_MESSAGE = {
+  hide: { title: "Your listing was taken down", body: "Reallow has taken this listing off the site." },
+  show: { title: "Your listing is visible again", body: "Reallow has put this listing back on the site." },
+  rented: { title: "Listing marked as rented", body: "Reallow marked this listing as rented — it no longer appears in search." },
+  sold: { title: "Listing marked as sold", body: "Reallow marked this listing as sold — it no longer appears in search." },
+} as const;
+
+// Tells the owner when Reallow changes their listing's visibility, with any note left.
+export async function notifyListingStatusChanged(
+  listing: Property,
+  action: keyof typeof LISTING_STATUS_MESSAGE,
+  note?: string,
+): Promise<void> {
+  const { notifications } = await getCollections();
+  const message = LISTING_STATUS_MESSAGE[action];
+  await notifications.insertOne({
+    userId: listing.landlordId,
+    type: "listing_status_changed",
+    title: message.title,
+    body: `${listing.title}: ${message.body}${note ? ` Note from Reallow: ${note}` : ""}`,
+    listingId: listing._id,
+    href: "/dashboard",
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// A new report needs a human — every admin hears about it (the queue is admin-only).
+export async function notifyNewReport(report: { _id?: ObjectId; targetType: "user" | "listing"; reason: string }): Promise<void> {
+  const { users, notifications } = await getCollections();
+  const staff = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
+  if (staff.length === 0) return;
+  const now = new Date();
+  await notifications.insertMany(
+    staff.map((member) => ({
+      userId: member._id as ObjectId,
+      type: "report_new" as const,
+      title: report.targetType === "listing" ? "A property was reported" : "A user was reported",
+      body: `${report.reason} — review it in Reports.`,
+      href: "/dashboard/admin/reports",
+      read: false,
+      createdAt: now,
+    })),
+  );
+}
+
+const ROLE_NOTICE: Record<string, { title: string; body: string; href: string }> = {
+  staff: { title: "You're now Reallow field staff", body: "Your dashboard now shows the properties to verify and inspections to attend.", href: "/dashboard/staff" },
+  support: { title: "You're now on Reallow support", body: "Your dashboard now shows the support queue.", href: "/dashboard/support" },
+  admin: { title: "You're now a Reallow admin", body: "You now have access to the admin dashboard.", href: "/dashboard/admin" },
+  customer: { title: "Your account type changed", body: "Your account is now a regular Reallow account.", href: "/dashboard" },
+};
+
+export async function notifyRoleChanged(userId: ObjectId, role: string): Promise<void> {
+  const { notifications } = await getCollections();
+  const notice = ROLE_NOTICE[role] ?? ROLE_NOTICE.customer!;
+  await notifications.insertOne({
+    userId,
+    type: "role_changed",
+    title: notice.title,
+    body: notice.body,
+    href: notice.href,
     read: false,
     createdAt: new Date(),
   });

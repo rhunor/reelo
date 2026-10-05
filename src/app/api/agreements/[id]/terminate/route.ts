@@ -4,11 +4,9 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
 
-// Either party marks their own end of the tenancy as over — once BOTH have, the caution
-// fee becomes eligible for refund (an admin still has to actually action the refund, see
-// markAgreementPaidOut's sibling in dashboard/admin/actions.ts). Renewing/continuing the
-// tenancy past the lease term is between landlord and tenant; Reallow only needs to know
-// when one side considers it actually finished.
+// Either party marks their own end of the tenancy as over, so Reallow's records (active
+// tenancies on both dashboards) reflect it. Reallow doesn't hold the caution fee, so
+// nothing financial follows from this — returning it is between landlord and tenant.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -54,13 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   await agreements.updateOne(
     { _id: agreement._id },
     {
-      $set: {
-        ...update,
-        ...(bothTerminated && agreement.payment.status !== "unpaid"
-          ? { "payment.refundStatus": "eligible" }
-          : {}),
-        updatedAt: now,
-      },
+      $set: { ...update, updatedAt: now },
     },
   );
 

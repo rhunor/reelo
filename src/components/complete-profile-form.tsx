@@ -37,6 +37,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
 
     const formData = new FormData(event.currentTarget);
     const payload = {
+      dateOfBirth: formData.get("dateOfBirth") || undefined,
       occupation: formData.get("occupation") || undefined,
       maritalStatus: formData.get("maritalStatus") || undefined,
       religion: formData.get("religion") || undefined,
@@ -78,7 +79,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
   return (
     <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
       <div>
-        <p className="mb-2 text-sm font-medium">Profile picture — take a selfie</p>
+        <p className="mb-2 text-sm font-medium">Profile picture</p>
         <ProfilePictureUploader value={profilePictureUrl} onChange={setProfilePictureUrl} />
         <div className="mt-2">
           <VisibilityToggle name="profilePictureVisible" defaultChecked={user?.profile?.profilePictureVisible} />
@@ -86,50 +87,15 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Occupation</label>
-        <input name="occupation" defaultValue={user?.profile?.occupation} className={inputClass + " w-full"} />
-        <div className="mt-1">
-          <VisibilityToggle name="occupationVisible" defaultChecked={user?.profile?.occupationVisible} />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm">Marital status</label>
-        <select name="maritalStatus" defaultValue={user?.profile?.maritalStatus ?? ""} className={inputClass + " w-full"}>
-          <option value="">Prefer not to say</option>
-          <option value="single">Single</option>
-          <option value="married">Married</option>
-          <option value="divorced">Divorced</option>
-          <option value="widowed">Widowed</option>
-        </select>
-        <div className="mt-1">
-          <VisibilityToggle name="maritalStatusVisible" defaultChecked={user?.profile?.maritalStatusVisible} />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm">Religion</label>
-        <input name="religion" defaultValue={user?.profile?.religion} placeholder="Prefer not to say" className={inputClass + " w-full"} />
-        <div className="mt-1">
-          <VisibilityToggle name="religionVisible" defaultChecked={user?.profile?.religionVisible} />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm">Employment status</label>
-        <select
-          name="employmentStatus"
-          defaultValue={user?.profile?.employmentStatus ?? ""}
+        <label className="mb-1 block text-sm">Date of birth</label>
+        <input
+          name="dateOfBirth"
+          type="date"
+          defaultValue={user?.profile?.dateOfBirth}
+          max={new Date().toISOString().slice(0, 10)}
           className={inputClass + " w-full"}
-        >
-          <option value="">Prefer not to say</option>
-          <option value="student">Student</option>
-          <option value="self_employed">Self-employed</option>
-          <option value="employed">Employed</option>
-        </select>
-        <div className="mt-1">
-          <VisibilityToggle name="employmentStatusVisible" defaultChecked={user?.profile?.employmentStatusVisible} />
-        </div>
+        />
+        <p className="mt-1 text-xs text-foreground/50">Never shown to other users.</p>
       </div>
 
       <div>
@@ -164,6 +130,55 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
           className={inputClass + " w-full"}
         />
         <p className="mt-1 text-xs text-foreground/50">Never shown to other users.</p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">Marital status</label>
+        <select name="maritalStatus" defaultValue={user?.profile?.maritalStatus ?? ""} className={inputClass + " w-full"}>
+          <option value="">Prefer not to say</option>
+          <option value="single">Single</option>
+          <option value="married">Married</option>
+          <option value="divorced">Divorced</option>
+          <option value="widowed">Widowed</option>
+        </select>
+        <div className="mt-1">
+          <VisibilityToggle name="maritalStatusVisible" defaultChecked={user?.profile?.maritalStatusVisible} />
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm">Religion</label>
+        <input name="religion" defaultValue={user?.profile?.religion} placeholder="Prefer not to say" className={inputClass + " w-full"} />
+        <div className="mt-1">
+          <VisibilityToggle name="religionVisible" defaultChecked={user?.profile?.religionVisible} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm">Employment status</label>
+          <select
+            name="employmentStatus"
+            defaultValue={user?.profile?.employmentStatus ?? ""}
+            className={inputClass + " w-full"}
+          >
+            <option value="">Prefer not to say</option>
+            <option value="student">Student</option>
+            <option value="self_employed">Self-employed</option>
+            <option value="employed">Employed</option>
+          </select>
+          <div className="mt-1">
+            <VisibilityToggle name="employmentStatusVisible" defaultChecked={user?.profile?.employmentStatusVisible} />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm">Occupation</label>
+          <input name="occupation" defaultValue={user?.profile?.occupation} className={inputClass + " w-full"} />
+          <div className="mt-1">
+            <VisibilityToggle name="occupationVisible" defaultChecked={user?.profile?.occupationVisible} />
+          </div>
+        </div>
       </div>
 
       <div className="rounded-lg border border-line p-4">

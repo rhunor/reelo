@@ -4,6 +4,21 @@ import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { PasswordInput } from "@/components/password-input";
 
+// When the proxy bounces a logged-out visitor (e.g. from an email link) to /login, it adds
+// ?callbackUrl=. Only honour it for this same site, so the login page can't be used to
+// redirect someone off to an arbitrary external URL.
+function safeCallbackPath(): string | null {
+  const raw = new URLSearchParams(window.location.search).get("callbackUrl");
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +37,11 @@ export default function LoginPage() {
 
     if (result?.error) {
       setLoading(false);
-      setError("Invalid email or password");
+      setError(
+        result.code === "account_blocked"
+          ? "This account has been blocked. Contact Reallow if you think this is a mistake."
+          : "Invalid email or password",
+      );
       return;
     }
 
@@ -31,7 +50,7 @@ export default function LoginPage() {
     // it. router.push sends that request as a client-side transition that can race the cookie
     // (a documented next-auth + App Router gap), bouncing back to /login until a manual
     // reload. window.location.href forces a real top-level request, cookie included.
-    window.location.href = "/dashboard";
+    window.location.href = safeCallbackPath() ?? "/dashboard";
   }
 
   return (

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { notifyInspectionProposal, notifyInspectionConfirmed } from "@/lib/notifications";
+import { parseLagosDateTimeLocal } from "@/lib/time";
 
 const schema = z.union([
   z.object({ action: z.literal("accept") }),
@@ -59,7 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: true });
   }
 
-  const proposedTime = new Date(parsed.data.proposedTime);
+  const proposedTime = parseLagosDateTimeLocal(parsed.data.proposedTime);
   await inspectionBookings.updateOne(
     { _id: booking._id },
     { $set: { proposedTime, proposedBy: viewerRole } },

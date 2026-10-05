@@ -22,7 +22,6 @@ const listingSchema = z.object({
   depositNGN: z.coerce.number().positive().optional(),
   estateChargeNGN: z.coerce.number().positive().optional(),
   minimumTermMonths: z.coerce.number().int().min(MINIMUM_LEASE_TERM_MONTHS).optional(),
-  dealBreakers: z.string().optional(),
   state: z.string().min(2),
   city: z.string().min(2),
   area: z.string().optional(),
@@ -88,12 +87,10 @@ export async function POST(request: Request) {
     listingType: data.listingType,
     propertyType: data.propertyType,
     priceNGN: data.priceNGN,
-    depositNGN: data.depositNGN,
-    estateChargeNGN: data.estateChargeNGN,
-    minimumTermMonths: data.minimumTermMonths,
-    dealBreakers: data.dealBreakers
-      ? data.dealBreakers.split(",").map((item) => item.trim()).filter(Boolean)
-      : undefined,
+    // Caution fee, estate charge, and minimum tenancy only exist on rentals.
+    depositNGN: data.listingType === "rent" ? data.depositNGN : undefined,
+    estateChargeNGN: data.listingType === "rent" ? data.estateChargeNGN : undefined,
+    minimumTermMonths: data.listingType === "rent" ? data.minimumTermMonths : undefined,
     location: {
       state: data.state,
       city: data.city,

@@ -26,7 +26,7 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
       </button>
 
       {open && (
-        <div className="absolute inset-x-0 top-16 z-40 border-b border-line bg-background px-6 py-4 shadow-lg">
+        <div className="absolute inset-x-0 top-16 z-40 border-b border-line bg-surface px-6 py-4 shadow-lg">
           <div
             onClick={(event) => {
               // Only close on an actual nav-link tap. A blanket "close on any click" here

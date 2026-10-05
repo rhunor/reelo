@@ -7,6 +7,7 @@
   --verified: #1f6b4c;
   --gold: #c98a2c;
   --line: #1c17121a;
+  --surface: #fffdf9;
   --background: var(--paper);
   --foreground: var(--ink);
   --font-bricolage: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
@@ -15,28 +16,32 @@
   color-scheme: light;
 }
 
+/* Dark mode is a warm charcoal rather than near-black, with lighter "surface" for
+   dropdowns and windows so raised elements separate from the page. */
 /* Falls back to the OS preference until the visitor picks a theme explicitly via
    ThemeToggle (see components/theme-toggle.tsx), which stamps data-theme on <html>. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #16120d;
-    --ink: #f3ece2;
-    --clay: #e2703f;
-    --verified: #35a579;
-    --gold: #e3ac5c;
-    --line: #f3ece21f;
+    --paper: #262119;
+    --surface: #312b23;
+    --ink: #f5efe6;
+    --clay: #e8774a;
+    --verified: #46b98a;
+    --gold: #e8b468;
+    --line: #f5efe62b;
     color-scheme: dark;
   }
 }
 
 /* An explicit choice always wins over the OS preference in both directions. */
 :root[data-theme="dark"] {
-  --paper: #16120d;
-  --ink: #f3ece2;
-  --clay: #e2703f;
-  --verified: #35a579;
-  --gold: #e3ac5c;
-  --line: #f3ece21f;
+  --paper: #262119;
+  --surface: #312b23;
+  --ink: #f5efe6;
+  --clay: #e8774a;
+  --verified: #46b98a;
+  --gold: #e8b468;
+  --line: #f5efe62b;
   color-scheme: dark;
 }
 
@@ -47,6 +52,7 @@
   --verified: #1f6b4c;
   --gold: #c98a2c;
   --line: #1c17121a;
+  --surface: #fffdf9;
   color-scheme: light;
 }
 
@@ -57,6 +63,7 @@
   --color-verified: var(--verified);
   --color-gold: var(--gold);
   --color-line: var(--line);
+  --color-surface: var(--surface);
   --font-display: var(--font-bricolage);
   --font-sans: var(--font-instrument);
   --font-mono: var(--font-plex-mono);

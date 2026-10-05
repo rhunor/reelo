@@ -41,7 +41,7 @@ export function StatGrid({
   } as const;
 
   return (
-    <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
       {stats.map((stat) => (
         <div key={stat.label} className="rounded-2xl border border-line bg-background p-4">
           <p
@@ -83,7 +83,7 @@ export function QuickLinks({
 export function AccountSettingsLink() {
   return (
     <Link
-      href="/dashboard/complete-profile"
+      href="/dashboard/settings"
       className="flex h-9 items-center rounded-full border border-line px-4 text-sm font-medium transition-colors hover:border-clay hover:text-clay"
     >
       Account settings

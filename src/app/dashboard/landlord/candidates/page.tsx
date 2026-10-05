@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -6,6 +7,7 @@ import { VerifiedBadge } from "@/components/verified-badge";
 import { PreferCandidateButton } from "@/components/prefer-candidate-button";
 import { InspectionNegotiation } from "@/components/inspection-negotiation";
 import { ReportButton } from "@/components/report-button";
+import { redactContactInfo } from "@/lib/contact-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export default async function LandlordCandidatesPage() {
     listingIds.length === 0
       ? []
       : await tickets
-          .find({ listingId: { $in: listingIds }, userRole: "tenant" })
+          .find({ listingId: { $in: listingIds }, userId: { $ne: new ObjectId(session.user.id) } })
           .sort({ createdAt: -1 })
           .toArray();
 
@@ -44,12 +46,14 @@ export default async function LandlordCandidatesPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Interested tenants</h1>
+      <Link href="/dashboard" className="text-sm text-foreground/60 hover:text-clay">
+        ← Dashboard
+      </Link>
+      <h1 className="mt-3 text-2xl font-semibold">Applications</h1>
       <p className="mt-2 text-sm text-foreground/70">
-        Everyone who&apos;s asked Reallow about one of your listings. Verification status always
-        shows; the rest of a tenant&apos;s profile only shows if they&apos;ve chosen to share it.
-        Approving lets the tenant book a paid physical inspection; declining ends it there —
-        either way, we let them know.
+        Everyone who&apos;s applied for one of your listings. Open an application to see what the
+        applicant chose to share and accept or decline — once accepted, either of you can book an
+        inspection or a meeting.
       </p>
 
       {inquiries.length === 0 && (
@@ -68,7 +72,7 @@ export default async function LandlordCandidatesPage() {
                 <div>
                   <p className="text-xs text-foreground/50">{listing?.title ?? "A listing"}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <p className="font-medium">{profile ? tenant?.name : "Interested tenant"}</p>
+                    <p className="font-medium">{profile ? tenant?.name : "Applicant"}</p>
                     {tenant?.verifiedBadge ? (
                       <VerifiedBadge />
                     ) : (
@@ -112,7 +116,14 @@ export default async function LandlordCandidatesPage() {
                   This tenant hasn&apos;t shared their profile.
                 </p>
               )}
-              {profile?.aboutMe && <p className="mt-2 text-sm text-foreground/70">{profile.aboutMe}</p>}
+              {profile?.aboutMe && <p className="mt-2 text-sm text-foreground/70">{redactContactInfo(profile.aboutMe)}</p>}
+
+              <Link
+                href={`/dashboard/applications/${ticket._id}`}
+                className="mt-3 inline-block text-sm font-medium text-clay hover:underline"
+              >
+                View full profile →
+              </Link>
 
               <div className="mt-4">
                 <PreferCandidateButton

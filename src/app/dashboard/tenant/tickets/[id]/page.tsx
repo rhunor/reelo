@@ -5,10 +5,9 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { TicketMessages } from "@/components/ticket-messages";
 import { ReplyForm } from "@/components/reply-form";
-import { InspectionBookingForm } from "@/components/inspection-booking-form";
+import { BookMeetingLinks } from "@/components/book-meeting-links";
 import { InspectionNegotiation } from "@/components/inspection-negotiation";
 import { ReportButton } from "@/components/report-button";
-import { getInspectionFee } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +20,10 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
   const { tickets, properties, users, inspectionBookings } = await getCollections();
   const ticket = await tickets.findOne({ _id: new ObjectId(id) });
   if (!ticket || ticket.userId.toString() !== session.user.id) notFound();
+  // Opening the conversation clears the "Reallow replied" badge.
+  if (ticket.unreadReplyForUser) {
+    await tickets.updateOne({ _id: ticket._id }, { $set: { unreadReplyForUser: false } });
+  }
 
   const decision = ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined);
   const [listing, user, existingBooking] = await Promise.all([
@@ -51,10 +54,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
           {existingBooking ? (
             <InspectionNegotiation booking={existingBooking} viewerRole="tenant" />
           ) : listing && user?.verifiedBadge ? (
-            <InspectionBookingForm
-              ticketId={ticket._id!.toString()}
-              feeNGN={getInspectionFee(listing.location.city)}
-            />
+            <BookMeetingLinks ticketId={ticket._id!.toString()} />
           ) : listing ? (
             <p className="mt-2 text-sm text-red-600">
               Verify your identity to book a paid inspection —{" "}

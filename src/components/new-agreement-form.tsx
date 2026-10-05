@@ -8,7 +8,7 @@ const inputClass =
 
 export function NewAgreementForm({
   listingId: defaultListingId,
-  minimumTermMonths = 6,
+  minimumTermMonths = 1,
 }: {
   listingId?: string;
   minimumTermMonths?: number;
@@ -31,7 +31,8 @@ export function NewAgreementForm({
       estateChargeNGN: formData.get("estateChargeNGN") || undefined,
       leaseStart: formData.get("leaseStart"),
       leaseTermMonths: formData.get("leaseTermMonths"),
-      responsibilities: formData.get("responsibilities"),
+      responsibilities: formData.get("responsibilities") || undefined,
+      houseRules: formData.get("houseRules") || undefined,
     };
 
     const res = await fetch("/api/agreements", {
@@ -85,14 +86,30 @@ export function NewAgreementForm({
           className={inputClass}
         />
       </div>
-      <textarea
-        name="responsibilities"
-        placeholder="Responsibilities (who covers repairs, utilities, etc.)"
-        required
-        minLength={10}
-        rows={4}
-        className={inputClass}
-      />
+      <div>
+        <textarea
+          name="houseRules"
+          placeholder={"House rules (optional) — one per line, e.g.\nNo pets\nNo subletting"}
+          rows={4}
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">
+          The landlord&apos;s rules for this property, as agreed with them. Each line becomes an
+          item under &quot;House rules&quot; in the agreement.
+        </p>
+      </div>
+      <div>
+        <textarea
+          name="responsibilities"
+          placeholder="Additional terms (optional)"
+          rows={4}
+          className={inputClass + " w-full"}
+        />
+        <p className="mt-1 text-xs text-foreground/50">
+          The agreement already includes standard clauses (use, repairs, utilities, access,
+          renewal, ending the tenancy). Only add anything specific to this deal.
+        </p>
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"

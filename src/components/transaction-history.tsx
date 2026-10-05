@@ -1,16 +1,8 @@
 import Link from "next/link";
 import type { Transaction } from "@/types/models";
+import { TRANSACTION_TYPE_LABEL } from "@/lib/transaction-labels";
 
-const TYPE_LABEL: Record<Transaction["type"], string> = {
-  rent: "Rent",
-  deposit: "Caution fee",
-  estate_charge: "Estate charge",
-  platform_commission: "Reallow agency fee",
-  legal_fee: "Legal fee",
-  listing_verification: "Listing verification fee",
-  inspection_fee: "Inspection fee",
-  caution_fee_refund: "Caution fee refund",
-};
+const TYPE_LABEL: Record<string, string> = TRANSACTION_TYPE_LABEL;
 
 export function TransactionHistory({
   transactions,

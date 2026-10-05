@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -15,10 +16,6 @@ export default async function VerifyIdentityPage() {
   const { users } = await getCollections();
   const user = await users.findOne({ _id: new ObjectId(session.user.id) });
 
-  // `role` is now just which dashboard defaults to "home" for this account — it doesn't
-  // limit what they can do, so used here only to pick which "contact Reallow" link to
-  // show, never to gate anything.
-  const isLandlord = session.user.role === "landlord";
   const ninVerified = user?.nin.status === "verified";
   const bvnVerified = user?.bvn?.status === "verified";
 
@@ -48,9 +45,9 @@ export default async function VerifyIdentityPage() {
             {user?.nin.status === "failed" && (
               <p className="mt-2 text-sm text-red-600">
                 Your last attempt didn&apos;t match — check the number and try again, or{" "}
-                <a href={`/dashboard/${isLandlord ? "landlord" : "tenant"}/tickets/new`} className="underline">
+                <Link href="/dashboard/tenant/tickets/new" className="underline">
                   contact Reallow
-                </a>{" "}
+                </Link>{" "}
                 if this keeps happening.
               </p>
             )}
@@ -69,9 +66,9 @@ export default async function VerifyIdentityPage() {
             {user?.bvn?.status === "failed" && (
               <p className="mt-2 text-sm text-red-600">
                 Your last attempt didn&apos;t match — check the number and try again, or{" "}
-                <a href={`/dashboard/${isLandlord ? "landlord" : "tenant"}/tickets/new`} className="underline">
+                <Link href="/dashboard/tenant/tickets/new" className="underline">
                   contact Reallow
-                </a>{" "}
+                </Link>{" "}
                 if this keeps happening.
               </p>
             )}

@@ -17,7 +17,7 @@ export async function getOrCreateReallowLandlordId(): Promise<ObjectId> {
 
   const now = new Date();
   const { insertedId } = await users.insertOne({
-    role: "landlord",
+    role: "user",
     name: "Reallow",
     email: REALLOW_LANDLORD_EMAIL,
     nin: { status: "verified" },

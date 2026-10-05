@@ -2,19 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { TRANSACTION_TYPE_LABEL } from "@/lib/transaction-labels";
 
 export const dynamic = "force-dynamic";
 
-const TYPE_LABEL: Record<string, string> = {
-  rent: "Rent",
-  deposit: "Caution fee",
-  estate_charge: "Estate charge",
-  platform_commission: "Reallow agency fee",
-  legal_fee: "Legal fee",
-  listing_verification: "Listing verification fee",
-  inspection_fee: "Inspection fee",
-  caution_fee_refund: "Caution fee refund",
-};
+const TYPE_LABEL: Record<string, string> = TRANSACTION_TYPE_LABEL;
 
 export default async function TransactionReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

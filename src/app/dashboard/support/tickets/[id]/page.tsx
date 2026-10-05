@@ -29,7 +29,16 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
       <h1 className="text-2xl font-semibold break-words">{ticket.subject}</h1>
       <div className="mt-1 flex items-center gap-2 text-sm text-foreground/70">
         <span>
-          From {fromUser?.name ?? "a user"} ({ticket.userRole}, {fromUser?.email})
+          From {fromUser?.name ?? "a user"} ({fromUser?.email}
+          {fromUser?.phone && (
+            <>
+              {", "}
+              <a href={`tel:${fromUser.phone}`} className="text-clay underline">
+                {fromUser.phone}
+              </a>
+            </>
+          )}
+          )
         </span>
         {fromUser?.verifiedBadge && <VerifiedBadge />}
       </div>

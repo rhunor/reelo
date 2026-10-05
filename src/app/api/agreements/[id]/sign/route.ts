@@ -67,7 +67,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   await agreements.updateOne(
     { _id: agreement._id },
     {
-      $push: { signatures: { party, signedAt: now, signatureHash, ipAddress } },
+      $push: {
+        signatures: { party, signedAt: now, signatureHash, ipAddress, fullName: parsed.data.fullName.trim() },
+      },
       $set: { status: nextStatus, updatedAt: now },
     },
   );

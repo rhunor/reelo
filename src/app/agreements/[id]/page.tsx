@@ -7,8 +7,11 @@ import { ReviewForm } from "@/components/review-form";
 import { AgreementPayButton } from "@/components/agreement-pay-button";
 import { TerminateAgreementButton } from "@/components/terminate-agreement-button";
 import { PaymentBreakdown } from "@/components/payment-breakdown";
-import { markAgreementPaidOut, refundCautionFee } from "@/app/dashboard/admin/actions";
-import { computeAgreementTotal, getAgencyFeeRate } from "@/lib/fees";
+import { TenancyAgreementDocument } from "@/components/tenancy-agreement-document";
+import { PrintButton } from "@/components/print-button";
+import { redactContactInfo } from "@/lib/contact-guard";
+import { markAgreementPaidOut } from "@/app/dashboard/admin/actions";
+import { computeAgreementTotal, formatRate } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,28 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
   const listing = await properties.findOne({ _id: agreement.listingId });
   const tenant = isLandlordParty || isStaff ? await users.findOne({ _id: agreement.tenantId }) : null;
+  const viewerWalletNGN = isTenantParty
+    ? ((await users.findOne({ _id: agreement.tenantId }, { projection: { walletBalanceNGN: 1 } }))?.walletBalanceNGN ?? 0)
+    : 0;
+
+  // Snapshotted values win; agreements created before snapshots existed fall back to
+  // live lookups so they still render a complete document.
+  const needsLiveNames = !agreement.terms.landlordName || !agreement.terms.tenantName;
+  const [liveLandlord, liveTenant] = needsLiveNames
+    ? await Promise.all([
+        users.findOne({ _id: agreement.landlordId }),
+        users.findOne({ _id: agreement.tenantId }),
+      ])
+    : [null, null];
+  const documentLandlordName = agreement.terms.landlordName ?? liveLandlord?.name ?? "The Landlord";
+  const documentTenantName = agreement.terms.tenantName ?? liveTenant?.name ?? "The Tenant";
+  const documentAddress =
+    agreement.terms.propertyAddress ??
+    (listing
+      ? listing.fullAddress ||
+        [listing.location.area, listing.location.city, listing.location.state].filter(Boolean).join(", ")
+      : "the property");
+  const documentHouseRules = agreement.terms.houseRules ?? listing?.dealBreakers ?? [];
   const showTenantProfile = tenant?.tenantProfile?.visibleToLandlords && (isLandlordParty || isStaff);
   const myReview =
     isLandlordParty || isTenantParty
@@ -48,42 +73,36 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
   const termMonths =
     typeof agreement.terms.leaseEndOrTermMonths === "number"
-      ? `${agreement.terms.leaseEndOrTermMonths} months`
+      ? `${agreement.terms.leaseEndOrTermMonths} month${agreement.terms.leaseEndOrTermMonths === 1 ? "" : "s"}`
       : new Date(agreement.terms.leaseEndOrTermMonths).toLocaleDateString();
 
   const paymentBreakdown = computeAgreementTotal(agreement.terms);
 
   return (
-    <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Tenancy agreement</h1>
-      {listing && <p className="mt-1 text-foreground/70">{listing.title}</p>}
-      <p className="mt-1 text-sm font-medium">{STATUS_LABEL[agreement.status]}</p>
-
-      <div className="mt-6 rounded-lg border border-line p-6">
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
-          <div>
-            <dt className="text-foreground/50">Rent</dt>
-            <dd className="mt-1 font-medium">₦{agreement.terms.rentNGN.toLocaleString()}/year</dd>
-          </div>
-          <div>
-            <dt className="text-foreground/50">Deposit</dt>
-            <dd className="mt-1 font-medium">₦{agreement.terms.depositNGN.toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt className="text-foreground/50">Lease start</dt>
-            <dd className="mt-1 font-medium">{new Date(agreement.terms.leaseStart).toLocaleDateString()}</dd>
-          </div>
-          <div>
-            <dt className="text-foreground/50">Term</dt>
-            <dd className="mt-1 font-medium">{termMonths}</dd>
-          </div>
-        </dl>
-        <div className="mt-4">
-          <p className="text-foreground/50 text-sm">Responsibilities</p>
-          <p className="mt-1 text-sm break-words">{agreement.terms.responsibilities}</p>
+    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 print:max-w-none print:p-0">
+      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
+        <div>
+          <h1 className="text-2xl font-semibold">Tenancy agreement</h1>
+          {listing && <p className="mt-1 text-foreground/70">{listing.title}</p>}
+          <p className="mt-1 text-sm font-medium">
+            {STATUS_LABEL[agreement.status]} · {termMonths}
+          </p>
         </div>
+        <PrintButton />
       </div>
 
+      <div className="mt-6 print:mt-0">
+        <TenancyAgreementDocument
+          agreement={agreement}
+          landlordName={documentLandlordName}
+          tenantName={documentTenantName}
+          propertyAddress={documentAddress}
+          propertyDescription={agreement.terms.propertyDescription}
+          houseRules={documentHouseRules}
+        />
+      </div>
+
+      <div className="print:hidden">
       {showTenantProfile && tenant?.tenantProfile && (
         <div className="mt-6 rounded-lg border border-line p-6">
           <p className="text-sm font-medium">About the tenant</p>
@@ -117,21 +136,10 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             )}
           </dl>
           {tenant.tenantProfile.aboutMe && (
-            <p className="mt-3 text-sm text-foreground/70 break-words">{tenant.tenantProfile.aboutMe}</p>
+            <p className="mt-3 text-sm text-foreground/70 break-words">{redactContactInfo(tenant.tenantProfile.aboutMe)}</p>
           )}
         </div>
       )}
-
-      <div className="mt-6 flex flex-col gap-2 text-sm">
-        {(["landlord", "tenant"] as const).map((p) => {
-          const signature = agreement.signatures.find((s) => s.party === p);
-          return (
-            <p key={p} className="capitalize">
-              {p}: {signature ? `signed ${new Date(signature.signedAt).toLocaleString()}` : "not yet signed"}
-            </p>
-          );
-        })}
-      </div>
 
       {party && !hasSignedAsParty && agreement.status !== "fully_signed" && (
         <SignAgreementForm agreementId={agreement._id!.toString()} />
@@ -140,8 +148,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       {agreement.status === "fully_signed" && (
         <>
           <p className="mt-6 text-sm text-foreground/70">
-            Both parties have signed. Use your browser&apos;s print/save-as-PDF to keep a copy of
-            this page.
+            Both parties have signed. Use &quot;Print / save as PDF&quot; above to keep a copy.
           </p>
 
           <div className="mt-6 rounded-lg border border-line p-4">
@@ -155,24 +162,24 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
               <div className="mt-3 flex flex-col gap-3">
                 <PaymentBreakdown
                   lines={[
-                    { label: "Rent", amountNGN: paymentBreakdown.rentNGN },
+                    { label: "Rent", amountNGN: paymentBreakdown.priceNGN },
                     ...(paymentBreakdown.cautionFeeNGN > 0
-                      ? [{ label: "Caution fee (refundable)", amountNGN: paymentBreakdown.cautionFeeNGN }]
+                      ? [{ label: "Caution fee", amountNGN: paymentBreakdown.cautionFeeNGN }]
                       : []),
                     ...(paymentBreakdown.estateChargeNGN > 0
                       ? [{ label: "Estate charge", amountNGN: paymentBreakdown.estateChargeNGN }]
                       : []),
                     {
-                      label: `Reallow agency fee (${Math.round(getAgencyFeeRate(agreement.terms.state) * 100)}%)`,
-                      amountNGN: paymentBreakdown.agencyFeeNGN,
+                      label: `Reallow service charge (${formatRate(paymentBreakdown.serviceChargeRate)})`,
+                      amountNGN: paymentBreakdown.serviceChargeNGN,
                     },
-                    { label: "Legal fee", amountNGN: paymentBreakdown.legalFeeNGN },
                   ]}
                   totalNGN={paymentBreakdown.totalNGN}
                 />
                 <AgreementPayButton
                   agreementId={agreement._id!.toString()}
                   amountNGN={paymentBreakdown.totalNGN}
+                  walletBalanceNGN={viewerWalletNGN}
                 />
               </div>
             )}
@@ -190,15 +197,8 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                 </p>
                 <p className="mt-1 text-sm text-foreground/70">
                   Landlord&apos;s portion — rent, caution fee, and estate charge only, not the
-                  agency or legal fee — is{" "}
-                  <span className="font-medium">
-                    ₦
-                    {(
-                      paymentBreakdown.rentNGN +
-                      paymentBreakdown.cautionFeeNGN +
-                      paymentBreakdown.estateChargeNGN
-                    ).toLocaleString()}
-                  </span>
+                  service charge — is{" "}
+                  <span className="font-medium">₦{paymentBreakdown.toOwnerNGN.toLocaleString()}</span>
                   , held pending payout.
                 </p>
                 {session.user.role === "admin" && (
@@ -229,9 +229,9 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             <div className="mt-6 rounded-lg border border-line p-4">
               <p className="text-sm font-medium">Ending the tenancy</p>
               <p className="mt-1 text-xs text-foreground/50">
-                Both sides need to confirm before the caution fee can be refunded — continuing the
-                tenancy past the lease term is between you and the other party, Reallow doesn&apos;t
-                need to be told unless one of you is ending it.
+                Let Reallow know when the tenancy ends. Continuing past the lease term is between
+                you and the other party — Reallow doesn&apos;t need to be told unless one of you is
+                ending it.
               </p>
               <div className="mt-3 flex flex-col gap-1 text-sm">
                 <p>
@@ -258,34 +258,6 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                   <TerminateAgreementButton agreementId={agreement._id!.toString()} />
                 </div>
               )}
-
-              {agreement.payment.refundStatus === "eligible" && (
-                <>
-                  <p className="mt-3 text-sm font-medium text-verified">
-                    Caution fee (₦{agreement.terms.depositNGN.toLocaleString()}) is eligible for
-                    refund to the tenant.
-                  </p>
-                  {isStaff && session.user.role === "admin" && (
-                    <form action={refundCautionFee} className="mt-2">
-                      <input type="hidden" name="agreementId" value={agreement._id!.toString()} />
-                      <button
-                        type="submit"
-                        className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
-                      >
-                        Mark caution fee refunded
-                      </button>
-                    </form>
-                  )}
-                </>
-              )}
-              {agreement.payment.refundStatus === "refunded" && (
-                <p className="mt-3 text-sm text-verified">
-                  Caution fee refunded
-                  {agreement.payment.refundedAt &&
-                    ` on ${new Date(agreement.payment.refundedAt).toLocaleDateString()}`}
-                  .
-                </p>
-              )}
             </div>
           )}
 
@@ -307,6 +279,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

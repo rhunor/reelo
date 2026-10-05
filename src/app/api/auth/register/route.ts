@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { getCollections } from "@/lib/db";
 import { generateEmailVerificationToken, sendVerificationEmail } from "@/lib/email";
-import { deriveRoleFromIntents } from "@/lib/intents";
 import { generateReferralCode } from "@/lib/referrals";
+import { notifyWelcome } from "@/lib/notifications";
 
 // No human fills out this form in under 3 seconds — a submission that fast is almost
 // certainly a bot that never actually rendered the page. Paired with the `website`
@@ -48,9 +48,8 @@ export async function POST(request: Request) {
   }
 
   const { firstName, lastName, otherNames, email, phone, password, intents, newsletterOptIn, ref } = parsed.data;
-  // Recomputed server-side, not trusted from the client — this is what actually gates
-  // dashboards/permissions, so it can't be whatever a tampered request claims it is.
-  const role = deriveRoleFromIntents(intents);
+  // Every new account is a plain "user" — intents are kept for personalisation only.
+  const role = "user" as const;
   const name = [firstName, otherNames, lastName].filter(Boolean).join(" ");
   const { users } = await getCollections();
 
@@ -71,7 +70,7 @@ export async function POST(request: Request) {
   // An invalid or missing ref code never blocks signup — it's silently ignored.
   const referrer = ref ? await users.findOne({ referralCode: ref }) : null;
 
-  await users.insertOne({
+  const { insertedId } = await users.insertOne({
     role,
     intents,
     name,
@@ -96,6 +95,7 @@ export async function POST(request: Request) {
     updatedAt: now,
   });
 
+  await notifyWelcome(insertedId, firstName);
   await sendVerificationEmail(email.toLowerCase(), token);
 
   return NextResponse.json({ success: true });

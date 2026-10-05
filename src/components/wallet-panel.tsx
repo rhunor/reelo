@@ -1,136 +1,192 @@
 "use client";
 
 import { useState } from "react";
-import type { ReferralCommission, WithdrawalRequest } from "@/types/models";
+import { useRouter } from "next/navigation";
+import { formatLagos } from "@/lib/time";
+import type { WalletEarning, WalletWithdrawal } from "@/lib/dashboard-data";
 
 const WITHDRAWAL_MINIMUM_NGN = 3000;
+const FUNDING_MINIMUM_NGN = 500;
 
-// Deliberately never states a percentage anywhere in this component — the commission
-// rate is a server-side-only constant (see src/lib/referrals.ts). Copy only ever says
-// "a percentage of sales."
+const EARNING_STATUS: Record<WalletEarning["status"], string> = {
+  pending: "Awaiting approval",
+  approved: "Credited",
+  rejected: "Not approved",
+};
+
+// Deliberately never states a commission percentage — the rate is a server-side-only
+// constant (see src/lib/referrals.ts). Copy only ever says "a percentage of sales."
 export function WalletPanel({
-  referralCode,
   walletBalanceNGN,
-  commissions,
+  referralCode,
+  earnings,
   withdrawals,
+  hasBankDetails,
 }: {
-  referralCode: string;
   walletBalanceNGN: number;
-  commissions: ReferralCommission[];
-  withdrawals: WithdrawalRequest[];
+  referralCode?: string;
+  earnings: WalletEarning[];
+  withdrawals: WalletWithdrawal[];
+  hasBankDetails: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
+  const router = useRouter();
+  const [tab, setTab] = useState<"fund" | "withdraw">("fund");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const referralLink =
-    typeof window !== "undefined" ? `${window.location.origin}/register?ref=${referralCode}` : "";
+  const totalEarned = earnings.filter((e) => e.status === "approved").reduce((s, e) => s + e.amountNGN, 0);
+  const pendingEarnings = earnings.filter((e) => e.status === "pending").reduce((s, e) => s + e.amountNGN, 0);
 
-  function copyLink() {
-    navigator.clipboard.writeText(referralLink).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  async function requestWithdrawal() {
+  async function submit() {
     setError(null);
+    setMessage(null);
     setLoading(true);
-
-    const res = await fetch("/api/withdrawals", {
+    const res = await fetch(tab === "fund" ? "/api/wallet/fund" : "/api/withdrawals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountNGN: Number(amount) }),
     });
-
-    setLoading(false);
-
+    const data = await res.json().catch(() => null);
     if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not submit withdrawal request");
+      setLoading(false);
+      setError(data?.error ?? "Something went wrong");
       return;
     }
-
-    setSent(true);
+    if (data?.authorizationUrl) {
+      window.location.href = data.authorizationUrl;
+      return;
+    }
+    setLoading(false);
     setAmount("");
+    setMessage("Withdrawal requested — Reallow will pay it into your bank account shortly.");
+    router.refresh();
   }
 
   return (
-    <div className="mt-8 rounded-lg border border-line p-4">
-      <p className="font-medium">Your Reallow wallet</p>
-      <p className="mt-1 text-xs text-foreground/60">
-        You earn a percentage of sales completed using your referral code — share it with
-        anyone. Earnings sit here until you withdraw them to your bank account.
-      </p>
-
-      <p className="mt-4 font-mono text-2xl font-medium">₦{walletBalanceNGN.toLocaleString()}</p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <code className="rounded-md border border-line bg-transparent px-3 py-2 text-sm">
-          {referralLink || referralCode}
-        </code>
-        <button
-          type="button"
-          onClick={copyLink}
-          className="h-9 rounded-full border border-line px-4 text-sm font-medium"
-        >
-          {copied ? "Copied!" : "Copy link"}
-        </button>
+    <div className="flex flex-col gap-5">
+      <div className="rounded-2xl bg-gradient-to-br from-clay to-clay/80 p-5 text-white">
+        <p className="text-xs font-medium tracking-wide uppercase opacity-80">Reallow wallet balance</p>
+        <p className="mt-1 font-mono text-3xl font-semibold">₦{walletBalanceNGN.toLocaleString()}</p>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs opacity-90">
+          <span>Referral earnings: ₦{totalEarned.toLocaleString()}</span>
+          {pendingEarnings > 0 && <span>Awaiting approval: ₦{pendingEarnings.toLocaleString()}</span>}
+        </div>
       </div>
 
-      <div className="mt-6 border-t border-line pt-4">
-        <p className="text-sm font-medium">Request a withdrawal</p>
-        <p className="mt-1 text-xs text-foreground/50">
-          Minimum ₦{WITHDRAWAL_MINIMUM_NGN.toLocaleString()}, paid to the bank account on your
-          profile.
+      <div className="rounded-xl border border-line p-4">
+        <div className="flex gap-1 rounded-full bg-foreground/5 p-1">
+          {(["fund", "withdraw"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => {
+                setTab(option);
+                setError(null);
+                setMessage(null);
+              }}
+              className={`h-8 flex-1 rounded-full text-sm font-medium ${
+                tab === option ? "bg-background shadow-sm" : "text-foreground/60"
+              }`}
+            >
+              {option === "fund" ? "Fund wallet" : "Withdraw"}
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-3 text-xs text-foreground/60">
+          {tab === "fund"
+            ? `Top up by card (minimum ₦${FUNDING_MINIMUM_NGN.toLocaleString()}). Use your balance for inspection fees and other payments on Reallow — we'll always ask before paying from it.`
+            : `Minimum ₦${WITHDRAWAL_MINIMUM_NGN.toLocaleString()}, paid to the bank account in your settings.`}
         </p>
-        {sent ? (
-          <p className="mt-2 text-sm text-verified">Request sent — Reallow will process it shortly.</p>
-        ) : (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+        {tab === "withdraw" && !hasBankDetails && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Add your bank details in{" "}
+            <a href="/dashboard/settings#profile" className="underline">
+              Settings
+            </a>{" "}
+            before withdrawing.
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-foreground/50">₦</span>
             <input
               type="number"
-              min={WITHDRAWAL_MINIMUM_NGN}
+              inputMode="numeric"
+              min={tab === "fund" ? FUNDING_MINIMUM_NGN : WITHDRAWAL_MINIMUM_NGN}
+              max={tab === "withdraw" ? walletBalanceNGN : undefined}
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="Amount (₦)"
-              className="h-9 w-40 rounded-md border border-line bg-transparent px-3 text-sm"
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount"
+              className="h-10 w-full min-w-32 rounded-md border border-line bg-transparent pr-3 pl-7 text-sm"
             />
-            <button
-              type="button"
-              disabled={loading || !amount}
-              onClick={requestWithdrawal}
-              className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {loading ? "Sending…" : "Request withdrawal"}
-            </button>
           </div>
-        )}
+          <button
+            type="button"
+            disabled={loading || !amount}
+            onClick={submit}
+            className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {loading ? "Please wait…" : tab === "fund" ? "Fund with card" : "Request withdrawal"}
+          </button>
+        </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {message && <p className="mt-2 text-sm text-verified">{message}</p>}
       </div>
 
-      {(commissions.length > 0 || withdrawals.length > 0) && (
-        <div className="mt-6 border-t border-line pt-4">
-          <p className="text-sm font-medium">History</p>
-          <div className="mt-2 flex flex-col gap-2 text-sm">
-            {commissions.map((c) => (
-              <div key={c._id!.toString()} className="flex items-center justify-between">
-                <span className="text-foreground/70">
-                  Referral commission ·{" "}
-                  {c.status === "pending" ? "awaiting approval" : c.status}
+      <div>
+        <p className="text-sm font-semibold">Reallow earnings</p>
+        <p className="mt-0.5 text-xs text-foreground/60">
+          You earn a percentage of sales completed using your referral code
+          {referralCode ? (
+            <>
+              {" "}
+              (<span className="font-mono">{referralCode}</span>)
+            </>
+          ) : null}
+          . Earnings are credited to your wallet once Reallow approves them.
+        </p>
+        {earnings.length === 0 ? (
+          <p className="mt-3 rounded-xl bg-foreground/5 p-4 text-center text-sm text-foreground/50">
+            No earnings yet — share your referral code to start earning.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col divide-y divide-line rounded-xl border border-line">
+            {earnings.map((earning) => (
+              <li key={earning.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <span>
+                  <span className="block">Referral earnings</span>
+                  <span className="block text-[11px] text-foreground/50">
+                    {formatLagos(earning.at)} · {EARNING_STATUS[earning.status]}
+                  </span>
                 </span>
-                <span className="font-mono">₦{c.amountNGN.toLocaleString()}</span>
-              </div>
+                <span className={`font-mono ${earning.status === "approved" ? "text-verified" : "text-foreground/50"}`}>
+                  +₦{earning.amountNGN.toLocaleString()}
+                </span>
+              </li>
             ))}
+          </ul>
+        )}
+      </div>
+
+      {withdrawals.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold">Withdrawals</p>
+          <ul className="mt-2 flex flex-col divide-y divide-line rounded-xl border border-line">
             {withdrawals.map((w) => (
-              <div key={w._id!.toString()} className="flex items-center justify-between">
-                <span className="text-foreground/70">Withdrawal · {w.status}</span>
+              <li key={w.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <span>
+                  <span className="block">To your bank</span>
+                  <span className="block text-[11px] text-foreground/50">
+                    {formatLagos(w.at)} · {w.status === "paid" ? "Paid" : w.status === "rejected" ? "Rejected" : "Processing"}
+                  </span>
+                </span>
                 <span className="font-mono">−₦{w.amountNGN.toLocaleString()}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
     </div>

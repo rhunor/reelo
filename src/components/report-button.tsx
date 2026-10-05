@@ -2,11 +2,23 @@
 
 import { useState } from "react";
 
-const REASONS = [
+const USER_REASONS = [
   "Suspicious or fraudulent",
-  "Misleading information",
-  "Inappropriate behavior",
+  "Asked me to pay outside Reallow",
+  "Tried to contact me directly",
+  "Inappropriate behaviour",
   "Not who they claim to be",
+  "Other",
+];
+
+const LISTING_REASONS = [
+  "Property doesn't exist or isn't available",
+  "Photos or details don't match the property",
+  "Wrong price or hidden charges",
+  "Asked to pay outside Reallow",
+  "Already rented or sold",
+  "Poster isn't the real owner",
+  "Contact details in the listing",
   "Other",
 ];
 
@@ -20,6 +32,7 @@ export function ReportButton({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const REASONS = targetType === "listing" ? LISTING_REASONS : USER_REASONS;
   const [reason, setReason] = useState(REASONS[0]);
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(false);

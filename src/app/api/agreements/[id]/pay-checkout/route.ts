@@ -5,9 +5,11 @@ import { getCollections } from "@/lib/db";
 import { initializeTransaction } from "@/lib/paystack";
 import { computeAgreementTotal } from "@/lib/fees";
 import { isStaffRole } from "@/lib/roles";
+import { recordAgreementPayment } from "@/lib/agreement-payment";
+import { creditWallet, debitWallet, walletReference } from "@/lib/wallet";
 
-// The tenant pays the full total — rent, caution fee, estate charge, Reallow's agency fee,
-// and the legal fee — together in one Paystack transaction, straight into Reallow's
+// The tenant pays the full total — rent, caution fee, estate charge, and Reallow's service
+// charge — together in one Paystack transaction, straight into Reallow's
 // account (see the guardrail comment in lib/paystack.ts) — never the landlord's. Reallow
 // holds the funds and pays the landlord out separately, out-of-band.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +43,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const breakdown = computeAgreementTotal(agreement.terms);
+  const body = await request.json().catch(() => ({}));
+
+  // Paying from the Reallow wallet settles instantly — same bookkeeping as a card payment.
+  if (body?.method === "wallet") {
+    const tenantId = agreement.tenantId;
+    if (!(await debitWallet(tenantId, breakdown.totalNGN))) {
+      return NextResponse.json({ error: "Your wallet balance doesn't cover this" }, { status: 400 });
+    }
+    const claimed = await agreements.updateOne(
+      { _id: agreement._id, "payment.status": "unpaid" },
+      { $set: { "payment.status": "paid_to_reallow" } },
+    );
+    if (claimed.modifiedCount !== 1) {
+      await creditWallet(tenantId, breakdown.totalNGN);
+      return NextResponse.json({ error: "This agreement has already been paid" }, { status: 409 });
+    }
+    await recordAgreementPayment(agreement, {
+      reference: walletReference("agreement", agreement._id!),
+      amountNGN: breakdown.totalNGN,
+      provider: "wallet",
+    });
+    return NextResponse.json({ success: true, paidFromWallet: true });
+  }
+
   const reference = `agreementpay_${agreement._id}_${Date.now()}`;
 
   try {

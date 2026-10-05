@@ -11,3 +11,17 @@ import type { UserRole } from "@/types/models";
 export function isStaffRole(role: UserRole | undefined): boolean {
   return role === "admin" || role === "support" || role === "staff";
 }
+
+// An ordinary Reallow account — "user", or the legacy "tenant"/"landlord" values.
+export function isCustomerRole(role: UserRole | undefined): boolean {
+  return role === "user" || role === "tenant" || role === "landlord";
+}
+
+export const ROLE_LABEL: Record<UserRole, string> = {
+  user: "User",
+  tenant: "User",
+  landlord: "User",
+  staff: "Field staff",
+  support: "Support",
+  admin: "Admin",
+};

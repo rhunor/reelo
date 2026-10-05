@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
+import { notifyListingReceived } from "@/lib/notifications";
 
-const schema = z.object({ scheduledFor: z.string().min(1) });
-
-// A rejected listing has no fee to re-pay anymore — the landlord just proposes a new
-// inspection slot and goes straight back into the admin's pending-verification queue.
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+// Puts a rejected listing back into the verification queue. The landlord no longer picks a
+// date — a Reallow agent calls to arrange the visit and schedules it (scheduleInspection),
+// exactly like a brand-new listing.
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const session = await auth();
@@ -18,12 +17,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!ObjectId.isValid(id)) {
     return NextResponse.json({ error: "Invalid listing" }, { status: 400 });
-  }
-
-  const body = await request.json();
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Propose a date for the inspection" }, { status: 400 });
   }
 
   const { properties } = await getCollections();
@@ -36,21 +29,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Not your listing" }, { status: 403 });
   }
   if (listing.status !== "rejected" && listing.status !== "draft") {
-    return NextResponse.json({ error: "This listing isn't awaiting a new inspection date" }, { status: 409 });
+    return NextResponse.json({ error: "This listing isn't awaiting resubmission" }, { status: 409 });
   }
 
-  const now = new Date();
   await properties.updateOne(
     { _id: listing._id },
     {
-      $set: {
-        status: "pending_verification",
-        "verification.scheduledFor": new Date(parsed.data.scheduledFor),
-        updatedAt: now,
+      $set: { status: "pending_verification", updatedAt: new Date() },
+      $unset: {
+        "verification.rejectionReason": "",
+        "verification.scheduledFor": "",
+        "verification.landlordConfirmed": "",
+        "verification.landlordResponse": "",
+        "verification.landlordRespondedAt": "",
+        "verification.checkedInAt": "",
       },
-      $unset: { "verification.rejectionReason": "" },
     },
   );
+
+  await notifyListingReceived(listing);
 
   return NextResponse.json({ success: true });
 }

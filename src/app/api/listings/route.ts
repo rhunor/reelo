@@ -1,38 +1,35 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { findDistrict } from "@/lib/locations";
 import { capCautionFee } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { isStaffRole } from "@/lib/roles";
+import { notifyListingReceived } from "@/lib/notifications";
 
 const listingSchema = z.object({
-  title: z.string().min(5),
-  description: z.string().optional(),
+  title: z.string().min(5).refine(noContactInfo, CONTACT_INFO_ERROR),
+  description: z.string().optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   listingType: z.enum(["rent", "sale"]),
   propertyType: z.string().min(2),
   priceNGN: z.coerce.number().positive(),
   depositNGN: z.coerce.number().positive().optional(),
   estateChargeNGN: z.coerce.number().positive().optional(),
   minimumTermMonths: z.coerce.number().int().min(MINIMUM_LEASE_TERM_MONTHS).optional(),
-  dealBreakers: z.string().optional(),
-  fullAddress: z.string().min(5).optional(),
+  fullAddress: z.string().trim().min(5, "Enter the property's full address"),
   state: z.string().min(2),
   city: z.string().min(2),
-  area: z.string().optional(),
+  area: z.string().optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   bedrooms: z.coerce.number().int().nonnegative().optional(),
   bathrooms: z.coerce.number().int().nonnegative().optional(),
   furnishing: z.enum(["furnished", "semi_furnished", "unfurnished"]).optional(),
-  amenities: z.string().optional(),
-  tenantPreferences: z.string().max(500).optional(),
+  amenities: z.string().optional().refine(noContactInfo, CONTACT_INFO_ERROR),
+  tenantPreferences: z.string().max(500).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   photoUrls: z.array(z.string().url()).min(1),
   videoUrls: z.array(z.string().url()).optional(),
-  // The landlord proposes when Reallow's agent should come verify the property in person —
-  // there's no fee for this anymore, so there's no reason to sit in an unpaid "draft" limbo
-  // first; a submission goes straight into the admin's pending-verification queue.
-  scheduledFor: z.string().min(1, "Propose a date for the verification inspection"),
 });
 
 export async function POST(request: Request) {
@@ -78,12 +75,10 @@ export async function POST(request: Request) {
     listingType: data.listingType,
     propertyType: data.propertyType,
     priceNGN: data.priceNGN,
-    depositNGN: data.depositNGN,
-    estateChargeNGN: data.estateChargeNGN,
-    minimumTermMonths: data.minimumTermMonths,
-    dealBreakers: data.dealBreakers
-      ? data.dealBreakers.split(",").map((item) => item.trim()).filter(Boolean)
-      : undefined,
+    // Caution fee, estate charge, and minimum tenancy only exist on rentals.
+    depositNGN: data.listingType === "rent" ? data.depositNGN : undefined,
+    estateChargeNGN: data.listingType === "rent" ? data.estateChargeNGN : undefined,
+    minimumTermMonths: data.listingType === "rent" ? data.minimumTermMonths : undefined,
     fullAddress: data.fullAddress,
     location: {
       state: data.state,
@@ -100,14 +95,19 @@ export async function POST(request: Request) {
     tenantPreferences: data.tenantPreferences,
     photoUrls: data.photoUrls,
     videoUrls: data.videoUrls ?? [],
+    // No date yet — Reallow's agent calls the landlord to agree one, then sets it from the
+    // staff/admin dashboard (scheduleInspection), which is what notifies them to confirm.
     status: "pending_verification",
-    verification: { feeNGN: 0, scheduledFor: new Date(data.scheduledFor) },
+    verification: { feeNGN: 0 },
     viewsCount: 0,
     savesCount: 0,
     inquiriesCount: 0,
     createdAt: now,
     updatedAt: now,
   });
+
+  const listing = await properties.findOne({ _id: insertedId });
+  if (listing) await notifyListingReceived(listing);
 
   return NextResponse.json({ success: true, id: insertedId.toString() });
 }

@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
 
 const schema = z.object({
-  occupation: z.string().max(100).optional(),
-  employer: z.string().max(100).optional(),
+  occupation: z.string().max(100).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
+  employer: z.string().max(100).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   monthlyIncomeNGN: z.coerce.number().nonnegative().optional(),
   householdSize: z.coerce.number().int().positive().optional(),
   hasPets: z.boolean().optional(),
-  aboutMe: z.string().max(500).optional(),
+  aboutMe: z.string().max(500).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   visibleToLandlords: z.boolean(),
 });
 

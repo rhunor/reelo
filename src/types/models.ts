@@ -4,7 +4,11 @@ import type { ObjectId } from "mongodb";
 // verify it, or meet a tenant for a paid inspection. Distinct from "admin" (decisions)
 // and "support" (tickets). Like both of those, a "staff" account can't transact as a
 // customer — see isStaffRole in src/lib/roles.ts.
-export type UserRole = "tenant" | "landlord" | "admin" | "support" | "staff";
+// "user" is every ordinary account — one account can rent, buy, let and sell. "tenant" and
+// "landlord" are legacy values from before that, still found on older records and treated
+// exactly like "user" everywhere (see isCustomerRole in src/lib/roles.ts and
+// scripts/migrate-roles-to-user.mjs, which converts them).
+export type UserRole = "user" | "admin" | "support" | "staff" | "tenant" | "landlord";
 
 export type VerificationStatus = "unverified" | "pending" | "verified" | "failed";
 
@@ -28,6 +32,8 @@ export interface TenantProfile {
 // candidacy. This is role-agnostic (landlords fill it in too) and feeds identity/payout
 // matching, not landlord matching.
 export interface UserProfile {
+  // "YYYY-MM-DD". Never shown to other users.
+  dateOfBirth?: string;
   occupation?: string;
   maritalStatus?: string;
   religion?: string;
@@ -60,6 +66,8 @@ export interface User {
   otherNames?: string;
   email: string;
   phone?: string;
+  // Optional second number Reallow can try if `phone` doesn't connect. Not unique.
+  alternatePhone?: string;
   passwordHash?: string;
   nin: {
     status: VerificationStatus;
@@ -91,6 +99,13 @@ export interface User {
   // Unset/"active" means active — only ever set to "banned" by an admin action (see
   // banUser in dashboard/admin/actions.ts), checked at login in src/auth.ts.
   status?: "active" | "banned";
+  bannedAt?: Date;
+  bannedBy?: ObjectId;
+  bannedReason?: string;
+  // Field staff / support: the city they work from (one of SUPPORTED_STATES' values).
+  staffBase?: "Abuja" | "Port Harcourt" | "Warri";
+  // Internal remarks Reallow admins leave on an account — never shown to the user.
+  adminNotes?: Array<{ body: string; by: ObjectId; byName?: string; at: Date }>;
   termsAcceptedAt?: Date;
   termsVersion?: string;
   newsletterOptIn?: boolean;
@@ -101,13 +116,16 @@ export interface User {
   tenantProfile?: TenantProfile;
   ratingAverage?: number;
   ratingCount?: number;
-  // Referral program (see src/lib/referrals.ts) — every account gets a code; walletBalanceNGN
-  // only ever moves via an admin-approved ReferralCommission (up) or a paid
-  // WithdrawalRequest (down), never automatically. The commission rate itself is
-  // deliberately never exposed anywhere client-facing — see referrals.ts.
+  // Referral program (see src/lib/referrals.ts) — every account gets a code. walletBalanceNGN
+  // goes up via an admin-approved ReferralCommission or a Paystack-confirmed wallet top-up,
+  // and down via a paid WithdrawalRequest or a payment made from the wallet (see
+  // src/lib/wallet.ts — always an atomic conditional decrement). The commission rate itself
+  // is deliberately never exposed anywhere client-facing — see referrals.ts.
   referralCode?: string;
   referredBy?: ObjectId;
   walletBalanceNGN?: number;
+  // "Save for later" on listings — see api/listings/[id]/save.
+  savedListingIds?: ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -144,6 +162,10 @@ export interface ListingVerification {
   // after calling them — a deliberate extra step so nothing gets locked in from a phone
   // call alone. Reset to false whenever admin changes scheduledFor (see scheduleInspection).
   landlordConfirmed?: boolean;
+  // The landlord's answer to the scheduled time — "declined" means they need a different
+  // time and Reallow should call them back. Reset whenever scheduledFor changes.
+  landlordResponse?: "confirmed" | "declined";
+  landlordRespondedAt?: Date;
   // The field agent's checklist for this visit (see src/app/dashboard/staff/page.tsx) —
   // all default false/unset. The actual media they capture gets appended straight onto
   // Property.photoUrls/videoUrls, since that media *is* the listing's verification media.
@@ -152,6 +174,19 @@ export interface ListingVerification {
     videoOfRoad: boolean;
     photos: boolean;
   };
+  // The field agent's write-up after the visit — what admin reads before approving.
+  // Internal only: never shown to the landlord or the public.
+  agentReport?: VisitReport;
+}
+
+export interface VisitReport {
+  condition: "matches" | "minor_differences" | "does_not_match";
+  comments: string;
+  narration: string;
+  photoUrls: string[];
+  submittedAt: Date;
+  submittedBy: ObjectId;
+  submittedByName?: string;
 }
 
 export interface Property {
@@ -171,10 +206,9 @@ export interface Property {
   // Per-listing minimum tenancy length in months. Falls back to the platform floor
   // (MINIMUM_LEASE_TERM_MONTHS in src/lib/listing-verification.ts) when unset.
   minimumTermMonths?: number;
-  // Hard rules for this specific property (e.g. "no pets", "no smoking") — distinct from
-  // tenantPreferences below, which is about who the landlord wants, not non-negotiable
-  // rules. Shown on the listing publicly and handed to whoever drafts the real tenancy
-  // agreement with a lawyer.
+  // Legacy — landlords used to set rules on the listing. Reallow now enters house rules
+  // itself when drafting the tenancy agreement (Agreement.terms.houseRules), so nothing
+  // writes this anymore; only read as a fallback for older agreements.
   dealBreakers?: string[];
   // Collected for Reallow's own in-person verification visit only — never rendered on the
   // public listing page. Distinct from `location`, which is the closed-dropdown
@@ -198,6 +232,16 @@ export interface Property {
   // protected characteristics to filter on.
   tenantPreferences?: string;
   status: ListingStatus;
+  // Set when Reallow takes a listing off the site (status "archived") — by hand, or because
+  // the owner's account was blocked. previousStatus is what "Make visible" / unblocking
+  // restores.
+  takenDown?: {
+    at: Date;
+    by?: ObjectId;
+    reason: "admin" | "owner_blocked";
+    note?: string;
+    previousStatus: ListingStatus;
+  };
   verification: ListingVerification;
   viewsCount: number;
   savesCount: number;
@@ -231,6 +275,53 @@ export interface InspectionBooking {
   createdAt: Date;
 }
 
+export type MeetingKind = "inspection" | "meeting";
+export type MeetingStatus = "pending" | "confirmed" | "declined" | "cancelled" | "completed";
+
+// A meeting between a landlord and an applicant they've approved (see
+// SupportTicket.landlordDecision) — booked from the dashboard's Meetings window by either
+// side. Whoever didn't propose the current time can accept it, decline, or suggest another
+// (which flips proposedBy). An "inspection" is additionally attended by Reallow's agent and
+// carries a location-priced fee the applicant pays once the time is agreed; it only goes
+// ahead once paidAt is set. Separate from the older InspectionBooking (pay-first) records,
+// which are still read for history.
+export interface Meeting {
+  _id?: ObjectId;
+  ticketId: ObjectId;
+  listingId: ObjectId;
+  landlordId: ObjectId;
+  tenantId: ObjectId;
+  kind: MeetingKind;
+  status: MeetingStatus;
+  proposedTime: Date;
+  proposedBy: "landlord" | "tenant";
+  scheduledFor?: Date;
+  feeNGN?: number;
+  paidAt?: Date;
+  paymentMethod?: "wallet" | "card";
+  transactionId?: ObjectId;
+  respondedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// What a user thought of a past calendar entry — a negotiated Meeting, an older
+// InspectionBooking, or a landlord's listing-verification visit. One per user per entry.
+// Read by Reallow on /dashboard/admin/feedback; never shown to the other party.
+export type FeedbackTargetType = "meeting" | "inspection_booking" | "verification";
+
+export interface MeetingFeedback {
+  _id?: ObjectId;
+  userId: ObjectId;
+  targetType: FeedbackTargetType;
+  targetId: ObjectId;
+  listingId?: ObjectId;
+  rating: number;
+  tags: string[];
+  comment?: string;
+  createdAt: Date;
+}
+
 export type AgreementStatus =
   | "draft"
   | "sent"
@@ -252,9 +343,9 @@ export interface AgreementPayment {
   paidAt?: Date;
   payoutAt?: Date;
   payoutBy?: ObjectId;
-  // The caution fee is refund-eligible only once BOTH parties have confirmed the tenancy
-  // ended (see Agreement.terminatedBy*) — same manual, admin-flips-a-flag pattern as the
-  // landlord payout above, since "no damage" is a human judgment call, not automated.
+  // Legacy — from when Reallow held caution fees and refunded them itself. It no longer
+  // does (the caution fee goes to the landlord with the rent), so nothing writes these
+  // anymore; kept only so older agreement records still type-check.
   refundStatus?: "eligible" | "refunded";
   refundAmountNGN?: number;
   refundedAt?: Date;
@@ -271,14 +362,25 @@ export interface Agreement {
     rentNGN: number;
     depositNGN: number;
     estateChargeNGN?: number;
-    // Captured once from the source listing at agreement-creation time, so a state's
-    // agency-fee rate changing later never retroactively changes an existing agreement's
-    // math. Optional so agreements created before this field existed still read fine
-    // (see computeAgreementTotal's fallback in src/lib/fees.ts).
+    // Captured from the source listing at creation. (Once used to pick a per-city fee rate;
+    // the service charge is now flat, so this is informational.)
     state?: string;
+    // Reallow's service-charge rate at creation time, so a later rate change never alters
+    // an existing agreement. Older agreements fall back to the current rent rate.
+    serviceChargeRate?: number;
     leaseStart: Date;
     leaseEndOrTermMonths: number | Date;
+    // Free-text additional terms on top of the standard clauses in the generated document
+    // (src/components/tenancy-agreement-document.tsx). May be empty.
     responsibilities: string;
+    // Snapshotted from the listing/users at creation so a later listing edit or name change
+    // can't silently alter what was signed. Optional: agreements created before these
+    // existed fall back to live lookups.
+    houseRules?: string[];
+    propertyAddress?: string;
+    propertyDescription?: string;
+    landlordName?: string;
+    tenantName?: string;
   };
   status: AgreementStatus;
   signatures: Array<{
@@ -286,6 +388,9 @@ export interface Agreement {
     signedAt: Date;
     signatureHash: string;
     ipAddress: string;
+    // The name the party typed to sign. Optional: signatures from before this was stored
+    // only have it folded into signatureHash.
+    fullName?: string;
   }>;
   payment: AgreementPayment;
   // Either party can end the tenancy on their end at any time; the caution fee only
@@ -308,7 +413,8 @@ export type TransactionType =
   | "legal_fee"
   | "listing_verification"
   | "inspection_fee"
-  | "caution_fee_refund";
+  | "caution_fee_refund"
+  | "wallet_funding";
 export type TransactionStatus = "pending" | "success" | "failed" | "refunded";
 
 export interface Transaction {
@@ -320,8 +426,10 @@ export interface Transaction {
   payeeId?: ObjectId;
   listingId?: ObjectId;
   agreementId?: ObjectId;
-  provider: "paystack" | "flutterwave";
+  // "wallet" = paid from the user's Reallow wallet balance rather than a card.
+  provider: "paystack" | "flutterwave" | "wallet";
   providerReference: string;
+  meetingId?: ObjectId;
   status: TransactionStatus;
   createdAt: Date;
 }
@@ -381,10 +489,15 @@ export type TicketStatus = "open" | "in_progress" | "resolved";
 export interface SupportTicket {
   _id?: ObjectId;
   userId: ObjectId;
-  userRole: "tenant" | "landlord";
+  userRole: "user" | "tenant" | "landlord";
   listingId?: ObjectId;
+  // The contact-form topic (see src/lib/faqs.ts) for general messages.
+  topic?: string;
   subject: string;
   status: TicketStatus;
+  // Set when Reallow replies and cleared when the user opens the conversation — drives the
+  // unread badge on "Messages to Reallow".
+  unreadReplyForUser?: boolean;
   assignedTo?: ObjectId;
   // A landlord-scoped listing inquiry doubles as a "candidate" — see
   // /dashboard/landlord/candidates. landlordPreferred/-At are kept for backward
@@ -431,9 +544,22 @@ export type NotificationType =
   | "ticket_new"
   | "ticket_reply"
   | "landlord_decision"
+  | "listing_received"
   | "verification_inspection_scheduled"
+  | "verification_inspection_declined"
   | "inspection_time_proposed"
-  | "inspection_time_confirmed";
+  | "inspection_time_confirmed"
+  | "welcome"
+  | "complete_profile"
+  | "new_application"
+  | "meeting_proposed"
+  | "meeting_confirmed"
+  | "meeting_declined"
+  | "meeting_paid"
+  | "wallet_funded"
+  | "report_new"
+  | "listing_status_changed"
+  | "role_changed";
 
 export type ReportTargetType = "user" | "listing";
 export type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
@@ -454,6 +580,8 @@ export interface Report {
   createdAt: Date;
   resolvedAt?: Date;
   resolvedBy?: ObjectId;
+  // Reallow's internal notes on the investigation — never shown to the reporter.
+  adminNote?: string;
 }
 
 export interface Notification {
@@ -464,6 +592,9 @@ export interface Notification {
   body: string;
   listingId?: ObjectId;
   ticketId?: ObjectId;
+  // Where tapping the notification goes. Older notifications don't have one — see
+  // notificationHref in src/lib/notification-links.ts for the fallback.
+  href?: string;
   read: boolean;
   createdAt: Date;
 }

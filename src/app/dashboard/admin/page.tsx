@@ -1,52 +1,65 @@
+import { redirect } from "next/navigation";
+import { ObjectId } from "mongodb";
+import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { IdentityHeader } from "@/components/dashboard/identity-header";
 import { approveListing, rejectListing, scheduleInspection } from "./actions";
 import { CheckInButton } from "@/components/check-in-button";
-import { DashboardHeader, StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
+import { StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
+import { formatLagos, toLagosDateTimeLocal } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
+const AGENT_CONDITION_LABEL = {
+  matches: "Matches the listing",
+  minor_differences: "Minor differences",
+  does_not_match: "Doesn't match",
+} as const;
+
 export default async function AdminDashboardPage() {
-  const { properties, users, tickets, agreements } = await getCollections();
-  const [pending, openTicketCount, payoutPendingCount, refundPendingCount] = await Promise.all([
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const { properties, users, tickets, agreements, withdrawalRequests, reports } = await getCollections();
+  const me = await users.findOne({ _id: new ObjectId(session.user.id) });
+  if (!me) redirect("/login");
+  const [pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount] = await Promise.all([
     properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray(),
     tickets.countDocuments({ status: { $in: ["open", "in_progress"] } }),
     agreements.countDocuments({ "payment.status": "paid_to_reallow" }),
-    agreements.countDocuments({ "payment.refundStatus": "eligible" }),
+    withdrawalRequests.countDocuments({ status: "pending" }),
+    reports.countDocuments({ status: { $in: ["open", "reviewing"] } }),
   ]);
 
   const landlords = await users
     .find({ _id: { $in: pending.map((listing) => listing.landlordId) } })
-    .project({ verifiedBadge: 1 })
+    .project({ verifiedBadge: 1, name: 1, phone: 1 })
     .toArray();
-  const verifiedByLandlordId = new Map(
-    landlords.map((landlord) => [landlord._id!.toString(), Boolean(landlord.verifiedBadge)]),
-  );
+  const landlordById = new Map(landlords.map((landlord) => [landlord._id!.toString(), landlord]));
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
-      <DashboardHeader
-        eyebrow="Admin"
-        title="Admin dashboard"
-        subtitle="Listing is free for landlords. Approve a listing once the physical inspection confirms it, or reject with a reason."
-      />
+    <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
+      <IdentityHeader user={me} greeting="Admin dashboard" />
 
       <StatGrid
         stats={[
           { label: "Awaiting verification", value: pending.length, accent: pending.length > 0 ? "amber" : undefined },
           { label: "Open support tickets", value: openTicketCount, accent: openTicketCount > 0 ? "clay" : undefined },
           { label: "Payouts pending", value: payoutPendingCount },
-          { label: "Refunds pending", value: refundPendingCount },
+          { label: "Withdrawals pending", value: withdrawalPendingCount, accent: withdrawalPendingCount > 0 ? "clay" : undefined },
+          { label: "Open reports", value: openReportCount, accent: openReportCount > 0 ? "amber" : undefined },
         ]}
       />
 
       <QuickLinks
         links={[
+          { href: "/dashboard/admin/listings", label: "Manage listings", primary: true },
           { href: "/dashboard/admin/listings/new", label: "Post a property directly" },
           { href: "/dashboard/admin/agreements", label: "Tenancy agreements" },
           { href: "/dashboard/support", label: "Support queue" },
-          { href: "/dashboard/admin/users", label: "Users" },
-          { href: "/dashboard/admin/reports", label: "Reports" },
+          { href: "/dashboard/admin/users", label: "People" },
+          { href: "/dashboard/admin/reports", label: openReportCount ? `Reports (${openReportCount})` : "Reports" },
           { href: "/dashboard/admin/referrals", label: "Referrals & withdrawals" },
+          { href: "/dashboard/admin/feedback", label: "Meeting feedback" },
         ]}
       />
       <div className="mt-2">
@@ -61,7 +74,9 @@ export default async function AdminDashboardPage() {
 
       <div className="mt-4 flex flex-col gap-4">
         {pending.map((listing) => {
-          const landlordVerified = verifiedByLandlordId.get(listing.landlordId.toString()) ?? false;
+          const landlord = landlordById.get(listing.landlordId.toString());
+          const landlordVerified = Boolean(landlord?.verifiedBadge);
+          const { scheduledFor, landlordResponse } = listing.verification;
           return (
           <div key={listing._id!.toString()} className="rounded-lg border border-line p-4">
             <p className="font-medium break-words">{listing.title}</p>
@@ -71,15 +86,76 @@ export default async function AdminDashboardPage() {
             {listing.fullAddress && (
               <p className="mt-1 text-sm text-foreground/70 break-words">{listing.fullAddress}</p>
             )}
-            <p className="mt-1 text-xs text-foreground/50">
-              Submitted {new Date(listing.createdAt).toLocaleDateString()}
-              {listing.verification.scheduledFor && (
-                <> · Inspection scheduled {new Date(listing.verification.scheduledFor).toLocaleDateString()}</>
-              )}
-              {listing.verification.checkedInAt && (
-                <> · Checked in {new Date(listing.verification.checkedInAt).toLocaleString()}</>
+            <p className="mt-1 text-sm text-foreground/70">
+              Landlord: {landlord?.name ?? "Unknown"}
+              {" · "}
+              {landlord?.phone ? (
+                <a href={`tel:${landlord.phone}`} className="text-clay underline">
+                  {landlord.phone}
+                </a>
+              ) : (
+                <span className="text-foreground/50">no phone on file</span>
               )}
             </p>
+            <p className="mt-1 text-xs text-foreground/50">
+              Submitted {formatLagos(listing.createdAt)}
+              {scheduledFor && (
+                <>
+                  {" · "}Visit {formatLagos(scheduledFor)} (
+                  {landlordResponse === "confirmed"
+                    ? "confirmed"
+                    : landlordResponse === "declined"
+                      ? "landlord needs a different time"
+                      : "awaiting confirmation"}
+                  )
+                </>
+              )}
+              {listing.verification.checkedInAt && (
+                <> · Checked in {formatLagos(listing.verification.checkedInAt)}</>
+              )}
+            </p>
+
+            {listing.verification.agentReport ? (
+              <details className="mt-3 rounded-xl border border-line p-3" open>
+                <summary className="cursor-pointer text-sm font-semibold">
+                  Agent&apos;s visit report{" "}
+                  <span
+                    className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      listing.verification.agentReport.condition === "matches"
+                        ? "bg-verified/10 text-verified"
+                        : listing.verification.agentReport.condition === "minor_differences"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          : "bg-red-500/10 text-red-600"
+                    }`}
+                  >
+                    {AGENT_CONDITION_LABEL[listing.verification.agentReport.condition]}
+                  </span>
+                </summary>
+                <p className="mt-2 text-xs text-foreground/50">
+                  By {listing.verification.agentReport.submittedByName ?? "a field agent"} ·{" "}
+                  {formatLagos(listing.verification.agentReport.submittedAt)}
+                </p>
+                <p className="mt-2 text-sm whitespace-pre-line break-words">{listing.verification.agentReport.narration}</p>
+                {listing.verification.agentReport.comments && (
+                  <p className="mt-2 rounded-lg bg-foreground/5 p-2 text-sm break-words">
+                    <span className="text-xs font-medium text-foreground/50">Comments: </span>
+                    {listing.verification.agentReport.comments}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {listing.verification.agentReport.photoUrls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Cloudinary URL */}
+                      <img src={url} alt="" className="h-20 w-28 rounded-lg object-cover hover:opacity-90" />
+                    </a>
+                  ))}
+                </div>
+              </details>
+            ) : (
+              listing.verification.scheduledFor && (
+                <p className="mt-2 text-xs text-foreground/50">No visit report filed yet.</p>
+              )
+            )}
 
             {!landlordVerified && (
               <p className="mt-2 text-xs font-medium text-red-600">
@@ -98,12 +174,8 @@ export default async function AdminDashboardPage() {
               <input type="hidden" name="listingId" value={listing._id!.toString()} />
               <input
                 name="scheduledFor"
-                type="date"
-                defaultValue={
-                  listing.verification.scheduledFor
-                    ? new Date(listing.verification.scheduledFor).toISOString().slice(0, 10)
-                    : undefined
-                }
+                type="datetime-local"
+                defaultValue={scheduledFor ? toLagosDateTimeLocal(new Date(scheduledFor)) : undefined}
                 required
                 className="h-9 rounded-md border border-line px-3 text-sm bg-transparent"
               />
@@ -112,7 +184,7 @@ export default async function AdminDashboardPage() {
                 disabled={!landlordVerified}
                 className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-40"
               >
-                Schedule inspection
+                {scheduledFor ? "Update visit time" : "Schedule visit"}
               </button>
             </form>
 

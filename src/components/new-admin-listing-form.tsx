@@ -11,15 +11,6 @@ import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
-const DEAL_BREAKER_OPTIONS = [
-  "No pets",
-  "No loud music/parties",
-  "No repainting without consent",
-  "No AC installation",
-  "No smoking indoors",
-  "No subletting",
-];
-
 export function NewAdminListingForm() {
   const router = useRouter();
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
@@ -30,16 +21,8 @@ export function NewAdminListingForm() {
   const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
-  const [dealBreakers, setDealBreakers] = useState<string[]>([]);
-  const [otherDealBreaker, setOtherDealBreaker] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  function toggleDealBreaker(option: string) {
-    setDealBreakers((current) =>
-      current.includes(option) ? current.filter((o) => o !== option) : [...current, option],
-    );
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,10 +43,9 @@ export function NewAdminListingForm() {
       listingType,
       propertyType: formData.get("propertyType"),
       priceNGN: formData.get("priceNGN"),
-      depositNGN: formData.get("depositNGN") || undefined,
-      estateChargeNGN: formData.get("estateChargeNGN") || undefined,
+      depositNGN: Number(formData.get("depositNGN")) || undefined,
+      estateChargeNGN: Number(formData.get("estateChargeNGN")) || undefined,
       minimumTermMonths: formData.get("minimumTermMonths") || undefined,
-      dealBreakers: [...dealBreakers, ...(otherDealBreaker.trim() ? [otherDealBreaker.trim()] : [])].join(", ") || undefined,
       state: formData.get("state"),
       city: formData.get("city"),
       area: formData.get("area") || undefined,
@@ -147,44 +129,31 @@ export function NewAdminListingForm() {
         ))}
       </select>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <input
-          name="priceNGN"
-          type="number"
-          min={0}
-          placeholder={listingType === "rent" ? "Rent (₦/year)" : "Price (₦)"}
-          required
-          className={inputClass}
-        />
-        <input
-          name="depositNGN"
-          type="number"
-          min={0}
-          placeholder="Caution fee (₦, optional)"
-          className={inputClass}
-        />
-      </div>
-      <p className="-mt-2 text-xs text-foreground/50">
-        Caution fee is refundable and held by Reallow until move-out, capped at{" "}
-        {CAUTION_FEE_CAP_RATE * 100}% of annual rent.
-      </p>
+      {listingType === "rent" ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <input name="priceNGN" type="number" min={1} placeholder="Rent (₦/year)" required className={inputClass} />
+            <input name="depositNGN" type="number" min={0} placeholder="Caution fee (₦, optional)" className={inputClass} />
+          </div>
+          <p className="-mt-2 text-xs text-foreground/50">
+            Caution fee can&apos;t exceed {CAUTION_FEE_CAP_RATE * 100}% of annual rent.
+          </p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <input
-          name="estateChargeNGN"
-          type="number"
-          min={0}
-          placeholder="Estate charge (₦, optional)"
-          className={inputClass}
-        />
-        <input
-          name="minimumTermMonths"
-          type="number"
-          min={MINIMUM_LEASE_TERM_MONTHS}
-          placeholder={`Minimum tenancy (months, min. ${MINIMUM_LEASE_TERM_MONTHS})`}
-          className={inputClass}
-        />
-      </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <input name="estateChargeNGN" type="number" min={0} placeholder="Estate charge (₦, optional)" className={inputClass} />
+            <input
+              name="minimumTermMonths"
+              type="number"
+              min={MINIMUM_LEASE_TERM_MONTHS}
+              placeholder={`Minimum tenancy (months, min. ${MINIMUM_LEASE_TERM_MONTHS})`}
+              className={inputClass}
+            />
+          </div>
+        </>
+      ) : (
+        // Sale listings have no caution fee, estate charge, or minimum tenancy.
+        <input key="sale-price" name="priceNGN" type="number" min={1} placeholder="Sale price (₦)" required className={inputClass} />
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <select
@@ -234,30 +203,6 @@ export function NewAdminListingForm() {
       </div>
 
       <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
-
-      <div>
-        <p className="text-sm">Deal breakers (optional)</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {DEAL_BREAKER_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => toggleDealBreaker(option)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                dealBreakers.includes(option) ? "border-transparent bg-clay text-white" : "border-line"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-        <input
-          value={otherDealBreaker}
-          onChange={(event) => setOtherDealBreaker(event.target.value)}
-          placeholder="Other (optional)"
-          className={inputClass + " mt-2 w-full"}
-        />
-      </div>
 
       <textarea
         name="tenantPreferences"

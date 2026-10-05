@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
@@ -8,7 +9,7 @@ import { isStaffRole } from "@/lib/roles";
 const schema = z.object({
   agreementId: z.string(),
   rating: z.coerce.number().int().min(1).max(5),
-  comment: z.string().max(1000).optional(),
+  comment: z.string().max(1000).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
 });
 
 export async function POST(request: Request) {

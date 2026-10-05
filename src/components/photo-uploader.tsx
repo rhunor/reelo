@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 
-export function PhotoUploader({ value, onChange }: { value: string[]; onChange: (urls: string[]) => void }) {
+// `capture="environment"` opens the phone's rear camera straight away (desktop browsers
+// still show a file picker) — used for on-site photos in field agents' visit reports.
+export function PhotoUploader({
+  value,
+  onChange,
+  capture,
+}: {
+  value: string[];
+  onChange: (urls: string[]) => void;
+  capture?: "environment" | "user";
+}) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +65,7 @@ export function PhotoUploader({ value, onChange }: { value: string[]; onChange: 
         type="file"
         accept="image/*"
         multiple
+        capture={capture}
         disabled={uploading}
         onChange={(event) => handleFiles(event.target.files)}
         className="text-sm"
