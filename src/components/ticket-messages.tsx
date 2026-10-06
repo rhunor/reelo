@@ -1,22 +1,24 @@
 import type { SupportTicket } from "@/types/models";
+import { getT } from "@/lib/i18n/server";
 
 // `viewerId` decides the "You" label — a ticket is always between its own creator and
 // Reallow staff, so showing the raw stored account role here (as this used to) was both
 // confusing (a message from yourself labelled "landlord" or "tenant" reads as someone
 // else) and, since one account can now be both, not even a reliable way to tell who's who.
-export function TicketMessages({
+export async function TicketMessages({
   messages,
   viewerId,
 }: {
   messages: SupportTicket["messages"];
   viewerId: string;
 }) {
+  const t = await getT();
   return (
     <div className="mt-6 flex flex-col gap-3">
       {messages.map((message, index) => {
         const isStaff = message.senderRole === "admin" || message.senderRole === "support";
         const isViewer = message.senderId.toString() === viewerId;
-        const label = isStaff ? "Reallow" : isViewer ? "You" : "them";
+        const label = isStaff ? "Reallow" : isViewer ? t("tickets.you") : t("tickets.them");
         return (
           <div
             key={index}

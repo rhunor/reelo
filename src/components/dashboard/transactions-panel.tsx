@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { formatLagos } from "@/lib/time";
+import { useI18n } from "@/components/i18n-provider";
 import type { LedgerEntry } from "@/lib/dashboard-data";
 
 export function TransactionsPanel({ entries }: { entries: LedgerEntry[] }) {
+  const { t } = useI18n();
   const [order, setOrder] = useState<"newest" | "oldest">("newest");
   const sorted = useMemo(
     () =>
@@ -22,34 +24,34 @@ export function TransactionsPanel({ entries }: { entries: LedgerEntry[] }) {
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-verified/10 p-3">
-          <p className="text-xs text-foreground/60">Money in</p>
+          <p className="text-xs text-foreground/60">{t("tx.moneyIn")}</p>
           <p className="mt-0.5 font-mono text-lg font-semibold text-verified">₦{totalIn.toLocaleString()}</p>
         </div>
         <div className="rounded-xl bg-foreground/5 p-3">
-          <p className="text-xs text-foreground/60">Money out</p>
+          <p className="text-xs text-foreground/60">{t("tx.moneyOut")}</p>
           <p className="mt-0.5 font-mono text-lg font-semibold">₦{totalOut.toLocaleString()}</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold">
-          {entries.length} transaction{entries.length === 1 ? "" : "s"}
+          {t(entries.length === 1 ? "tx.countOne" : "tx.count", { count: entries.length })}
         </p>
         <label className="flex items-center gap-2 text-xs text-foreground/60">
-          Sort
+          {t("tx.sort")}
           <select
             value={order}
             onChange={(e) => setOrder(e.target.value as "newest" | "oldest")}
             className="h-8 rounded-md border border-line bg-transparent px-2 text-xs text-foreground"
           >
-            <option value="newest">Most recent first</option>
-            <option value="oldest">Oldest first</option>
+            <option value="newest">{t("tx.newest")}</option>
+            <option value="oldest">{t("tx.oldest")}</option>
           </select>
         </label>
       </div>
 
       {sorted.length === 0 ? (
-        <p className="rounded-xl bg-foreground/5 p-6 text-center text-sm text-foreground/50">No transactions yet.</p>
+        <p className="rounded-xl bg-foreground/5 p-6 text-center text-sm text-foreground/50">{t("tx.none")}</p>
       ) : (
         <ul className="flex flex-col divide-y divide-line rounded-xl border border-line">
           {sorted.map((entry) => {

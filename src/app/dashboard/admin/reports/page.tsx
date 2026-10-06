@@ -3,6 +3,7 @@ import { getCollections } from "@/lib/db";
 import { banUser, setListingVisibility, unbanUser, updateReportStatus } from "@/app/dashboard/admin/actions";
 import { formatLagos } from "@/lib/time";
 import type { ReportStatus } from "@/types/models";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -165,35 +166,35 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
                     <input type="hidden" name="listingId" value={listing._id!.toString()} />
                     <input type="hidden" name="action" value="hide" />
                     <input type="hidden" name="note" value="Taken down while Reallow investigates a report." />
-                    <button type="submit" className="h-8 rounded-full border border-red-600/60 px-3.5 text-xs font-medium text-red-600">
+                    <SubmitButton className="h-8 rounded-full border border-red-600/60 px-3.5 text-xs font-medium text-red-600">
                       Take listing down
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
                 {listing && listing.status === "archived" && targetUser?.status !== "banned" && (
                   <form action={setListingVisibility}>
                     <input type="hidden" name="listingId" value={listing._id!.toString()} />
                     <input type="hidden" name="action" value="show" />
-                    <button type="submit" className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
+                    <SubmitButton className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
                       Put listing back up
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
                 {targetUser && targetUser.role !== "admin" && targetUser.status !== "banned" && (
                   <form action={banUser}>
                     <input type="hidden" name="userId" value={targetUser._id!.toString()} />
                     <input type="hidden" name="reason" value={`Report: ${report.reason}`} />
-                    <button type="submit" className="h-8 rounded-full border border-red-600/60 px-3.5 text-xs font-medium text-red-600">
+                    <SubmitButton className="h-8 rounded-full border border-red-600/60 px-3.5 text-xs font-medium text-red-600">
                       Block {listing ? "owner" : "user"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
                 {targetUser && targetUser.status === "banned" && (
                   <form action={unbanUser}>
                     <input type="hidden" name="userId" value={targetUser._id!.toString()} />
-                    <button type="submit" className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
+                    <SubmitButton className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
                       Unblock {listing ? "owner" : "user"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>
@@ -212,31 +213,31 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
                   />
                   <div className="flex flex-wrap gap-2">
                     {report.status === "open" && (
-                      <button
-                        type="submit"
+                      <SubmitButton
+                       
                         name="status"
                         value="reviewing"
                         className="h-8 rounded-full border border-line px-3.5 text-xs font-medium hover:border-clay hover:text-clay"
                       >
                         Start investigating
-                      </button>
+                      </SubmitButton>
                     )}
                     {report.status === "reviewing" && (
-                      <button
-                        type="submit"
+                      <SubmitButton
+                       
                         name="status"
                         value="reviewing"
                         className="h-8 rounded-full border border-line px-3.5 text-xs font-medium hover:border-clay hover:text-clay"
                       >
                         Save note
-                      </button>
+                      </SubmitButton>
                     )}
-                    <button type="submit" name="status" value="dismissed" className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
+                    <SubmitButton name="status" value="dismissed" className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
                       Dismiss
-                    </button>
-                    <button type="submit" name="status" value="resolved" className="h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white">
+                    </SubmitButton>
+                    <SubmitButton name="status" value="resolved" className="h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white">
                       Mark resolved
-                    </button>
+                    </SubmitButton>
                   </div>
                 </form>
               )}

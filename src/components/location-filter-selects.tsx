@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
+import { useI18n } from "@/components/i18n-provider";
 
 const selectClass = "h-10 rounded-full border border-line bg-transparent px-4 text-sm";
 
@@ -16,6 +17,7 @@ export function LocationFilterSelects({
   defaultState: string;
   defaultCity: string;
 }) {
+  const { t } = useI18n();
   const [state, setState] = useState(defaultState);
   const districts = DISTRICTS_BY_STATE[state as SupportedState] ?? [];
 
@@ -27,7 +29,7 @@ export function LocationFilterSelects({
         onChange={(event) => setState(event.target.value)}
         className={selectClass}
       >
-        <option value="">All states</option>
+        <option value="">{t("listings.allCities")}</option>
         {SUPPORTED_STATES.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}
@@ -40,7 +42,7 @@ export function LocationFilterSelects({
         key={state}
         className={selectClass}
       >
-        <option value="">All districts</option>
+        <option value="">{t("listings.allDistricts")}</option>
         {districts.map((district) => (
           <option key={district.value} value={district.value}>
             {district.label}

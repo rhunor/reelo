@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
 
 // Camera only — deliberately no file picker, so a profile picture is always a live photo
 // of the account holder rather than any image they have saved. Uses getUserMedia (needs
@@ -15,6 +16,7 @@ export function ProfilePictureUploader({
   onChange: (url: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -32,7 +34,7 @@ export function ProfilePictureUploader({
   async function startCamera() {
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("This browser can't open the camera. Try Chrome or Safari on your phone.");
+      setError(t("camera.unsupported"));
       return;
     }
     try {
@@ -50,7 +52,7 @@ export function ProfilePictureUploader({
         }
       });
     } catch {
-      setError("Couldn't open your camera — allow camera access in your browser and try again.");
+      setError(t("camera.denied"));
     }
   }
 
@@ -81,7 +83,7 @@ export function ProfilePictureUploader({
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
     if (!blob) {
-      setError("Couldn't capture the photo — try again.");
+      setError(t("camera.captureFailed"));
       return;
     }
     await upload(blob);
@@ -98,7 +100,7 @@ export function ProfilePictureUploader({
       });
       if (!signatureRes.ok) {
         const data = await signatureRes.json().catch(() => null);
-        throw new Error(data?.error ?? "Could not start upload");
+        throw new Error(data?.error ?? t("camera.uploadFailed"));
       }
       const { cloudName, apiKey, timestamp, signature, folder } = await signatureRes.json();
 
@@ -113,7 +115,7 @@ export function ProfilePictureUploader({
         method: "POST",
         body: formData,
       });
-      if (!uploadRes.ok) throw new Error("Upload failed");
+      if (!uploadRes.ok) throw new Error(t("camera.uploadFailed"));
       const { secure_url: url } = await uploadRes.json();
 
       const saveRes = await fetch("/api/profile/picture", {
@@ -121,7 +123,7 @@ export function ProfilePictureUploader({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      if (!saveRes.ok) throw new Error("Could not save your picture");
+      if (!saveRes.ok) throw new Error(t("camera.saveFailed"));
 
       onChange(url);
       router.refresh();
@@ -139,7 +141,7 @@ export function ProfilePictureUploader({
           <video ref={videoRef} playsInline muted className="h-full w-full -scale-x-100 object-cover" />
         ) : value ? (
           // eslint-disable-next-line @next/next/no-img-element -- arbitrary Cloudinary URL
-          <img src={value} alt="Your profile picture" className="h-full w-full object-cover" />
+          <img src={value} alt={t("profile.yourPicture")} className="h-full w-full object-cover" />
         ) : (
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-full w-full p-5 text-foreground/20">
             <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5Z" />
@@ -147,7 +149,7 @@ export function ProfilePictureUploader({
         )}
         {uploading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs">
-            Saving…
+            {t("common.saving")}
           </div>
         )}
       </div>
@@ -161,14 +163,14 @@ export function ProfilePictureUploader({
                 onClick={capture}
                 className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
               >
-                Take photo
+                {t("camera.take")}
               </button>
               <button
                 type="button"
                 onClick={stopCamera}
                 className="h-9 rounded-full border border-line px-4 text-sm font-medium"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </>
           ) : (
@@ -182,12 +184,12 @@ export function ProfilePictureUploader({
                 <path strokeLinejoin="round" d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
                 <circle cx="12" cy="13" r="3.5" />
               </svg>
-              {value ? "Retake with camera" : "Open camera"}
+              {t(value ? "camera.retake" : "camera.open")}
             </button>
           )}
         </div>
         <p className="mt-2 text-xs text-foreground/50">
-          Photos must be taken live with your camera — face the camera in good light.
+          {t("camera.hint")}
         </p>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       </div>

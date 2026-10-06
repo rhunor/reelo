@@ -99,6 +99,36 @@ export async function sendListingReceivedEmail(to: string, name: string, listing
   );
 }
 
+export async function sendListingReviewedEmail(
+  to: string,
+  name: string,
+  listingTitle: string,
+  listingId: string,
+  outcome: "approved" | "rejected",
+  reason?: string,
+): Promise<void> {
+  const approved = outcome === "approved";
+  await sendEmail(
+    to,
+    approved ? "Your listing is live on Reallow" : "Your listing wasn't approved — Reallow",
+    approved
+      ? `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Good news — <strong>${escapeHtml(listingTitle)}</strong> passed verification and is now live on Reallow.</p>
+    <p>Verified tenants and buyers can find it and apply. We'll notify you as soon as someone does.</p>
+    <p style="text-align:center;margin:24px 0;">${button(`${appBaseUrl()}/listings/${listingId}`, "View your listing")}</p>
+    `
+      : `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Your listing <strong>${escapeHtml(listingTitle)}</strong> wasn't approved after the verification visit.</p>
+    ${reason ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : ""}
+    <p>You can fix the issue and resubmit it for verification from your dashboard, or contact Reallow if you have questions.</p>
+    <p style="text-align:center;margin:24px 0;">${button(`${appBaseUrl()}/dashboard`, "Go to your dashboard")}</p>
+    `,
+    approved ? "listing-approved" : "listing-rejected",
+  );
+}
+
 // Confirm/decline both land on the website (behind login) rather than acting directly
 // from the email — the same buttons are on the site regardless, the email just links there.
 export async function sendVerificationVisitScheduledEmail(

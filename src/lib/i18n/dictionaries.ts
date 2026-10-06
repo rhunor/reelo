@@ -1,341 +1,41 @@
-// English is the default and the fallback: any key missing from another language shows in
-// English. Translations below are first drafts and should be reviewed by native speakers
-// before launch — Urhobo in particular is still waiting on a translator, so it currently
-// falls back to English for everything.
+// Translations live in ./messages/<locale>.json — one flat file per language, keyed the
+// same way, so they can be exported to a spreadsheet for translators and imported back
+// (scripts/i18n-export.py / scripts/i18n-import.py). English is the default and the
+// fallback: any key missing from another language shows in English.
+//
+// Yorùbá, Hausa, Igbo and Pidgin are first drafts that should be reviewed by native
+// speakers. Urhobo is waiting on a translator.
+//
+// Values can contain {placeholders}, filled in by t("key", { name: value }).
+import en from "./messages/en.json";
+import yo from "./messages/yo.json";
+import ha from "./messages/ha.json";
+import ig from "./messages/ig.json";
+import pcm from "./messages/pcm.json";
+import urh from "./messages/urh.json";
+import { interpolate, type TranslateVars } from "./interpolate";
 
-export const LOCALES = [
-  { code: "en", label: "English", htmlLang: "en" },
-  { code: "yo", label: "Yorùbá", htmlLang: "yo" },
-  { code: "ha", label: "Hausa", htmlLang: "ha" },
-  { code: "ig", label: "Igbo", htmlLang: "ig" },
-  { code: "pcm", label: "Naijá (Pidgin)", htmlLang: "pcm" },
-  { code: "urh", label: "Urhobo", htmlLang: "urh" },
-] as const;
+export { interpolate, type TranslateVars };
 
-export type Locale = (typeof LOCALES)[number]["code"];
-export const DEFAULT_LOCALE: Locale = "en";
-export const LOCALE_COOKIE = "reallow-lang";
-
-export function isLocale(value: unknown): value is Locale {
-  return LOCALES.some((l) => l.code === value);
-}
-
-const en = {
-  "nav.home": "Home",
-  "nav.listings": "Listings",
-  "nav.contact": "Contact",
-  "dash.saved": "Saved for later",
-  "nav.about": "About",
-  "nav.help": "Help",
-  "nav.dashboard": "Dashboard",
-  "nav.login": "Log in",
-  "nav.listProperty": "List your property",
-  "menu.settings": "Settings",
-  "menu.logout": "Log out",
-  "notif.title": "Notifications",
-  "notif.seeAll": "See all",
-  "notif.empty": "You're all caught up.",
-  "dash.welcome": "Welcome back",
-  "dash.referralCode": "Referral code",
-  "dash.copyLink": "Copy invite link",
-  "dash.meetings": "Meetings",
-  "dash.transactions": "Transaction history",
-  "dash.wallet": "Wallet",
-  "dash.verify": "Verify your identity",
-  "dash.verifyHint": "Needed to apply for properties, book inspections, and get your listings published.",
-  "dash.completeProfile": "Complete your profile",
-  "dash.completeProfileHint": "Add your photo and details.",
-  "dash.yourProperties": "Your properties",
-  "dash.browse": "Browse properties",
-  "dash.applications": "Applications",
-  "dash.agreements": "Agreements",
-  "dash.messages": "Message support",
-  "settings.title": "Settings",
-  "settings.profile": "Profile",
-  "settings.contact": "Contact",
-  "settings.security": "Security",
-  "settings.language": "Language",
-  "settings.languageHint": "Choose the language Reallow shows in. English is the default.",
-  "home.heroTitle1": "Rent or buy a verified home.",
-  "home.heroTitle2": "No agent. No surprises.",
-  "home.heroBody": "Every property on Reallow is inspected in person and every landlord is identity-checked. You know exactly what you'll pay before you commit, and your money is held safely by Reallow until you get your keys.",
-  "home.ctaFind": "Find a home",
-  "home.ctaList": "List your property — free",
-  "home.point1": "Inspected in person",
-  "home.point2": "ID verified",
-  "home.point3": "No agent fees",
-  "home.everyoneEyebrow": "Reallow is for everybody",
-  "home.everyoneTitle": "Whoever you are, wherever you work — there's a verified home for you.",
-  "home.howEyebrow": "How it works",
-  "home.howTitle": "Simple steps, whichever side you're on.",
-  "home.transparencyEyebrow": "Total transparency",
-  "home.transparencyTitle": "What you see is exactly what you pay.",
-  "home.landlordEyebrow": "For landlords & sellers",
-  "home.landlordTitle": "Fill your property with people you can trust.",
-  "home.referEyebrow": "Refer & earn",
-  "home.referTitle": "Share Reallow. Earn when your people move in.",
-  "home.faqTitle": "Good to know.",
-  "home.appTitle": "Your next home, in your pocket.",
-  "home.finalTitle": "Ready to move — the honest way?",
-  "home.finalCta": "Create a free account",
-} as const;
+export { LOCALES, DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "./locales";
+import type { Locale } from "./locales";
 
 export type MessageKey = keyof typeof en;
 type Dictionary = Partial<Record<MessageKey, string>>;
 
-const yo: Dictionary = {
-  "home.heroTitle1": "Yá tàbí ra ilé tí a ti ṣàyẹ̀wò.",
-  "home.heroTitle2": "Kò sí agent. Kò sí ìyàlẹ́nu.",
-  "home.heroBody": "Gbogbo ilé lórí Reallow ni a ti lọ wò fúnra wa, a sì ti ṣàyẹ̀wò ìdánimọ̀ gbogbo onílé. O mọ iye tí o máa san kí o tó pinnu, Reallow sì ń tọ́jú owó rẹ títí o fi gba kọ́kọ́rọ́ rẹ.",
-  "home.ctaFind": "Wá ilé",
-  "home.ctaList": "Fi ilé rẹ sílẹ̀ — lọ́fẹ̀ẹ́",
-  "home.point1": "A ti lọ wò ó fúnra wa",
-  "home.point2": "A ti ṣàyẹ̀wò ìdánimọ̀",
-  "home.point3": "Kò sí owó agent",
-  "home.everyoneEyebrow": "Reallow wà fún gbogbo ènìyàn",
-  "home.everyoneTitle": "Ẹnikẹ́ni tí o jẹ́, ibikíbi tí o ti ń ṣiṣẹ́ — ilé tí a ti ṣàyẹ̀wò wà fún ọ.",
-  "home.howEyebrow": "Bí ó ṣe ń ṣiṣẹ́",
-  "home.howTitle": "Ìgbésẹ̀ tó rọrùn, ẹ̀gbẹ́ yòówù tí o wà.",
-  "home.transparencyEyebrow": "Òtítọ́ pátápátá",
-  "home.transparencyTitle": "Ohun tí o rí ni ohun tí o máa san.",
-  "home.landlordEyebrow": "Fún àwọn onílé àti olùtà",
-  "home.landlordTitle": "Kún ilé rẹ pẹ̀lú àwọn ènìyàn tí o lè gbẹ́kẹ̀lé.",
-  "home.referEyebrow": "Pè ọ̀rẹ́, kí o jèrè",
-  "home.referTitle": "Pín Reallow. Jèrè nígbà tí àwọn ènìyàn rẹ bá wọlé.",
-  "home.faqTitle": "Ó dára láti mọ̀.",
-  "home.appTitle": "Ilé rẹ tó kàn, nínú àpò rẹ.",
-  "home.finalTitle": "Ṣé o ti ṣetán láti kó — ní ọ̀nà òtítọ́?",
-  "home.finalCta": "Ṣí àkọọ́lẹ̀ lọ́fẹ̀ẹ́",
-  "nav.home": "Ilé",
-  "nav.contact": "Kàn sí wa",
-  "dash.saved": "Tí a fi pamọ́",
-  "nav.help": "Ìrànlọ́wọ́",
-  "nav.listings": "Àwọn ilé",
-  "nav.about": "Nípa wa",
-  "nav.dashboard": "Ojú-ìwé mi",
-  "nav.login": "Wọlé",
-  "nav.listProperty": "Fi ilé rẹ sílẹ̀",
-  "menu.settings": "Ètò",
-  "menu.logout": "Jáde",
-  "notif.title": "Ìfitónilétí",
-  "notif.seeAll": "Wo gbogbo rẹ̀",
-  "notif.empty": "Kò sí ohun tuntun.",
-  "dash.welcome": "Ẹ káàbọ̀ padà",
-  "dash.referralCode": "Kóòdù ìtọ́kasí",
-  "dash.copyLink": "Da ọ̀nà ìpè kọ",
-  "dash.meetings": "Ìpàdé",
-  "dash.transactions": "Ìtàn ìsanwó",
-  "dash.wallet": "Àpò owó",
-  "dash.verify": "Jẹ́rìí ìdánimọ̀ rẹ",
-  "dash.verifyHint": "Ó pọndandan láti béèrè fún ilé, láti ṣètò àyẹ̀wò, àti láti gbé ilé rẹ jáde.",
-  "dash.completeProfile": "Parí àkọsílẹ̀ rẹ",
-  "dash.completeProfileHint": "Fi àwòrán àti àlàyé rẹ kún un.",
-  "dash.yourProperties": "Àwọn ilé rẹ",
-  "dash.browse": "Wo àwọn ilé",
-  "dash.applications": "Àwọn ìbéèrè",
-  "dash.agreements": "Àwọn àdéhùn",
-  "dash.messages": "Kàn sí ìrànlọ́wọ́",
-  "settings.title": "Ètò",
-  "settings.profile": "Àkọsílẹ̀",
-  "settings.contact": "Ìkànsí",
-  "settings.security": "Ààbò",
-  "settings.language": "Èdè",
-  "settings.languageHint": "Yan èdè tí Reallow yóò máa lò. Gẹ̀ẹ́sì ni àkọ́kọ́.",
-};
-
-const ha: Dictionary = {
-  "home.heroTitle1": "Yi haya ko saya gida da aka tabbatar.",
-  "home.heroTitle2": "Babu dillali. Babu abin mamaki.",
-  "home.heroBody": "Kowane gida a Reallow mun je mun duba shi da kanmu, kuma an tabbatar da ainihin kowane mai gida. Za ka san abin da za ka biya kafin ka yanke shawara, kuma Reallow na riƙe kuɗinka lafiya har sai ka karɓi makullinka.",
-  "home.ctaFind": "Nemo gida",
-  "home.ctaList": "Saka gidanka — kyauta",
-  "home.point1": "An duba shi da ido",
-  "home.point2": "An tabbatar da shaida",
-  "home.point3": "Babu kuɗin dillali",
-  "home.everyoneEyebrow": "Reallow na kowa da kowa",
-  "home.everyoneTitle": "Ko wanene kai, ko ina kake aiki — akwai gida da aka tabbatar dominka.",
-  "home.howEyebrow": "Yadda yake aiki",
-  "home.howTitle": "Matakai masu sauƙi, ko wane ɓangare kake.",
-  "home.transparencyEyebrow": "Gaskiya cikakkiya",
-  "home.transparencyTitle": "Abin da ka gani shi ne abin da za ka biya.",
-  "home.landlordEyebrow": "Ga masu gida da masu sayarwa",
-  "home.landlordTitle": "Cika gidanka da mutanen da za ka amince da su.",
-  "home.referEyebrow": "Gayyata ka samu",
-  "home.referTitle": "Raba Reallow. Ka samu idan mutanenka suka shiga gida.",
-  "home.faqTitle": "Abin da ya dace ka sani.",
-  "home.appTitle": "Gidanka na gaba, a aljihunka.",
-  "home.finalTitle": "Ka shirya ka koma — ta hanyar gaskiya?",
-  "home.finalCta": "Buɗe asusu kyauta",
-  "nav.home": "Gida",
-  "nav.contact": "Tuntuɓe mu",
-  "dash.saved": "Abubuwan da aka ajiye",
-  "nav.help": "Taimako",
-  "nav.listings": "Gidaje",
-  "nav.about": "Game da mu",
-  "nav.dashboard": "Shafina",
-  "nav.login": "Shiga",
-  "nav.listProperty": "Saka gidanka",
-  "menu.settings": "Saituna",
-  "menu.logout": "Fita",
-  "notif.title": "Sanarwa",
-  "notif.seeAll": "Duba duka",
-  "notif.empty": "Babu sabon abu.",
-  "dash.welcome": "Barka da dawowa",
-  "dash.referralCode": "Lambar gayyata",
-  "dash.copyLink": "Kwafi hanyar gayyata",
-  "dash.meetings": "Taruka",
-  "dash.transactions": "Tarihin kuɗi",
-  "dash.wallet": "Walat",
-  "dash.verify": "Tabbatar da kai",
-  "dash.verifyHint": "Ana buƙata don neman gida, shirya dubawa, da wallafa gidajenka.",
-  "dash.completeProfile": "Kammala bayananka",
-  "dash.completeProfileHint": "Ƙara hotonka da bayananka.",
-  "dash.yourProperties": "Gidajenka",
-  "dash.browse": "Duba gidaje",
-  "dash.applications": "Buƙatu",
-  "dash.agreements": "Yarjejeniyoyi",
-  "dash.messages": "Tuntuɓi tallafi",
-  "settings.title": "Saituna",
-  "settings.profile": "Bayanai",
-  "settings.contact": "Tuntuɓa",
-  "settings.security": "Tsaro",
-  "settings.language": "Harshe",
-  "settings.languageHint": "Zaɓi harshen da Reallow zai nuna. Turanci ne na asali.",
-};
-
-const ig: Dictionary = {
-  "home.heroTitle1": "Gbazite ma ọ bụ zụta ụlọ e nyochara.",
-  "home.heroTitle2": "Enweghị onye nnọchi. Enweghị ihe ịtụnanya.",
-  "home.heroBody": "Anyị na-aga lee ụlọ ọ bụla dị na Reallow n'onwe anyị, ma nyochaa onye nwe ụlọ ọ bụla. Ị ga-ama ihe ị ga-akwụ tupu i kpebie, Reallow ga-echekwa ego gị ruo mgbe ị natara mkpịsị ugodi gị.",
-  "home.ctaFind": "Chọta ụlọ",
-  "home.ctaList": "Tinye ụlọ gị — n'efu",
-  "home.point1": "E lere ya anya n'onwe",
-  "home.point2": "E nyochara njirimara",
-  "home.point3": "Enweghị ụgwọ onye nnọchi",
-  "home.everyoneEyebrow": "Reallow bụ maka onye ọ bụla",
-  "home.everyoneTitle": "Onye ọ bụla ị bụ, ebe ọ bụla ị na-arụ ọrụ — e nwere ụlọ e nyochara maka gị.",
-  "home.howEyebrow": "Otú o si arụ ọrụ",
-  "home.howTitle": "Usoro dị mfe, n'akụkụ ọ bụla ị nọ.",
-  "home.transparencyEyebrow": "Eziokwu zuru oke",
-  "home.transparencyTitle": "Ihe ị hụrụ bụ ihe ị ga-akwụ.",
-  "home.landlordEyebrow": "Maka ndị nwe ụlọ na ndị na-ere",
-  "home.landlordTitle": "Jupụta ụlọ gị na ndị ị nwere ike ịtụkwasị obi.",
-  "home.referEyebrow": "Kpọọ mmadụ, nweta ego",
-  "home.referTitle": "Kesaa Reallow. Nweta ego mgbe ndị gị batara n'ụlọ.",
-  "home.faqTitle": "Ọ dị mma ịmara.",
-  "home.appTitle": "Ụlọ gị ọzọ, n'akpa gị.",
-  "home.finalTitle": "Ị dịla njikere ịkwaga — n'ụzọ eziokwu?",
-  "home.finalCta": "Mepee akaụntụ n'efu",
-  "nav.home": "Ụlọ mbụ",
-  "nav.contact": "Kpọtụrụ anyị",
-  "dash.saved": "Echekwara maka emesịa",
-  "nav.help": "Enyemaka",
-  "nav.listings": "Ụlọ",
-  "nav.about": "Maka anyị",
-  "nav.dashboard": "Peeji m",
-  "nav.login": "Banye",
-  "nav.listProperty": "Tinye ụlọ gị",
-  "menu.settings": "Ntọala",
-  "menu.logout": "Pụọ",
-  "notif.title": "Ọkwa",
-  "notif.seeAll": "Hụ ha niile",
-  "notif.empty": "Ọ dịghị ihe ọhụrụ.",
-  "dash.welcome": "Nnọọ ọzọ",
-  "dash.referralCode": "Koodu ntụaka",
-  "dash.copyLink": "Detuo njikọ òkù",
-  "dash.meetings": "Nzukọ",
-  "dash.transactions": "Akụkọ ego",
-  "dash.wallet": "Akpa ego",
-  "dash.verify": "Kwado onye ị bụ",
-  "dash.verifyHint": "Ọ dị mkpa iji rịọ maka ụlọ, hazie nlele, ma bipụta ụlọ gị.",
-  "dash.completeProfile": "Mezue profaịlụ gị",
-  "dash.completeProfileHint": "Tinye foto gị na nkọwa gị.",
-  "dash.yourProperties": "Ụlọ gị",
-  "dash.browse": "Lelee ụlọ",
-  "dash.applications": "Arịrịọ",
-  "dash.agreements": "Nkwekọrịta",
-  "dash.messages": "Kpọtụrụ ndị nkwado",
-  "settings.title": "Ntọala",
-  "settings.profile": "Profaịlụ",
-  "settings.contact": "Kpọtụrụ",
-  "settings.security": "Nchekwa",
-  "settings.language": "Asụsụ",
-  "settings.languageHint": "Họrọ asụsụ Reallow ga-eji. Bekee bụ nke mbụ.",
-};
-
-const pcm: Dictionary = {
-  "home.heroTitle1": "Rent or buy house wey we don check.",
-  "home.heroTitle2": "No agent. No wahala.",
-  "home.heroBody": "We dey go check every house for Reallow by ourselves, and we don confirm every landlord. You go know wetin you go pay before you agree, and Reallow go hold your money safe till you collect your key.",
-  "home.ctaFind": "Find house",
-  "home.ctaList": "Put your house — free",
-  "home.point1": "We don check am with our eye",
-  "home.point2": "ID don verify",
-  "home.point3": "No agent money",
-  "home.everyoneEyebrow": "Reallow na for everybody",
-  "home.everyoneTitle": "Anybody wey you be, anywhere wey you dey work — house wey we don check dey for you.",
-  "home.howEyebrow": "How e dey work",
-  "home.howTitle": "Simple steps, whichever side you dey.",
-  "home.transparencyEyebrow": "Clear-clear price",
-  "home.transparencyTitle": "Wetin you see na wetin you go pay.",
-  "home.landlordEyebrow": "For landlords and people wey dey sell",
-  "home.landlordTitle": "Fill your house with people wey you fit trust.",
-  "home.referEyebrow": "Invite people, collect money",
-  "home.referTitle": "Share Reallow. Collect money when your people find house.",
-  "home.faqTitle": "Wetin you suppose know.",
-  "home.appTitle": "Your next house, for your pocket.",
-  "home.finalTitle": "You ready to move — the correct way?",
-  "home.finalCta": "Open free account",
-  "nav.home": "Home",
-  "nav.contact": "Contact us",
-  "dash.saved": "Wetin you save",
-  "nav.help": "Help",
-  "nav.listings": "Houses",
-  "nav.about": "About us",
-  "nav.dashboard": "My dashboard",
-  "nav.login": "Log in",
-  "nav.listProperty": "Put your house for market",
-  "menu.settings": "Settings",
-  "menu.logout": "Comot",
-  "notif.title": "Notifications",
-  "notif.seeAll": "See everything",
-  "notif.empty": "Nothing new for now.",
-  "dash.welcome": "Welcome back o",
-  "dash.referralCode": "Referral code",
-  "dash.copyLink": "Copy invite link",
-  "dash.meetings": "Meetings",
-  "dash.transactions": "Money history",
-  "dash.wallet": "Wallet",
-  "dash.verify": "Confirm say na you",
-  "dash.verifyHint": "You need am to apply for house, book inspection, and make your house show for market.",
-  "dash.completeProfile": "Finish your profile",
-  "dash.completeProfileHint": "Put your picture and your details.",
-  "dash.yourProperties": "Your houses",
-  "dash.browse": "Check houses",
-  "dash.applications": "Applications",
-  "dash.agreements": "Agreements",
-  "dash.messages": "Message support",
-  "settings.title": "Settings",
-  "settings.language": "Language",
-  "settings.languageHint": "Choose the language wey Reallow go dey show. English na the default.",
-};
-
-// Awaiting a translator — falls back to English.
-const urh: Dictionary = {};
-
 const DICTIONARIES: Record<Locale, Dictionary> = { en, yo, ha, ig, pcm, urh };
 
-export type Translator = (key: MessageKey) => string;
+export type Translator = (key: MessageKey, vars?: TranslateVars) => string;
 
 export function translator(locale: Locale): Translator {
   const dictionary = DICTIONARIES[locale];
-  return (key) => dictionary[key] ?? en[key];
+  return (key, vars) => interpolate(dictionary[key] || en[key], vars);
 }
 
-// Only the strings a client component needs, resolved for one locale.
+// The resolved strings for one locale, handed to client components via I18nProvider.
 export function clientMessages(locale: Locale): Record<MessageKey, string> {
-  const t = translator(locale);
-  return Object.fromEntries((Object.keys(en) as MessageKey[]).map((key) => [key, t(key)])) as Record<
+  const dictionary = DICTIONARIES[locale];
+  return Object.fromEntries((Object.keys(en) as MessageKey[]).map((key) => [key, dictionary[key] || en[key]])) as Record<
     MessageKey,
     string
   >;

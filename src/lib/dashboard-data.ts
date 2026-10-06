@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import { TRANSACTION_TYPE_LABEL } from "@/lib/transaction-labels";
+import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
 import { getInspectionFee } from "@/lib/fees";
 import type { Property } from "@/types/models";
 
@@ -61,7 +61,8 @@ export interface WalletWithdrawal {
   at: string;
 }
 
-export async function loadDashboardData(userIdString: string, ownListings: Property[]) {
+// `tr` translates the money-history labels into the viewer's language (English by default).
+export async function loadDashboardData(userIdString: string, ownListings: Property[], tr: Translator = translator("en")) {
   const userId = new ObjectId(userIdString);
   const {
     meetings,
@@ -222,16 +223,16 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       const incoming = isTopUp || (t.payeeId?.equals(userId) && !t.payerId.equals(userId));
       return {
         id: t._id!.toString(),
-        label: TRANSACTION_TYPE_LABEL[t.type] ?? t.type,
+        label: tr(`txType.${t.type}` as MessageKey),
         detail: [
           t.listingId ? titleOf(t.listingId) : undefined,
-          t.provider === "wallet" ? "Paid from wallet" : isTopUp ? "Card top-up" : undefined,
+          t.provider === "wallet" ? tr("tx.paidFromWallet") : isTopUp ? tr("tx.cardTopUp") : undefined,
         ]
           .filter(Boolean)
           .join(" · ") || undefined,
         amountNGN: t.amountNGN,
         direction: (incoming ? "in" : "out") as "in" | "out",
-        status: incoming && !isTopUp ? "Held by Reallow until payout" : "Successful",
+        status: tr(incoming && !isTopUp ? "tx.heldUntilPayout" : "tx.successful"),
         at: new Date(t.createdAt).toISOString(),
         href: `/transactions/${t._id}`,
       };
@@ -240,20 +241,20 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       .filter((c) => c.status === "approved")
       .map((c) => ({
         id: c._id!.toString(),
-        label: "Referral earnings credited",
-        detail: "Someone you referred completed a deal on Reallow",
+        label: tr("tx.referralCredited"),
+        detail: tr("tx.referralDetail"),
         amountNGN: c.amountNGN,
         direction: "in" as const,
-        status: "Credited to wallet",
+        status: tr("tx.creditedToWallet"),
         at: new Date(c.approvedAt ?? c.createdAt).toISOString(),
       })),
     ...withdrawals.map((w) => ({
       id: w._id!.toString(),
-      label: "Wallet withdrawal",
-      detail: "To your bank account",
+      label: tr("tx.withdrawal"),
+      detail: tr("tx.toBank"),
       amountNGN: w.amountNGN,
       direction: "out" as const,
-      status: w.status === "paid" ? "Paid" : w.status === "rejected" ? "Rejected" : "Processing",
+      status: tr(w.status === "paid" ? "tx.paid" : w.status === "rejected" ? "tx.rejected" : "tx.processing"),
       at: new Date(w.paidAt ?? w.createdAt).toISOString(),
     })),
   ];

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function TenantTicketsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const t = await getT();
 
   const { tickets } = await getCollections();
   const myTickets = await tickets
@@ -20,12 +22,12 @@ export default async function TenantTicketsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your messages to Reallow</h1>
+        <h1 className="text-2xl font-semibold">{t("tickets.title")}</h1>
         <Link
           href="/dashboard/tenant/tickets/new"
           className="h-10 rounded-full bg-clay px-5 text-sm font-medium leading-10 text-white"
         >
-          New message
+          {t("tickets.new")}
         </Link>
       </div>
       <TicketList tickets={myTickets} basePath="/dashboard/tenant/tickets" />

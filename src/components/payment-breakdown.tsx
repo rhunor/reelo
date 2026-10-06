@@ -10,10 +10,12 @@ export function PaymentBreakdown({
   lines,
   totalNGN,
   note,
+  totalLabel = "Total",
 }: {
   lines: BreakdownLine[];
   totalNGN: number;
   note?: string;
+  totalLabel?: string;
 }) {
   return (
     <div className="rounded-lg border border-line p-3 text-sm">
@@ -25,7 +27,7 @@ export function PaymentBreakdown({
           </div>
         ))}
         <div className="mt-1 flex items-baseline justify-between border-t border-line pt-1.5 font-medium">
-          <dt>Total</dt>
+          <dt>{totalLabel}</dt>
           <dd className="font-mono">₦{totalNGN.toLocaleString()}</dd>
         </div>
       </dl>

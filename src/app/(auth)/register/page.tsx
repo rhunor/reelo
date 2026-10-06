@@ -6,6 +6,8 @@ import { signIn } from "next-auth/react";
 import { TermsScrollAccept } from "@/components/terms-scroll-accept";
 import { PasswordInput } from "@/components/password-input";
 import { INTENTS, type Intent } from "@/lib/intents";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { PasswordStrength } from "@/components/password-strength";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { HEARD_ABOUT_OPTIONS } from "@/lib/acquisition";
@@ -13,6 +15,7 @@ import { HEARD_ABOUT_OPTIONS } from "@/lib/acquisition";
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   // "List your property" in the nav links here with ?role=landlord — pre-check "renting
   // out" instead of the old tenant/landlord tab default.
   const [intents, setIntents] = useState<Intent[]>(
@@ -24,7 +27,8 @@ function RegisterForm() {
   // implausibly fast; `website` is a honeypot — hidden from real users via CSS, but a
   // naive bot filling every field will fill it too. Neither needs a third-party API key.
   const [mountedAt] = useState(() => Date.now());
-  const referralCode = searchParams.get("ref") ?? undefined;
+  // Pre-filled from an invite link (?ref=CODE), but people can also type a code a friend told them.
+  const [referralCode, setReferralCode] = useState(() => (searchParams.get("ref") ?? "").toUpperCase());
   const [password, setPassword] = useState("");
   // Someone who came in through a referral link obviously heard about us that way.
   const [heardAbout, setHeardAbout] = useState(referralCode ? "referral_code" : "");
@@ -52,19 +56,19 @@ function RegisterForm() {
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords don't match");
+      setError(t("auth.pwMismatch"));
       return;
     }
     if (!heardAbout) {
-      setError("Tell us how you heard about Reallow");
+      setError(t("auth.heardRequired"));
       return;
     }
     if (!formData.get("termsAccepted")) {
-      setError("You need to agree to the Terms of Service and Privacy Policy");
+      setError(t("auth.termsRequired"));
       return;
     }
     if (intents.length === 0) {
-      setError("Tell us what you're using Reallow for");
+      setError(t("auth.intentRequired"));
       return;
     }
 
@@ -72,7 +76,7 @@ function RegisterForm() {
 
     if (formData.get("website")) {
       // Honeypot tripped — pretend to fail generically rather than tipping the bot off.
-      setError("Registration failed");
+      setError(t("auth.regFailed"));
       return;
     }
 
@@ -88,7 +92,7 @@ function RegisterForm() {
       termsAccepted: "true",
       newsletterOptIn: formData.get("newsletterOptIn") ? "true" : "false",
       formRenderedAt: mountedAt,
-      ref: referralCode,
+      ref: referralCode.trim() || undefined,
       heardAbout,
       heardAboutDetail: (formData.get("heardAboutDetail") as string)?.trim() || undefined,
     };
@@ -101,7 +105,7 @@ function RegisterForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Registration failed");
+      setError(data?.code === "invalid_ref" ? t("auth.refInvalid") : (data?.error ?? t("auth.regFailed")));
       setLoading(false);
       return;
     }
@@ -127,13 +131,13 @@ function RegisterForm() {
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-      <p className="font-mono text-xs tracking-widest text-clay uppercase">Get started</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Create an account</h1>
+      <p className="font-mono text-xs tracking-widest text-clay uppercase">{t("auth.getStarted")}</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t("auth.createAccount")}</h1>
 
       <div className="mt-8">
-        <p className="text-sm font-medium">What are you using Reallow for?</p>
+        <p className="text-sm font-medium">{t("auth.intentQuestion")}</p>
         <p className="mt-1 text-xs text-foreground/60">
-          This helps us personalise your experience — pick as many as apply.
+          {t("auth.intentHint")}
         </p>
         <div className="mt-3 flex flex-col gap-2">
           {INTENTS.map((intent) => {
@@ -151,7 +155,7 @@ function RegisterForm() {
                   disabled={locked}
                   onChange={() => toggleIntent(intent.value)}
                 />
-                {intent.label}
+                {t(`intent.${intent.value}` as MessageKey)}
               </label>
             );
           })}
@@ -172,14 +176,14 @@ function RegisterForm() {
           <input
             name="firstName"
             type="text"
-            placeholder="First name"
+            placeholder={t("auth.firstName")}
             required
             className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
           />
           <input
             name="lastName"
             type="text"
-            placeholder="Last name"
+            placeholder={t("auth.lastName")}
             required
             className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
           />
@@ -187,40 +191,39 @@ function RegisterForm() {
         <input
           name="otherNames"
           type="text"
-          placeholder="Other names (optional)"
+          placeholder={t("auth.otherNames")}
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
         <input
           name="email"
           type="email"
-          placeholder="Email"
+          placeholder={t("auth.email")}
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
         <input
           name="phone"
           type="tel"
-          placeholder="Phone number"
+          placeholder={t("auth.phone")}
           required
           className="rounded-lg border border-line px-3 py-2.5 focus:border-clay focus:outline-none"
         />
         <p className="-mt-2 text-xs text-foreground/50">
-          These details are used to contact you for house inspections and to improve your
-          experience on Reallow.
+          {t("auth.contactHint")}
         </p>
         <PasswordInput
           name="password"
-          placeholder="Password"
+          placeholder={t("auth.password")}
           minLength={8}
           required
           autoComplete="new-password"
           onValueChange={setPassword}
         />
         <PasswordStrength password={password} />
-        <PasswordInput name="confirmPassword" placeholder="Confirm password" minLength={8} required autoComplete="new-password" />
+        <PasswordInput name="confirmPassword" placeholder={t("auth.confirmPassword")} minLength={8} required autoComplete="new-password" />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">How did you hear about Reallow?</span>
+          <span className="font-medium">{t("auth.heardQuestion")}</span>
           <select
             value={heardAbout}
             onChange={(event) => setHeardAbout(event.target.value)}
@@ -228,11 +231,11 @@ function RegisterForm() {
             className="rounded-lg border border-line bg-transparent px-3 py-2.5 focus:border-clay focus:outline-none"
           >
             <option value="" disabled>
-              Choose one
+              {t("common.chooseOne")}
             </option>
             {HEARD_ABOUT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(`heard.${option.value}` as MessageKey)}
               </option>
             ))}
           </select>
@@ -241,17 +244,38 @@ function RegisterForm() {
           <input
             name="heardAboutDetail"
             maxLength={120}
-            placeholder={heardAbout === "other" ? "Where did you hear about us?" : "Which one? (optional)"}
+            placeholder={heardAbout === "other" ? t("auth.heardOther") : t("auth.heardWhich")}
             required={heardAbout === "other"}
             className="-mt-2 rounded-lg border border-line bg-transparent px-3 py-2.5 focus:border-clay focus:outline-none"
           />
         )}
 
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">
+            {t("auth.refLabel")} <span className="font-normal text-foreground/50">{t("auth.optional")}</span>
+          </span>
+          <input
+            name="referralCode"
+            value={referralCode}
+            onChange={(event) => {
+              const code = event.target.value.toUpperCase().replace(/\s/g, "");
+              setReferralCode(code);
+              if (code && !heardAbout) setHeardAbout("referral_code");
+            }}
+            maxLength={24}
+            autoCapitalize="characters"
+            autoComplete="off"
+            placeholder={t("auth.refPlaceholder")}
+            className="rounded-lg border border-line bg-transparent px-3 py-2.5 font-mono tracking-wide focus:border-clay focus:outline-none"
+          />
+          <span className="text-xs text-foreground/50">{t("auth.refHint")}</span>
+        </label>
+
         <TermsScrollAccept />
 
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="newsletterOptIn" defaultChecked className="mt-0.5" />
-          <span>Keep me updated about Reallow by email</span>
+          <span>{t("auth.newsletter")}</span>
         </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -260,13 +284,13 @@ function RegisterForm() {
           disabled={loading}
           className="h-11 rounded-full bg-clay font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? t("auth.creating") : t("auth.createAccountButton")}
         </button>
       </form>
       <p className="mt-6 text-sm text-foreground/60">
-        Already have an account?{" "}
+        {t("auth.haveAccount")}{" "}
         <a href="/login" className="text-clay hover:underline">
-          Log in
+          {t("nav.login")}
         </a>
       </p>
     </div>

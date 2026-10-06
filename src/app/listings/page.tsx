@@ -6,7 +6,9 @@ import { getCollections } from "@/lib/db";
 import { ListingsMap, type MapListing } from "@/components/listings-map";
 import { ReallowMark } from "@/components/reallow-logo";
 import { RevealGroup, RevealItem, HoverLift } from "@/components/reveal";
-import { PROPERTY_TYPES } from "@/lib/property-types";
+import { PROPERTY_TYPES, propertyTypeKey } from "@/lib/property-types";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { LocationFilterSelects } from "@/components/location-filter-selects";
 import { isStaffRole } from "@/lib/roles";
 import type { Property } from "@/types/models";
@@ -31,6 +33,7 @@ export default async function ListingsPage({
   searchParams: Promise<ListingsSearchParams>;
 }) {
   const params = await searchParams;
+  const t = await getT();
   const state = params.state?.trim();
   const city = params.city?.trim();
   const propertyType = params.propertyType?.trim();
@@ -91,8 +94,8 @@ export default async function ListingsPage({
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-1 px-6 py-16">
-      <p className="font-mono text-xs tracking-widest text-clay uppercase">Listings</p>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Browse verified properties</h1>
+      <p className="font-mono text-xs tracking-widest text-clay uppercase">{t("nav.listings")}</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">{t("home.rentStep1")}</h1>
 
       <form method="GET" className="mt-6 flex flex-wrap gap-3">
         <select
@@ -100,9 +103,9 @@ export default async function ListingsPage({
           defaultValue={listingType ?? ""}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
         >
-          <option value="">Rent or sale</option>
-          <option value="rent">For rent</option>
-          <option value="sale">For sale</option>
+          <option value="">{t("listings.rentOrSale")}</option>
+          <option value="rent">{t("listing.forRent")}</option>
+          <option value="sale">{t("listing.forSale")}</option>
         </select>
         <LocationFilterSelects defaultState={state ?? ""} defaultCity={city ?? ""} />
         <select
@@ -110,10 +113,10 @@ export default async function ListingsPage({
           defaultValue={propertyType ?? ""}
           className="h-10 rounded-full border border-line bg-transparent px-4 text-sm"
         >
-          <option value="">All property types</option>
+          <option value="">{t("listings.allTypes")}</option>
           {PROPERTY_TYPES.map((type) => (
             <option key={type} value={type}>
-              {type}
+              {t(propertyTypeKey(type) as MessageKey)}
             </option>
           ))}
         </select>
@@ -121,7 +124,7 @@ export default async function ListingsPage({
           name="maxPrice"
           type="number"
           min={0}
-          placeholder="Max price (₦)"
+          placeholder={t("listings.maxPrice")}
           defaultValue={params.maxPrice}
           className="h-10 w-40 rounded-full border border-line bg-transparent px-4 text-sm"
         />
@@ -129,36 +132,33 @@ export default async function ListingsPage({
           type="submit"
           className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
-          Search
+          {t("listings.search")}
         </button>
         {hasActiveSearch && (
           <Link
             href="/listings"
             className="flex h-10 items-center px-2 text-sm text-foreground/60 hover:text-clay"
           >
-            Clear
+            {t("listings.clear")}
           </Link>
         )}
       </form>
 
       <p className="mt-4 text-sm text-foreground/70">
-        {listings.length} propert{listings.length === 1 ? "y" : "ies"} available — free to browse,
-        free to contact Reallow about.
+        {t(listings.length === 1 ? "listings.countOne" : "listings.countMany", { count: listings.length })}
       </p>
 
       {listings.length === 0 && hasActiveSearch && (
         <p className="mt-12 max-w-md text-foreground/60">
-          Nothing matches yet.{" "}
-          {"We've saved this search — if a listing like this appears, we'll notify you."}
+          {t("listings.noMatch")}
         </p>
       )}
       {listings.length === 0 && !hasActiveSearch && (
         <div className="mt-12 flex flex-col items-center rounded-2xl border border-line px-6 py-16 text-center">
           <ReallowMark className="h-10 w-auto opacity-60" />
-          <p className="mt-4 font-display text-xl font-semibold">More listings coming soon</p>
+          <p className="mt-4 font-display text-xl font-semibold">{t("listings.comingSoon")}</p>
           <p className="mt-2 max-w-sm text-sm text-foreground/60">
-            Landlords are getting verified and properties are being inspected right now. Stay
-            updated — new listings will show up here as soon as they&apos;re approved.
+            {t("listings.comingSoonBody")}
           </p>
         </div>
       )}
@@ -188,7 +188,7 @@ export default async function ListingsPage({
                     </p>
                     <p className="mt-2 font-mono font-medium">
                       ₦{listing.priceNGN.toLocaleString()}
-                      {listing.listingType === "rent" ? "/year" : ""}
+                      {listing.listingType === "rent" ? t("listing.perYear") : ""}
                     </p>
                   </div>
                 </Link>

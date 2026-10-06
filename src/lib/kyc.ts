@@ -2,6 +2,7 @@ import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { isDojahConfigured, lookupDriversLicence, lookupNin, type IdentityRecord } from "@/lib/dojah";
 import { notifyIdAwaitingReview } from "@/lib/notifications";
+import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
 import type { User } from "@/types/models";
 
 // verifiedBadge means "one government ID verified and matching this account" — a NIN or a
@@ -56,16 +57,19 @@ export async function verifyGovernmentId(
   userId: ObjectId,
   type: IdType,
   number: string,
+  // Messages go back to the user, so they're in the user's language.
+  t: Translator = translator("en"),
 ): Promise<{ success: boolean; pending?: boolean; message: string; verifiedBadge: boolean; status: number }> {
+  const idLabel = t(type === "nin" ? "id.nin.label" : "id.drivers_licence.label");
   const { users } = await getCollections();
   const field = FIELD[type];
   const user = await users.findOne({ _id: userId });
-  if (!user) return { success: false, message: "Account not found.", verifiedBadge: false, status: 404 };
+  if (!user) return { success: false, message: t("id.err.noAccount"), verifiedBadge: false, status: 404 };
 
   if (await users.findOne({ [`${field}.value`]: number, [`${field}.status`]: "verified", _id: { $ne: userId } })) {
     return {
       success: false,
-      message: `This ${LABEL[type]} is already linked to another Reallow account.`,
+      message: t("id.err.taken", { id: idLabel }),
       verifiedBadge: user.verifiedBadge,
       status: 409,
     };
@@ -82,7 +86,7 @@ export async function verifyGovernmentId(
     return {
       success: true,
       pending: true,
-      message: `Thanks — we've received your ${LABEL[type]}. Reallow will confirm your identity shortly and let you know.`,
+      message: t("id.pendingMessage", { id: idLabel }),
       verifiedBadge: user.verifiedBadge,
       status: 200,
     };
@@ -94,14 +98,20 @@ export async function verifyGovernmentId(
     if (result.reason === "not_found" || result.reason === "error") {
       await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
     }
-    return { success: false, message: result.message, verifiedBadge: user.verifiedBadge, status: result.reason === "not_found" ? 404 : 502 };
+    const reasonKey: Record<typeof result.reason, MessageKey> = {
+      not_found: "id.err.notFound",
+      unavailable: "id.err.unavailable",
+      config: "id.err.unavailable",
+      error: "id.failed",
+    };
+    return { success: false, message: t(reasonKey[result.reason]), verifiedBadge: user.verifiedBadge, status: result.reason === "not_found" ? 404 : 502 };
   }
 
   if (!namesMatch(user, result.record)) {
     await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
     return {
       success: false,
-      message: `The name on this ${LABEL[type]} doesn't match the name on your Reallow account. Make sure your account uses your legal name, or contact Reallow.`,
+      message: t("id.err.nameMismatch", { id: idLabel }),
       verifiedBadge: user.verifiedBadge,
       status: 422,
     };
@@ -110,7 +120,7 @@ export async function verifyGovernmentId(
     await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
     return {
       success: false,
-      message: `The date of birth on this ${LABEL[type]} doesn't match your profile.`,
+      message: t("id.err.dobMismatch", { id: idLabel }),
       verifiedBadge: user.verifiedBadge,
       status: 422,
     };
@@ -129,5 +139,5 @@ export async function verifyGovernmentId(
     },
   );
   const verifiedBadge = await recomputeVerifiedBadge(userId);
-  return { success: true, message: "Verified", verifiedBadge, status: 200 };
+  return { success: true, message: t("id.verifiedBadge"), verifiedBadge, status: 200 };
 }

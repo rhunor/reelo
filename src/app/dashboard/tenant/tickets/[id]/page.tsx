@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -15,6 +17,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const t = await getT();
   if (!ObjectId.isValid(id)) notFound();
 
   const { tickets, properties, users, inspectionBookings } = await getCollections();
@@ -35,13 +38,13 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <h1 className="text-2xl font-semibold break-words">{ticket.subject}</h1>
-      <p className="mt-1 text-sm capitalize text-foreground/50">{ticket.status.replace("_", " ")}</p>
+      <p className="mt-1 text-sm text-foreground/50">{t(`ticketStatus.${ticket.status}` as MessageKey)}</p>
       {listing && (
         <div className="mt-1">
           <ReportButton
             targetType="user"
             targetId={listing.landlordId.toString()}
-            label="Report this landlord"
+            label={t("report.landlord")}
           />
         </div>
       )}
@@ -49,7 +52,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
       {decision === "approved" && (
         <div className="mt-3 rounded-lg border border-line p-4">
           <p className="text-sm font-medium text-verified">
-            The landlord approved you for this listing.
+            {t("listing.accepted")}
           </p>
           {existingBooking ? (
             <InspectionNegotiation booking={existingBooking} viewerRole="tenant" />
@@ -57,11 +60,10 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
             <BookMeetingLinks ticketId={ticket._id!.toString()} />
           ) : listing ? (
             <p className="mt-2 text-sm text-red-600">
-              Verify your identity to book a paid inspection —{" "}
+              {t("tickets.verifyToBook")}{" "}
               <Link href="/dashboard/verify-identity" className="underline">
-                verify now
+                {t("newListing.verifyNow")}
               </Link>
-              .
             </p>
           ) : null}
         </div>
@@ -69,7 +71,7 @@ export default async function TenantTicketPage({ params }: { params: Promise<{ i
 
       {decision === "declined" && (
         <p className="mt-1 text-sm font-medium text-foreground/50">
-          The landlord has moved on from this application.
+          {t("listing.declined")}
         </p>
       )}
 

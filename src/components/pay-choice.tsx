@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
 
 // Every payment that can come out of the Reallow wallet goes through this: if the wallet
 // covers the amount, the user is asked first whether to pay from it, with card as the
@@ -21,6 +22,7 @@ export function PayChoice({
   onPaid?: () => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [loading, setLoading] = useState<"wallet" | "card" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
@@ -38,7 +40,7 @@ export function PayChoice({
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      setError(data?.error ?? "Payment could not be started");
+      setError(data?.error ?? t("pay.failed"));
       setLoading(null);
       return;
     }
@@ -57,10 +59,13 @@ export function PayChoice({
   if (asking && walletCovers) {
     return (
       <div className="rounded-xl border border-clay/40 bg-clay/5 p-4">
-        <p className="text-sm font-medium">Pay from your Reallow wallet?</p>
+        <p className="text-sm font-medium">{t("pay.fromWalletQuestion")}</p>
         <p className="mt-1 text-xs text-foreground/60">
-          You have ₦{walletBalanceNGN.toLocaleString()} in your wallet. Paying {amount} from it
-          leaves ₦{(walletBalanceNGN - amountNGN).toLocaleString()}.
+          {t("pay.walletExplainer", {
+            balance: `₦${walletBalanceNGN.toLocaleString()}`,
+            amount,
+            remaining: `₦${(walletBalanceNGN - amountNGN).toLocaleString()}`,
+          })}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -69,7 +74,7 @@ export function PayChoice({
             onClick={() => pay("wallet")}
             className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-50"
           >
-            {loading === "wallet" ? "Paying…" : "Yes, pay from wallet"}
+            {loading === "wallet" ? t("pay.paying") : t("pay.yesWallet")}
           </button>
           <button
             type="button"
@@ -77,7 +82,7 @@ export function PayChoice({
             onClick={() => pay("card")}
             className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-50"
           >
-            {loading === "card" ? "Redirecting…" : "No, pay with card"}
+            {loading === "card" ? t("pay.redirecting") : t("pay.noCard")}
           </button>
           <button
             type="button"
@@ -85,7 +90,7 @@ export function PayChoice({
             onClick={() => setAsking(false)}
             className="h-9 px-2 text-sm text-foreground/60"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
@@ -101,7 +106,7 @@ export function PayChoice({
         onClick={() => (walletCovers ? setAsking(true) : pay("card"))}
         className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
       >
-        {loading ? "Redirecting…" : (label ?? `Pay ${amount}`)}
+        {loading ? t("pay.redirecting") : (label ?? t("pay.pay", { amount }))}
       </button>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

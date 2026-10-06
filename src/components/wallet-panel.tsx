@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { formatLagos } from "@/lib/time";
 import type { WalletEarning, WalletWithdrawal } from "@/lib/dashboard-data";
 
 const WITHDRAWAL_MINIMUM_NGN = 3000;
 const FUNDING_MINIMUM_NGN = 500;
 
-const EARNING_STATUS: Record<WalletEarning["status"], string> = {
-  pending: "Awaiting approval",
-  approved: "Credited",
-  rejected: "Not approved",
+const EARNING_STATUS: Record<WalletEarning["status"], MessageKey> = {
+  pending: "wallet.earning.pending",
+  approved: "wallet.earning.approved",
+  rejected: "wallet.earning.rejected",
 };
 
 // Deliberately never states a commission percentage — the rate is a server-side-only
@@ -30,6 +32,7 @@ export function WalletPanel({
   hasBankDetails: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [tab, setTab] = useState<"fund" | "withdraw">("fund");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,7 +54,7 @@ export function WalletPanel({
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       setLoading(false);
-      setError(data?.error ?? "Something went wrong");
+      setError(data?.error ?? t("common.somethingWrong"));
       return;
     }
     if (data?.authorizationUrl) {
@@ -60,18 +63,18 @@ export function WalletPanel({
     }
     setLoading(false);
     setAmount("");
-    setMessage("Withdrawal requested — Reallow will pay it into your bank account shortly.");
+    setMessage(t("wallet.withdrawRequested"));
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-2xl bg-gradient-to-br from-clay to-clay/80 p-5 text-white">
-        <p className="text-xs font-medium tracking-wide uppercase opacity-80">Reallow wallet balance</p>
+        <p className="text-xs font-medium tracking-wide uppercase opacity-80">{t("wallet.balance")}</p>
         <p className="mt-1 font-mono text-3xl font-semibold">₦{walletBalanceNGN.toLocaleString()}</p>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs opacity-90">
-          <span>Referral earnings: ₦{totalEarned.toLocaleString()}</span>
-          {pendingEarnings > 0 && <span>Awaiting approval: ₦{pendingEarnings.toLocaleString()}</span>}
+          <span>{t("wallet.referralEarnings", { amount: `₦${totalEarned.toLocaleString()}` })}</span>
+          {pendingEarnings > 0 && <span>{t("wallet.awaitingApproval", { amount: `₦${pendingEarnings.toLocaleString()}` })}</span>}
         </div>
       </div>
 
@@ -90,23 +93,22 @@ export function WalletPanel({
                 tab === option ? "bg-background shadow-sm" : "text-foreground/60"
               }`}
             >
-              {option === "fund" ? "Fund wallet" : "Withdraw"}
+              {t(option === "fund" ? "wallet.fundTab" : "wallet.withdrawTab")}
             </button>
           ))}
         </div>
 
         <p className="mt-3 text-xs text-foreground/60">
           {tab === "fund"
-            ? `Top up by card (minimum ₦${FUNDING_MINIMUM_NGN.toLocaleString()}). Use your balance for inspection fees and other payments on Reallow — we'll always ask before paying from it.`
-            : `Minimum ₦${WITHDRAWAL_MINIMUM_NGN.toLocaleString()}, paid to the bank account in your settings.`}
+            ? t("wallet.fundHint", { min: `₦${FUNDING_MINIMUM_NGN.toLocaleString()}` })
+            : t("wallet.withdrawHint", { min: `₦${WITHDRAWAL_MINIMUM_NGN.toLocaleString()}` })}
         </p>
         {tab === "withdraw" && !hasBankDetails && (
           <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-            Add your bank details in{" "}
+            {t("wallet.addBankBefore")}{" "}
             <a href="/dashboard/settings#profile" className="underline">
-              Settings
-            </a>{" "}
-            before withdrawing.
+              {t("menu.settings")}
+            </a>
           </p>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -119,7 +121,7 @@ export function WalletPanel({
               max={tab === "withdraw" ? walletBalanceNGN : undefined}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount"
+              placeholder={t("wallet.amount")}
               className="h-10 w-full min-w-32 rounded-md border border-line bg-transparent pr-3 pl-7 text-sm"
             />
           </div>
@@ -129,7 +131,7 @@ export function WalletPanel({
             onClick={submit}
             className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {loading ? "Please wait…" : tab === "fund" ? "Fund with card" : "Request withdrawal"}
+            {loading ? t("common.pleaseWait") : t(tab === "fund" ? "wallet.fundWithCard" : "wallet.requestWithdrawal")}
           </button>
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
@@ -137,29 +139,22 @@ export function WalletPanel({
       </div>
 
       <div>
-        <p className="text-sm font-semibold">Reallow earnings</p>
+        <p className="text-sm font-semibold">{t("wallet.earningsTitle")}</p>
         <p className="mt-0.5 text-xs text-foreground/60">
-          You earn a percentage of sales completed using your referral code
-          {referralCode ? (
-            <>
-              {" "}
-              (<span className="font-mono">{referralCode}</span>)
-            </>
-          ) : null}
-          . Earnings are credited to your wallet once Reallow approves them.
+          {t("wallet.earningsExplainer", { code: referralCode ?? "" })}
         </p>
         {earnings.length === 0 ? (
           <p className="mt-3 rounded-xl bg-foreground/5 p-4 text-center text-sm text-foreground/50">
-            No earnings yet — share your referral code to start earning.
+            {t("wallet.noEarnings")}
           </p>
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-line rounded-xl border border-line">
             {earnings.map((earning) => (
               <li key={earning.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span>
-                  <span className="block">Referral earnings</span>
+                  <span className="block">{t("wallet.referralEarningsLabel")}</span>
                   <span className="block text-[11px] text-foreground/50">
-                    {formatLagos(earning.at)} · {EARNING_STATUS[earning.status]}
+                    {formatLagos(earning.at)} · {t(EARNING_STATUS[earning.status])}
                   </span>
                 </span>
                 <span className={`font-mono ${earning.status === "approved" ? "text-verified" : "text-foreground/50"}`}>
@@ -173,14 +168,14 @@ export function WalletPanel({
 
       {withdrawals.length > 0 && (
         <div>
-          <p className="text-sm font-semibold">Withdrawals</p>
+          <p className="text-sm font-semibold">{t("wallet.withdrawals")}</p>
           <ul className="mt-2 flex flex-col divide-y divide-line rounded-xl border border-line">
             {withdrawals.map((w) => (
               <li key={w.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span>
-                  <span className="block">To your bank</span>
+                  <span className="block">{t("tx.toBank")}</span>
                   <span className="block text-[11px] text-foreground/50">
-                    {formatLagos(w.at)} · {w.status === "paid" ? "Paid" : w.status === "rejected" ? "Rejected" : "Processing"}
+                    {formatLagos(w.at)} · {t(w.status === "paid" ? "tx.paid" : w.status === "rejected" ? "tx.rejected" : "tx.processing")}
                   </span>
                 </span>
                 <span className="font-mono">−₦{w.amountNGN.toLocaleString()}</span>

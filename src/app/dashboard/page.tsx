@@ -7,6 +7,7 @@ import { getCollections } from "@/lib/db";
 import { loadDashboardData } from "@/lib/dashboard-data";
 import { formatLagos } from "@/lib/time";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { DashboardPanels } from "@/components/dashboard/dashboard-panels";
 import { IdentityHeader } from "@/components/dashboard/identity-header";
 import { ProposeInspectionForm } from "@/components/propose-inspection-form";
@@ -21,14 +22,15 @@ const STAFF_DASHBOARD: Record<string, string> = {
   staff: "/dashboard/staff",
 };
 
-const STATUS: Record<ListingStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-foreground/5 text-foreground/60" },
-  pending_verification: { label: "Awaiting verification", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-  published: { label: "Live", className: "bg-verified/10 text-verified" },
-  rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600" },
-  rented: { label: "Rented", className: "bg-foreground/5 text-foreground/60" },
-  sold: { label: "Sold", className: "bg-foreground/5 text-foreground/60" },
-  archived: { label: "Taken down", className: "bg-red-500/10 text-red-600" },
+// Badge colours; the labels come from listingStatus.* translations.
+const STATUS: Record<ListingStatus, { className: string }> = {
+  draft: { className: "bg-foreground/5 text-foreground/60" },
+  pending_verification: { className: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  published: { className: "bg-verified/10 text-verified" },
+  rejected: { className: "bg-red-500/10 text-red-600" },
+  rented: { className: "bg-foreground/5 text-foreground/60" },
+  sold: { className: "bg-foreground/5 text-foreground/60" },
+  archived: { className: "bg-red-500/10 text-red-600" },
 };
 
 const PANELS = ["meetings", "transactions", "wallet"] as const;
@@ -56,7 +58,7 @@ export default async function DashboardPage({
   if (!found) redirect("/login");
   const user = await ensureReferralCode(found);
 
-  const data = await loadDashboardData(session.user.id, listings);
+  const data = await loadDashboardData(session.user.id, listings, t);
   const savedListings = user.savedListingIds?.length
     ? await properties
         .find({ _id: { $in: user.savedListingIds }, status: "published" })
@@ -78,19 +80,21 @@ export default async function DashboardPage({
     {
       href: "/dashboard/landlord/candidates",
       label: t("dash.applications"),
-      caption: "People who applied for your properties",
+      caption: t("dash.applicationsCaption"),
       icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 10v-1a6 6 0 0 1 12 0v1M17 11a3 3 0 1 0 0-6M22 21v-1a5 5 0 0 0-4-4.9",
     },
     {
       href: "/dashboard/agreements",
       label: t("dash.agreements"),
-      caption: "Your tenancy agreements",
+      caption: t("dash.agreementsCaption"),
       icon: "M7 3h7l5 5v13H7V3Zm7 0v5h5M10 13h6M10 17h6",
     },
     {
       href: "/dashboard/tenant/tickets",
       label: t("dash.messages"),
-      caption: unreadReplies ? `${unreadReplies} new repl${unreadReplies === 1 ? "y" : "ies"}` : "Questions? Talk to Reallow",
+      caption: unreadReplies
+        ? t(unreadReplies === 1 ? "dash.newReplyOne" : "dash.newReplies", { count: unreadReplies })
+        : t("dash.messagesCaption"),
       icon: "M4 5h16v11H8l-4 4V5Zm4 5h8M8 8h5",
       badge: unreadReplies,
     },
@@ -129,23 +133,7 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <section className="mt-6">
-        <DashboardPanels
-          initialPanel={initialPanel}
-          initialTicketId={params.ticket}
-          initialKind={params.kind === "inspection" ? "inspection" : params.kind === "meeting" ? "meeting" : undefined}
-          events={data.events}
-          bookable={data.bookable}
-          ledger={data.ledger}
-          walletBalanceNGN={user.walletBalanceNGN ?? 0}
-          referralCode={user.referralCode}
-          earnings={data.earnings}
-          withdrawals={data.withdrawals}
-          hasBankDetails={Boolean(user.bankDetails?.accountNumber)}
-        />
-      </section>
-
-      <nav className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+      <nav className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         {shortcuts.map((link) => (
           <Link
             key={link.href}
@@ -169,6 +157,22 @@ export default async function DashboardPage({
           </Link>
         ))}
       </nav>
+
+      <section className="mt-4">
+        <DashboardPanels
+          initialPanel={initialPanel}
+          initialTicketId={params.ticket}
+          initialKind={params.kind === "inspection" ? "inspection" : params.kind === "meeting" ? "meeting" : undefined}
+          events={data.events}
+          bookable={data.bookable}
+          ledger={data.ledger}
+          walletBalanceNGN={user.walletBalanceNGN ?? 0}
+          referralCode={user.referralCode}
+          earnings={data.earnings}
+          withdrawals={data.withdrawals}
+          hasBankDetails={Boolean(user.bankDetails?.accountNumber)}
+        />
+      </section>
 
       {savedListings.length > 0 && (
         <section className="mt-10">
@@ -205,7 +209,7 @@ export default async function DashboardPage({
           </h2>
           {listings.length > 0 && (
             <Link href="/dashboard/landlord/listings/new" className="text-sm font-medium text-clay hover:underline">
-              + List another property
+              + {t("dash.listAnother")}
             </Link>
           )}
         </div>
@@ -216,16 +220,15 @@ export default async function DashboardPage({
                 <path d="M3 11l9-7 9 7v10H3V11Zm6 10v-6h6v6" />
               </svg>
             </span>
-            <p className="mt-3 font-medium">No property listed yet</p>
+            <p className="mt-3 font-medium">{t("dash.noProperty")}</p>
             <p className="mt-1 max-w-sm text-sm text-foreground/60">
-              Have a room, flat or house to rent out or sell? List it free — Reallow verifies it and finds you verified
-              applicants.
+              {t("dash.noPropertyBody")}
             </p>
             <Link
               href="/dashboard/landlord/listings/new"
               className="mt-4 flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
             >
-              List a property
+              {t("dash.listAProperty")}
             </Link>
           </div>
         ) : (
@@ -246,44 +249,44 @@ export default async function DashboardPage({
                           {listing.title}
                         </Link>
                         <p className="text-xs text-foreground/60">
-                          {listing.listingType === "rent" ? "For rent" : "For sale"} · ₦{listing.priceNGN.toLocaleString()}
-                          {listing.listingType === "rent" ? "/yr" : ""}
+                          {t(listing.listingType === "rent" ? "listing.forRent" : "listing.forSale")} · ₦{listing.priceNGN.toLocaleString()}
+                          {listing.listingType === "rent" ? t("listing.perYear") : ""}
                         </p>
                       </div>
                     </div>
                     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${status.className}`}>
-                      {status.label}
+                      {t(`listingStatus.${listing.status}` as MessageKey)}
                     </span>
                   </div>
 
                   {listing.status === "pending_verification" && !v.scheduledFor && (
                     <p className="mt-2 text-xs text-foreground/60">
-                      A Reallow agent will call you to book the in-person verification visit.
+                      {t("dash.agentWillCall")}
                     </p>
                   )}
 
                   {listing.status === "pending_verification" && v.scheduledFor && (
                     <div className="mt-2 text-xs">
                       <p className="text-foreground/70">
-                        Verification visit {v.landlordResponse === "confirmed" ? "confirmed" : "proposed"} for{" "}
+                        {t(v.landlordResponse === "confirmed" ? "dash.visitConfirmedFor" : "dash.visitProposedFor")}{" "}
                         <span className="font-medium">{formatLagos(v.scheduledFor)}</span>
                       </p>
                       {v.landlordResponse === "declined" ? (
                         <p className="mt-1 text-foreground/60">
-                          You asked for a different time — a Reallow agent will call you to rearrange.
+                          {t("dash.askedDifferentTime")}
                         </p>
                       ) : v.landlordResponse !== "confirmed" ? (
                         <div className="mt-2 flex flex-wrap gap-2">
                           <form action={confirmVerificationInspection}>
                             <input type="hidden" name="listingId" value={listing._id!.toString()} />
                             <button type="submit" className="h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white">
-                              Confirm this time
+                              {t("dash.confirmTime")}
                             </button>
                           </form>
                           <form action={declineVerificationInspection}>
                             <input type="hidden" name="listingId" value={listing._id!.toString()} />
                             <button type="submit" className="h-8 rounded-full border border-line px-3.5 text-xs font-medium">
-                              I need a different time
+                              {t("dash.needDifferentTime")}
                             </button>
                           </form>
                         </div>
@@ -293,15 +296,15 @@ export default async function DashboardPage({
 
                   {listing.status === "archived" && (
                     <p className="mt-2 text-xs text-foreground/60">
-                      Taken down by Reallow{listing.takenDown?.note ? `: ${listing.takenDown.note}` : "."} Contact Reallow if
-                      you have questions.
+                      {t("dash.takenDown")}
+                      {listing.takenDown?.note ? `: ${listing.takenDown.note}` : "."} {t("dash.takenDownContact")}
                     </p>
                   )}
 
                   {(listing.status === "draft" || listing.status === "rejected") && (
                     <div className="mt-3">
                       {listing.status === "rejected" && v.rejectionReason && (
-                        <p className="mb-2 text-xs text-red-600">Rejected: {v.rejectionReason}</p>
+                        <p className="mb-2 text-xs text-red-600">{t("dash.rejected", { reason: v.rejectionReason })}</p>
                       )}
                       <ProposeInspectionForm listingId={listing._id!.toString()} />
                     </div>

@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
 
-export function ReviewForm({ agreementId, revieweeLabel }: { agreementId: string; revieweeLabel: string }) {
+export function ReviewForm({ agreementId, reviewee }: { agreementId: string; reviewee: "landlord" | "tenant" }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState(5);
@@ -25,7 +27,7 @@ export function ReviewForm({ agreementId, revieweeLabel }: { agreementId: string
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not submit review");
+      setError(data?.error ?? t("agreement.review.failed"));
       return;
     }
 
@@ -34,7 +36,7 @@ export function ReviewForm({ agreementId, revieweeLabel }: { agreementId: string
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 rounded-lg border border-line p-4">
-      <p className="text-sm font-medium">Rate your {revieweeLabel}</p>
+      <p className="text-sm font-medium">{t(reviewee === "landlord" ? "agreement.review.rateLandlord" : "agreement.review.rateTenant")}</p>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((value) => (
           <button
@@ -54,7 +56,7 @@ export function ReviewForm({ agreementId, revieweeLabel }: { agreementId: string
       <textarea
         name="comment"
         rows={3}
-        placeholder="Optional comment"
+        placeholder={t("agreement.review.comment")}
         className="rounded-md border border-line px-3 py-2 text-sm bg-transparent"
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -63,7 +65,7 @@ export function ReviewForm({ agreementId, revieweeLabel }: { agreementId: string
         disabled={loading}
         className="h-9 self-start rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-50"
       >
-        {loading ? "Submitting…" : "Submit review"}
+        {loading ? t("form.submitting") : t("agreement.review.submit")}
       </button>
     </form>
   );

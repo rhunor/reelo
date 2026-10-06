@@ -5,6 +5,7 @@ import {
   markWithdrawalPaid,
   rejectWithdrawal,
 } from "@/app/dashboard/admin/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -52,15 +53,15 @@ export default async function AdminReferralsPage() {
               <div className="mt-3 flex gap-2">
                 <form action={approveReferralCommission}>
                   <input type="hidden" name="commissionId" value={commission._id!.toString()} />
-                  <button type="submit" className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+                  <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
                     Approve
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={rejectReferralCommission}>
                   <input type="hidden" name="commissionId" value={commission._id!.toString()} />
-                  <button type="submit" className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+                  <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
                     Reject
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </div>
@@ -91,15 +92,15 @@ export default async function AdminReferralsPage() {
               <div className="mt-3 flex gap-2">
                 <form action={markWithdrawalPaid}>
                   <input type="hidden" name="requestId" value={request._id!.toString()} />
-                  <button type="submit" className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+                  <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
                     Mark paid
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={rejectWithdrawal}>
                   <input type="hidden" name="requestId" value={request._id!.toString()} />
-                  <button type="submit" className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+                  <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
                     Reject
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </div>

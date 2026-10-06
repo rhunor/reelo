@@ -4,7 +4,6 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { CheckInButton } from "@/components/check-in-button";
-import { StaffMediaUploader } from "@/components/staff-media-uploader";
 import { toggleVerificationTask, completeInspectionVisit } from "@/app/dashboard/staff/actions";
 import { scheduleInspection } from "@/app/dashboard/admin/actions";
 import { IdentityHeader } from "@/components/dashboard/identity-header";
@@ -12,8 +11,10 @@ import { DashboardPanels } from "@/components/dashboard/dashboard-panels";
 import { VisitReportForm } from "@/components/visit-report-form";
 import { StaffRateVisit } from "@/components/staff-rate-visit";
 import { loadDashboardData } from "@/lib/dashboard-data";
+import { getT } from "@/lib/i18n/server";
 import { formatLagos, toLagosDateTimeLocal } from "@/lib/time";
 import type { Property } from "@/types/models";
+import { SubmitButton } from "@/components/submit-button";
 
 // Visits that need a call first float to the top: never scheduled, or the landlord said
 // the scheduled time doesn't work.
@@ -52,24 +53,34 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   const { all } = await searchParams;
 
   const { properties, users, inspectionBookings, meetings, meetingFeedback } = await getCollections();
-  const found = await users.findOne({ _id: new ObjectId(session.user.id) });
+  const t = await getT();
+  const thirtyDaysAgo = daysAgo(30);
+  // Everything that doesn't depend on this user's city runs at once — one database round
+  // trip instead of several in a row.
+  const [found, money, legacyBookings, paidInspections, completedMeetings, completedBookings, myFeedback] =
+    await Promise.all([
+      users.findOne({ _id: new ObjectId(session.user.id) }),
+      // Staff earn referral commissions too, so they get the same wallet and history windows.
+      loadDashboardData(session.user.id, [], t),
+      inspectionBookings.find({ status: "confirmed" }).toArray(),
+      // Inspections booked through the dashboard's Meetings window only need an agent once
+      // the time is agreed and the applicant has paid.
+      meetings.find({ kind: "inspection", status: "confirmed", paidAt: { $exists: true } }).toArray(),
+      // Inspections finished in the last 30 days, for the agent to rate.
+      meetings.find({ kind: "inspection", status: "completed", updatedAt: { $gte: thirtyDaysAgo } }).sort({ updatedAt: -1 }).toArray(),
+      inspectionBookings.find({ status: "completed", scheduledFor: { $gte: thirtyDaysAgo } }).toArray(),
+      meetingFeedback.find({ userId: new ObjectId(session.user.id) }).project({ targetId: 1 }).toArray(),
+    ]);
   if (!found) redirect("/login");
   // Older accounts predate referral codes — give them one now.
   const me = await ensureReferralCode(found);
-  // Staff earn referral commissions too, so they get the same wallet and history windows.
-  const money = await loadDashboardData(session.user.id, []);
   // Staff see their own city by default; "Show all cities" lifts the filter.
   const base = me.staffBase;
   const cityFilter = base && all !== "1" ? { "location.state": base } : {};
-  const thirtyDaysAgo = daysAgo(30);
-
-  const [allPending, legacyBookings, paidInspections] = await Promise.all([
-    properties.find({ status: "pending_verification", ...cityFilter }).sort({ createdAt: 1 }).toArray(),
-    inspectionBookings.find({ status: "confirmed" }).toArray(),
-    // Inspections booked through the dashboard's Meetings window only need an agent once
-    // the time is agreed and the applicant has paid.
-    meetings.find({ kind: "inspection", status: "confirmed", paidAt: { $exists: true } }).toArray(),
-  ]);
+  const allPending = await properties
+    .find({ status: "pending_verification", ...cityFilter })
+    .sort({ createdAt: 1 })
+    .toArray();
   const confirmedBookings = [
     ...legacyBookings.map((b) => ({ ...b, source: "booking" as const })),
     ...paidInspections.map((m) => ({ ...m, source: "meeting" as const })),
@@ -84,12 +95,6 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   const visitDone = (l: Property) => Boolean(l.verification.checkedInAt) || hasHappened(l.verification.scheduledFor);
   const awaitingReportCount = allPending.filter((l) => visitDone(l) && !l.verification.agentReport).length;
 
-  // Inspections finished in the last 30 days, for the agent to rate.
-  const [completedMeetings, completedBookings, myFeedback] = await Promise.all([
-    meetings.find({ kind: "inspection", status: "completed", updatedAt: { $gte: thirtyDaysAgo } }).sort({ updatedAt: -1 }).toArray(),
-    inspectionBookings.find({ status: "completed", scheduledFor: { $gte: thirtyDaysAgo } }).toArray(),
-    meetingFeedback.find({ userId: new ObjectId(session.user.id) }).project({ targetId: 1 }).toArray(),
-  ]);
   const ratedIds = new Set(myFeedback.map((f) => f.targetId.toString()));
   const completed = [
     ...completedMeetings.map((m) => ({ id: m._id!.toString(), source: "meeting" as const, at: m.scheduledFor ?? m.updatedAt, listingId: m.listingId })),
@@ -237,9 +242,9 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                       defaultValue={scheduledFor ? toLagosDateTimeLocal(new Date(scheduledFor)) : undefined}
                       className="h-9 rounded-md border border-line bg-transparent px-3 text-sm"
                     />
-                    <button type="submit" className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+                    <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
                       {scheduledFor ? "Update time" : "Set visit time"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>
@@ -249,20 +254,19 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                   <form key={task.key} action={toggleVerificationTask}>
                     <input type="hidden" name="listingId" value={listing._id!.toString()} />
                     <input type="hidden" name="task" value={task.key} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                     
                       className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ${
                         tasks[task.key] ? "border-verified bg-verified/5 text-verified" : "border-line"
                       }`}
                     >
                       <span>{tasks[task.key] ? "✓" : "○"}</span>
                       {task.label}
-                    </button>
+                    </SubmitButton>
                   </form>
                 ))}
               </div>
 
-              <StaffMediaUploader listingId={listing._id!.toString()} />
 
               {scheduledFor && !listing.verification.checkedInAt && (
                 <div className="mt-3">
@@ -287,19 +291,10 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                 {visitDone(listing) ? (
                   <div className="mt-3">
                     <VisitReportForm listingId={listing._id!.toString()} existing={listing.verification.agentReport} />
-                    {listing.verification.agentReport && (
-                      <div className="mt-4 border-t border-line pt-3">
-                        <StaffRateVisit
-                          targetType="verification"
-                          targetId={listing._id!.toString()}
-                          alreadyRated={ratedIds.has(listing._id!.toString())}
-                        />
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <p className="mt-1 text-xs text-foreground/50">
-                    After the visit (check in when you arrive), take photos and write your report here.
+                    Check in when you arrive — then rate the visit, add photos of the property and the road to it, and file your report here.
                   </p>
                 )}
               </div>
@@ -332,12 +327,12 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
               <form action={completeInspectionVisit} className="mt-3">
                 <input type="hidden" name="bookingId" value={booking._id!.toString()} />
                 <input type="hidden" name="source" value={booking.source} />
-                <button
-                  type="submit"
+                <SubmitButton
+                 
                   className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
                 >
                   Mark inspection completed
-                </button>
+                </SubmitButton>
               </form>
             </div>
           );

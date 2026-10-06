@@ -191,9 +191,13 @@ export interface ListingVerification {
 
 export interface VisitReport {
   condition: "matches" | "minor_differences" | "does_not_match";
+  rating?: number; // 1–5, the agent's overall rating of the visit
   comments: string;
   narration: string;
-  photoUrls: string[];
+  photoUrls: string[]; // the property
+  videoUrls?: string[];
+  roadPhotoUrls?: string[]; // the road / approach to the property
+  roadVideoUrls?: string[];
   submittedAt: Date;
   submittedBy: ObjectId;
   submittedByName?: string;
@@ -555,6 +559,8 @@ export type NotificationType =
   | "ticket_reply"
   | "landlord_decision"
   | "listing_received"
+  | "listing_approved"
+  | "listing_rejected"
   | "verification_inspection_scheduled"
   | "verification_inspection_declined"
   | "inspection_time_proposed"
@@ -603,6 +609,9 @@ export interface Notification {
   body: string;
   listingId?: ObjectId;
   ticketId?: ObjectId;
+  // Translation keys (+ values) so the notification shows in the reader's language;
+  // title/body above are the English fallback for older notifications and emails.
+  i18n?: { title: string; body: string; vars?: Record<string, string | number> };
   // Where tapping the notification goes. Older notifications don't have one — see
   // notificationHref in src/lib/notification-links.ts for the fallback.
   href?: string;

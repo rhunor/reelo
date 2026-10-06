@@ -55,37 +55,14 @@ export async function completeInspectionVisit(formData: FormData) {
   revalidatePath("/dashboard/staff");
 }
 
-// Media the field agent captures *is* the listing's verification media — it lands
-// straight on the listing's own photoUrls/videoUrls, the same arrays the public listing
-// page and the admin approval queue already read from. Called directly (not via a <form>)
-// from the client uploader component the moment each upload finishes.
-export async function addVerificationMedia(listingId: string, kind: "photo" | "video", urls: string[]) {
-  await requireStaff();
-  if (urls.length === 0) return;
-
-  const { properties } = await getCollections();
-  if (kind === "video") {
-    await properties.updateOne(
-      { _id: new ObjectId(listingId) },
-      { $push: { videoUrls: { $each: urls } }, $set: { updatedAt: new Date() } },
-    );
-  } else {
-    await properties.updateOne(
-      { _id: new ObjectId(listingId) },
-      { $push: { photoUrls: { $each: urls } }, $set: { updatedAt: new Date() } },
-    );
-  }
-
-  revalidatePath("/dashboard/staff");
-}
-
 export type VisitReportFormState = { status: "idle" | "success" | "error"; message?: string };
 
 const CONDITIONS = ["matches", "minor_differences", "does_not_match"] as const;
 
 // The agent's report once a verification visit is done: how the property compares with
-// the listing, comments, a fuller narration, and photos taken on site. Saving again
-// replaces the previous report. Returns form state instead of throwing (useActionState).
+// the listing, a 1–5 rating and comment, an optional narration, and photos/videos of the
+// property and of the road to it. Saving again replaces the previous report. Returns form
+// state instead of throwing (useActionState).
 export async function submitVisitReport(
   _previous: VisitReportFormState,
   formData: FormData,
@@ -93,23 +70,26 @@ export async function submitVisitReport(
   const agent = await requireStaff();
   const listingId = formData.get("listingId") as string;
   const condition = formData.get("condition") as (typeof CONDITIONS)[number];
+  const rating = Number(formData.get("rating"));
   const comments = ((formData.get("comments") as string) ?? "").trim().slice(0, 2000);
   const narration = ((formData.get("narration") as string) ?? "").trim().slice(0, 8000);
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const photoUrls = formData
-    .getAll("photoUrls")
-    .map(String)
-    .filter((url) => url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
-    .slice(0, 40);
+  const urls = (field: string, max: number) =>
+    [...new Set(formData.getAll(field).map(String))]
+      .filter((url) => url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
+      .slice(0, max);
+  const photoUrls = urls("photoUrls", 40);
+  const videoUrls = urls("videoUrls", 10);
+  const roadPhotoUrls = urls("roadPhotoUrls", 20);
+  const roadVideoUrls = urls("roadVideoUrls", 10);
 
   if (!ObjectId.isValid(listingId)) return { status: "error", message: "Listing not found." };
   if (!CONDITIONS.includes(condition)) return { status: "error", message: "Say how the property compares with the listing." };
-  if (narration.length < 20) {
-    return { status: "error", message: "Write a short narration of the property (at least a sentence or two)." };
-  }
-  if (photoUrls.length === 0) return { status: "error", message: "Add at least one photo from the visit." };
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { status: "error", message: "Give the visit a star rating (1–5)." };
+  if (photoUrls.length === 0) return { status: "error", message: "Add at least one photo of the property." };
+  if (roadPhotoUrls.length === 0) return { status: "error", message: "Add at least one photo of the road to the property." };
 
-  const { properties, users } = await getCollections();
+  const { properties, users, meetingFeedback } = await getCollections();
   const listing = await properties.findOne({ _id: new ObjectId(listingId) }, { projection: { verification: 1 } });
   if (!listing) return { status: "error", message: "Listing not found." };
   const visited =
@@ -124,16 +104,38 @@ export async function submitVisitReport(
       $set: {
         "verification.agentReport": {
           condition,
+          rating,
           comments,
           narration,
           photoUrls,
+          videoUrls,
+          roadPhotoUrls,
+          roadVideoUrls,
           submittedAt: new Date(),
           submittedBy: new ObjectId(agent.id),
           submittedByName: me?.name,
         },
+        // The checklist follows what was actually captured.
+        "verification.tasks.photos": true,
+        "verification.tasks.videoOfProperty": videoUrls.length > 0,
+        "verification.tasks.videoOfRoad": roadVideoUrls.length > 0,
         updatedAt: new Date(),
       },
+      // Property photos and videos become the listing's own verification media (road
+      // media stays in the report only). $addToSet so re-saving doesn't duplicate them.
+      $addToSet: { photoUrls: { $each: photoUrls }, videoUrls: { $each: videoUrls } },
     },
+  );
+
+  // The rating also goes in with the other visit ratings admin reviews; re-saving the
+  // report updates it rather than adding another.
+  await meetingFeedback.updateOne(
+    { userId: new ObjectId(agent.id), targetType: "verification", targetId: listing._id },
+    {
+      $set: { rating, comment: comments || undefined, tags: [], listingId: listing._id },
+      $setOnInsert: { createdAt: new Date() },
+    },
+    { upsert: true },
   );
 
   revalidatePath("/dashboard/staff");

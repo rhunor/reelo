@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { useRouter } from "next/navigation";
 
 export function PreferCandidateButton({
@@ -11,6 +12,7 @@ export function PreferCandidateButton({
   decision?: "approved" | "declined";
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [loading, setLoading] = useState<"approved" | "declined" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ export function PreferCandidateButton({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not save decision");
+      setError(data?.error ?? t("decision.failed"));
       return;
     }
 
@@ -36,10 +38,10 @@ export function PreferCandidateButton({
   }
 
   if (decision === "approved") {
-    return <p className="text-sm font-medium text-verified">You approved this tenant</p>;
+    return <p className="text-sm font-medium text-verified">{t("decision.accepted")}</p>;
   }
   if (decision === "declined") {
-    return <p className="text-sm font-medium text-foreground/50">You declined this tenant</p>;
+    return <p className="text-sm font-medium text-foreground/50">{t("decision.declined")}</p>;
   }
 
   return (
@@ -50,14 +52,14 @@ export function PreferCandidateButton({
           disabled={loading !== null}
           className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {loading === "approved" ? "Saving…" : "Approve"}
+          {loading === "approved" ? t("common.saving") : t("decision.accept")}
         </button>
         <button
           onClick={() => decide("declined")}
           disabled={loading !== null}
           className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-50"
         >
-          {loading === "declined" ? "Saving…" : "Decline"}
+          {loading === "declined" ? t("common.saving") : t("meetings.decline")}
         </button>
       </div>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}

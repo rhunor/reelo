@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { useRouter } from "next/navigation";
 
 export function SaveListingButton({
@@ -15,6 +16,7 @@ export function SaveListingButton({
   className?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [saved, setSaved] = useState(initiallySaved);
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +51,7 @@ export function SaveListingButton({
       <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
         <path strokeLinejoin="round" d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
       </svg>
-      {saved ? "Saved for later" : "Save for later"}
+      {saved ? t("dash.saved") : t("save.button")}
     </button>
   );
 }

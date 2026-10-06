@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
 import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
@@ -19,6 +20,7 @@ export default async function LandlordProfilePage({ params }: { params: Promise<
   // This page only makes sense for someone who actually has listings — anyone can list a
   // property now regardless of what `role` they signed up with.
   if (listings.length === 0) notFound();
+  const t = await getT();
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
@@ -28,11 +30,14 @@ export default async function LandlordProfilePage({ params }: { params: Promise<
       </div>
       <p className="mt-1 text-sm text-foreground/70">
         {landlord.ratingCount
-          ? `${landlord.ratingAverage!.toFixed(1)}/5 from ${landlord.ratingCount} review${landlord.ratingCount === 1 ? "" : "s"}`
-          : "No reviews yet"}
+          ? t(landlord.ratingCount === 1 ? "profilePage.ratingOne" : "profilePage.rating", {
+              avg: landlord.ratingAverage!.toFixed(1),
+              count: landlord.ratingCount,
+            })
+          : t("profilePage.noReviews")}
       </p>
 
-      <h2 className="mt-8 text-lg font-medium">Listings</h2>
+      <h2 className="mt-8 text-lg font-medium">{t("nav.listings")}</h2>
       <RevealGroup className="mt-4 grid gap-4 sm:grid-cols-2">
         {listings.map((listing) => (
           <RevealItem key={listing._id!.toString()}>

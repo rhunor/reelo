@@ -16,6 +16,7 @@ import { computeListingCostBreakdown, formatRate, getInspectionFee } from "@/lib
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { isStaffRole } from "@/lib/roles";
 import { redactContactInfo } from "@/lib/contact-guard";
+import { getT } from "@/lib/i18n/server";
 
 export default async function ListingDetailPage({
   params,
@@ -23,6 +24,7 @@ export default async function ListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await getT();
   if (!ObjectId.isValid(id)) notFound();
 
   const { properties, users, tickets, inspectionBookings } = await getCollections();
@@ -80,21 +82,20 @@ export default async function ListingDetailPage({
         >
           {isClosed ? (
             <p className="font-medium">
-              This property has been {listing.status === "sold" ? "sold" : "rented"}.{" "}
+              {t(listing.status === "sold" ? "listing.wasSold" : "listing.wasRented")}{" "}
               <Link href="/listings" className="text-clay underline">
-                See similar properties
+                {t("listing.seeSimilar")}
               </Link>
             </p>
           ) : listing.status === "archived" ? (
             <p>
-              <span className="font-medium">Not visible to the public</span> — taken down by Reallow
-              {listing.takenDown?.reason === "owner_blocked" ? " because the owner's account is blocked" : ""}
+              <span className="font-medium">{t("listing.notPublic")}</span> —{" "}
+              {t(listing.takenDown?.reason === "owner_blocked" ? "listing.takenDownBlocked" : "listing.takenDown")}
               {listing.takenDown?.note ? `: ${listing.takenDown.note}` : "."}
             </p>
           ) : (
             <p>
-              <span className="font-medium">Not visible to the public yet</span> — only you and Reallow can see this
-              page until it&apos;s verified and approved.
+              <span className="font-medium">{t("listing.notPublicYet")}</span> — {t("listing.notPublicYetBody")}
             </p>
           )}
         </div>
@@ -109,48 +110,48 @@ export default async function ListingDetailPage({
           </p>
           {session?.user && (
             <div className="mt-2">
-              <ReportButton targetType="listing" targetId={listing._id!.toString()} label="Report this listing" />
+              <ReportButton targetType="listing" targetId={listing._id!.toString()} label={t("report.listing")} />
             </div>
           )}
           <p className="mt-4 font-mono text-2xl font-medium">
             ₦{listing.priceNGN.toLocaleString()}
-            {listing.listingType === "rent" ? <span className="text-base text-foreground/50">/year</span> : null}
+            {listing.listingType === "rent" ? <span className="text-base text-foreground/50">{t("listing.perYear")}</span> : null}
           </p>
 
           {(
             <div className="mt-4 rounded-2xl border border-line p-4">
-              <p className="text-sm font-medium">What you&apos;d pay in total</p>
+              <p className="text-sm font-medium">{t("listing.totalHeading")}</p>
               <dl className="mt-3 flex flex-col gap-2 text-sm">
                 <div className="flex items-baseline justify-between">
-                  <dt className="text-foreground/70">{isRent ? "Rent (per year)" : "Sale price"}</dt>
+                  <dt className="text-foreground/70">{t(isRent ? "listing.rentPerYear" : "listing.salePrice")}</dt>
                   <dd className="font-mono">₦{costBreakdown.priceNGN.toLocaleString()}</dd>
                 </div>
                 {costBreakdown.cautionFeeNGN > 0 && (
                   <div className="flex items-baseline justify-between">
-                    <dt className="text-foreground/70">+ Caution fee</dt>
+                    <dt className="text-foreground/70">+ {t("listing.cautionFee")}</dt>
                     <dd className="font-mono">₦{costBreakdown.cautionFeeNGN.toLocaleString()}</dd>
                   </div>
                 )}
                 {costBreakdown.estateChargeNGN > 0 && (
                   <div className="flex items-baseline justify-between">
-                    <dt className="text-foreground/70">+ Estate charge</dt>
+                    <dt className="text-foreground/70">+ {t("listing.estateCharge")}</dt>
                     <dd className="font-mono">₦{costBreakdown.estateChargeNGN.toLocaleString()}</dd>
                   </div>
                 )}
                 <div className="flex items-baseline justify-between">
                   <dt className="text-foreground/70">
-                    + Reallow service charge ({formatRate(costBreakdown.serviceChargeRate)})
+                    + {t("listing.serviceCharge", { rate: formatRate(costBreakdown.serviceChargeRate) })}
                   </dt>
                   <dd className="font-mono">₦{costBreakdown.serviceChargeNGN.toLocaleString()}</dd>
                 </div>
                 <div className="mt-1 flex items-baseline justify-between border-t border-line pt-2 font-medium">
-                  <dt>Total payable</dt>
+                  <dt>{t("listing.totalPayable")}</dt>
                   <dd className="font-mono">₦{costBreakdown.totalNGN.toLocaleString()}</dd>
                 </div>
               </dl>
               {isRent && (
                 <p className="mt-3 text-xs text-foreground/50">
-                  Minimum tenancy: {minimumTermMonths} month{minimumTermMonths === 1 ? "" : "s"}.
+                  {t(minimumTermMonths === 1 ? "listing.minTenancyOne" : "listing.minTenancy", { months: minimumTermMonths })}
                 </p>
               )}
             </div>
@@ -184,7 +185,7 @@ export default async function ListingDetailPage({
 
           {listing.tenantPreferences && (
             <div className="mt-6 rounded-2xl border border-line p-4">
-              <p className="text-sm font-medium">Who the landlord is looking for</p>
+              <p className="text-sm font-medium">{t("listing.lookingFor")}</p>
               <p className="mt-1 text-sm text-foreground/70 break-words">{redactContactInfo(listing.tenantPreferences)}</p>
             </div>
           )}
@@ -211,7 +212,7 @@ export default async function ListingDetailPage({
               href={`/landlords/${landlord._id}`}
               className="mt-6 inline-flex items-center gap-2 text-sm text-foreground/60 hover:text-clay"
             >
-              Listed by {landlord.name}
+              {t("listing.listedBy", { name: landlord.name })}
               {landlord.verifiedBadge && <VerifiedBadge />}
             </Link>
           )}
@@ -220,10 +221,9 @@ export default async function ListingDetailPage({
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-line p-6 lg:sticky lg:top-24">
             <Reveal direction="right" distance={28}>
-            <p className="font-medium">Interested in this property?</p>
+            <p className="font-medium">{t("listing.interested")}</p>
             <p className="mt-1 text-xs text-foreground/50">
-              Landlords and applicants never contact each other or see each other&apos;s phone
-              number or email — Reallow arranges everything.
+              {t("listing.noContact")}
             </p>
 
             {!isOwnListing && !isStaffRole(session?.user?.role) && listing.status === "published" && (
@@ -239,33 +239,31 @@ export default async function ListingDetailPage({
             {!session?.user && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Log in to apply — it&apos;s free. Once the landlord accepts your application you
-                  can book an inspection or a meeting.
+                  {t("listing.loginToApply")}
                 </p>
                 <Link
                   href={`/login?callbackUrl=${encodeURIComponent(`/listings/${listing._id}`)}`}
                   className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
                 >
-                  Log in
+                  {t("nav.login")}
                 </Link>
               </>
             )}
 
             {session?.user && isOwnListing && (
-              <p className="mt-3 text-sm text-foreground/70">This is your own listing.</p>
+              <p className="mt-3 text-sm text-foreground/70">{t("listing.ownListing")}</p>
             )}
 
             {session?.user && !isOwnListing && isStaffRole(session.user.role) && (
               <>
                 <p className="mt-3 text-sm text-foreground/70">
-                  Inspection booking and property inquiries aren&apos;t available on staff accounts.
-                  Need something from Reallow?
+                  {t("listing.staffNotice")}
                 </p>
                 <Link
                   href="/dashboard/landlord/tickets/new"
                   className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
                 >
-                  Contact Reallow
+                  {t("footer.contactUs")}
                 </Link>
               </>
             )}
@@ -275,12 +273,12 @@ export default async function ListingDetailPage({
                 <ApplyForListingButton listingId={listing._id!.toString()} />
               ) : (
                 <div className="mt-4">
-                  <p className="text-sm text-foreground/70">Verify your identity to apply for this property.</p>
+                  <p className="text-sm text-foreground/70">{t("listing.verifyToApply")}</p>
                   <Link
                     href="/dashboard/verify-identity"
                     className="mt-3 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
                   >
-                    Verify your identity
+                    {t("dash.verify")}
                   </Link>
                 </div>
               )
@@ -288,16 +286,16 @@ export default async function ListingDetailPage({
 
             {existingTicket && decision === undefined && (
               <p className="mt-3 text-sm text-foreground/70">
-                Application sent — waiting on the landlord&apos;s decision. We&apos;ll notify you.{" "}
+                {t("listing.applicationSent")}{" "}
                 <Link href={`/dashboard/tenant/tickets/${existingTicket._id}`} className="underline">
-                  Questions? Message Reallow
+                  {t("listing.questionsMessage")}
                 </Link>
               </p>
             )}
 
             {existingTicket && decision === "declined" && (
               <p className="mt-3 text-sm text-foreground/50">
-                The landlord has moved on from this application.
+                {t("listing.declined")}
               </p>
             )}
 
@@ -308,24 +306,22 @@ export default async function ListingDetailPage({
                 ) : !isVerified ? (
                   <>
                     <p className="text-sm text-red-600">
-                      You can&apos;t book an inspection because your account has not been
-                      verified.
+                      {t("listing.cantBookUnverified")}
                     </p>
                     <Link
                       href="/dashboard/verify-identity"
                       className="mt-4 inline-flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
                     >
-                      Verify your identity
+                      {t("dash.verify")}
                     </Link>
                   </>
                 ) : (
                   <>
                     <p className="text-sm font-medium text-verified">
-                      The landlord accepted your application.
+                      {t("listing.accepted")}
                     </p>
                     <p className="mt-1 text-xs text-foreground/60">
-                      Book an inspection (₦{inspectionFeeNGN.toLocaleString()}, with a Reallow agent) or a
-                      free meeting — pick the day in your Meetings calendar.
+                      {t("listing.bookHint", { fee: `₦${inspectionFeeNGN.toLocaleString()}` })}
                     </p>
                     <BookMeetingLinks ticketId={existingTicket._id!.toString()} />
                   </>
@@ -334,7 +330,7 @@ export default async function ListingDetailPage({
             )}
 
             <Link href="/contact" className="mt-4 inline-block text-xs text-foreground/50 underline">
-              Other ways to reach Reallow
+              {t("listing.otherWays")}
             </Link>
             </Reveal>
           </div>

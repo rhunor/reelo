@@ -75,8 +75,13 @@ export async function POST(request: Request) {
   const { token, expiresAt } = generateEmailVerificationToken();
   const referralCode = await generateReferralCode(firstName);
 
-  // An invalid or missing ref code never blocks signup — it's silently ignored.
-  const referrer = ref ? await users.findOne({ referralCode: ref }) : null;
+  // A code typed (or carried in from an invite link) must exist, so a typo doesn't quietly
+  // cost the referrer their credit — the form asks the person to fix it or clear it.
+  const refCode = ref?.trim().toUpperCase();
+  const referrer = refCode ? await users.findOne({ referralCode: refCode }) : null;
+  if (refCode && !referrer) {
+    return NextResponse.json({ error: "That referral code doesn't exist", code: "invalid_ref" }, { status: 400 });
+  }
 
   const { insertedId } = await users.insertOne({
     role,

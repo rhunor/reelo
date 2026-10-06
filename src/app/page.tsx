@@ -6,10 +6,11 @@ import { PeopleSlideshow } from "@/components/home/people-slideshow";
 import { FaqList } from "@/components/faq-list";
 import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
 import { formatRate, getServiceChargeRate } from "@/lib/fees";
-import { FAQ_TOPICS } from "@/lib/faqs";
+import { translatedTopics } from "@/lib/faqs";
 import { PEOPLE_PHOTOS } from "@/lib/home-photos";
 import { APP_LINKS } from "@/lib/app-links";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { auth } from "@/auth";
 import { ctaLinks } from "@/lib/cta-links";
 
@@ -51,14 +52,9 @@ const ICON = {
 export default async function Home() {
   const t = await getT();
   const links = ctaLinks(await auth());
-  const faqs = FAQ_TOPICS.flatMap((t) => t.faqs).filter((f) =>
-    [
-      "What will I pay in total?",
-      "Can I contact the landlord (or applicant) directly?",
-      "Why isn't my listing live yet?",
-      "How does the Reallow wallet work?",
-    ].includes(f.q),
-  );
+  const faqs = translatedTopics(t)
+    .flatMap((topic) => topic.faqs)
+    .filter((f) => ["renting2", "renting4", "listing2", "payments1"].includes(f.id));
 
   return (
     <div className="flex-1">
@@ -70,10 +66,16 @@ export default async function Home() {
           <SectionHeading
             eyebrow={t("home.everyoneEyebrow")}
             title={t("home.everyoneTitle")}
-            intro="Market traders, mechanics, office workers, students, artisans, families. Reallow was built for everyday Nigerians who are tired of fake listings, endless agent fees, and money that disappears."
+            intro={t("home.everyoneIntro")}
           />
           <div className="mt-8 sm:mt-10">
-            <PeopleSlideshow photos={PEOPLE_PHOTOS} />
+            <PeopleSlideshow
+              photos={PEOPLE_PHOTOS.map((photo) => ({
+                ...photo,
+                caption: t(`people.${photo.id}.caption` as MessageKey),
+                detail: t(`people.${photo.id}.detail` as MessageKey),
+              }))}
+            />
           </div>
         </div>
       </section>
@@ -81,20 +83,20 @@ export default async function Home() {
       {/* Old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
       <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
-          eyebrow="Why Reallow"
-          title="House-hunting in Nigeria shouldn't feel like a gamble."
-          intro="We rebuilt renting and buying around one idea: you should know exactly who you're dealing with and exactly what you're paying."
+          eyebrow={t("home.whyEyebrow")}
+          title={t("home.whyTitle")}
+          intro={t("home.whyIntro")}
         />
         <div className="mt-12 grid gap-4 md:grid-cols-2">
           <Reveal direction="left" className="rounded-3xl border border-line p-6 sm:p-8">
-            <p className="text-sm font-semibold tracking-wide text-foreground/50 uppercase">The old way</p>
+            <p className="text-sm font-semibold tracking-wide text-foreground/50 uppercase">{t("home.oldWay")}</p>
             <ul className="mt-5 flex flex-col gap-4">
               {[
-                "Agents and middlemen asking for “agreement” and “commission” on top of rent",
-                "Paying an inspection fee to see a house that doesn't exist — or isn't what was shown",
-                "Charges that keep appearing after you've agreed a price",
-                "Handing cash to someone you met yesterday and hoping for the best",
-                "Chasing a lawyer and paying extra for a tenancy agreement",
+                t("home.old1"),
+                t("home.old2"),
+                t("home.old3"),
+                t("home.old4"),
+                t("home.old5"),
               ].map((item) => (
                 <li key={item} className="flex gap-3 text-foreground/70">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-xs text-red-600">✕</span>
@@ -104,14 +106,14 @@ export default async function Home() {
             </ul>
           </Reveal>
           <Reveal direction="right" className="rounded-3xl border border-clay/30 bg-clay/[0.06] p-6 sm:p-8">
-            <p className="text-sm font-semibold tracking-wide text-clay uppercase">The Reallow way</p>
+            <p className="text-sm font-semibold tracking-wide text-clay uppercase">{t("home.reallowWay")}</p>
             <ul className="mt-5 flex flex-col gap-4">
               {[
-                "One clear service charge, shown upfront — no agent, no hidden commission",
-                "Every listing inspected in person by a Reallow agent before it goes live",
-                "The full cost, itemised to the naira, before you pay anything",
-                "Your money held by Reallow, never sent to a stranger's account",
-                "A complete digital tenancy agreement, signed online, at no extra cost",
+                t("home.new1"),
+                t("home.new2"),
+                t("home.new3"),
+                t("home.new4"),
+                t("home.new5"),
               ].map((item) => (
                 <li key={item} className="flex gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-verified/15 text-xs text-verified">✓</span>
@@ -130,23 +132,23 @@ export default async function Home() {
           <div className="mt-8 grid gap-6 sm:mt-12 lg:grid-cols-2">
             {[
               {
-                title: "Renting or buying",
-                cta: { href: "/listings", label: "Find a home" },
+                title: t("home.trackRentTitle"),
+                cta: { href: "/listings", label: t("home.ctaFind") },
                 steps: [
-                  ["Browse verified properties", "Filter by city, district, type and budget. Save the ones you like for later."],
-                  ["Apply in one tap", "The landlord sees only what you choose to share on your profile — never your number."],
-                  ["Book an inspection or meeting", "Pick a day on your Meetings calendar. A Reallow agent goes with you."],
-                  ["Sign and pay through Reallow", "Sign the digital agreement, pay the itemised total, and get your keys."],
+                  [t("home.rentStep1"), t("home.rentStep1Body")],
+                  [t("home.rentStep2"), t("home.rentStep2Body")],
+                  [t("home.rentStep3"), t("home.rentStep3Body")],
+                  [t("home.rentStep4"), t("home.rentStep4Body")],
                 ],
               },
               {
-                title: "Letting or selling",
-                cta: { href: links.listProperty, label: "List your property" },
+                title: t("home.trackLetTitle"),
+                cta: { href: links.listProperty, label: t("nav.listProperty") },
                 steps: [
-                  ["List your property — free", "Add photos and details, review your cost breakdown, and confirm."],
-                  ["We verify it in person", "A Reallow agent visits at a time you confirm. Then your listing goes live."],
-                  ["Choose who you accept", "Review applicants' verified profiles and accept or decline with one tap."],
-                  ["Get paid the full amount", "Your rent, caution fee and estate charge — or full sale price — paid out by Reallow."],
+                  [t("home.ctaList"), t("home.letStep1Body")],
+                  [t("home.letStep2"), t("home.letStep2Body")],
+                  [t("home.letStep3"), t("home.letStep3Body")],
+                  [t("home.letStep4"), t("home.letStep4Body")],
                 ],
               },
             ].map((track, t) => (
@@ -185,19 +187,19 @@ export default async function Home() {
             title={t("home.transparencyTitle")}
             intro={
               <>
-                Every listing shows exactly what you&apos;ll pay before you commit. Reallow&apos;s only charge is a flat service
-                charge — {formatRate(getServiceChargeRate("rent"))} of the annual rent on a tenancy,{" "}
-                {formatRate(getServiceChargeRate("sale"))} of the price on a sale — paid on top, never taken out of the
-                owner&apos;s money.
+                {t("home.transparencyIntro", {
+                  rentRate: formatRate(getServiceChargeRate("rent")),
+                  saleRate: formatRate(getServiceChargeRate("sale")),
+                })}
               </>
             }
           />
           <RevealGroup className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ["No agent commission", "No “agreement fee”, “legal fee” or “knocking fee”."],
-              ["No surprise charges", "If it isn't shown before you pay, you don't pay it."],
-              ["Owners get the full amount", "Rent, caution fee and estate charge go to the landlord."],
-              ["Every payment receipted", "Every naira is recorded in your transaction history."],
+              [t("home.tr1"), t("home.tr1Body")],
+              [t("home.tr2"), t("home.tr2Body")],
+              [t("home.tr3"), t("home.tr3Body")],
+              [t("home.tr4"), t("home.tr4Body")],
             ].map(([title, body]) => (
               <RevealItem key={title} className="rounded-2xl border border-line p-4">
                 <p className="font-medium">{title}</p>
@@ -227,15 +229,14 @@ export default async function Home() {
               {t("home.landlordTitle")}
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-[#f5efe6]/70">
-              Listing is free, and you keep every naira of your asking price. Reallow verifies your tenants, arranges every
-              viewing, drafts the agreement and collects the money — you just choose who you accept.
+              {t("home.landlordIntro")}
             </p>
             <RevealGroup className="mt-8 grid gap-4 sm:grid-cols-2">
               {[
-                ["Free to list", "No listing fee, no subscription."],
-                ["Verified applicants only", "Every applicant's identity is checked against government records."],
-                ["We handle the viewings", "Reallow's agents bring applicants to you."],
-                ["Paid in full, on record", "Your full amount, paid out by Reallow."],
+                [t("home.ll1"), t("home.ll1Body")],
+                [t("home.ll2"), t("home.ll2Body")],
+                [t("home.ll3"), t("home.ll3Body")],
+                [t("home.ll4"), t("home.ll4Body")],
               ].map(([title, body]) => (
                 <RevealItem key={title} className="rounded-2xl bg-white/5 p-4">
                   <p className="font-medium">{title}</p>
@@ -256,18 +257,18 @@ export default async function Home() {
       {/* Safety — desktop/tablet only */}
       <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
-          eyebrow="Safety, built in"
-          title="Protected at every step."
-          intro="Scams thrive when strangers swap phone numbers and cash. On Reallow, that simply can't happen."
+          eyebrow={t("home.safetyEyebrow")}
+          title={t("home.safetyTitle")}
+          intro={t("home.safetyIntro")}
         />
         <RevealGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            [ICON.home, "Inspected in person", "A Reallow agent visits, films and photographs every property before it's published."],
-            [ICON.shield, "Identity-verified users", "Landlords and applicants verify their NIN or driver's licence — no anonymous accounts."],
-            [ICON.lock, "Your details stay private", "Phone numbers and emails are never shown to other users. Only Reallow contacts you."],
-            [ICON.receipt, "Money held by Reallow", "Payments go into Reallow's account, never a stranger's, until the deal is done."],
-            [ICON.doc, "Digital tenancy agreement", "A complete agreement, signed online by both sides, with a secure record of who signed."],
-            [ICON.star, "Rate every visit", "Tell us how each inspection went — late, rude or brilliant, we act on it."],
+            [ICON.home, t("home.point1"), t("home.s1Body")],
+            [ICON.shield, t("home.s2"), t("home.s2Body")],
+            [ICON.lock, t("home.s3"), t("home.s3Body")],
+            [ICON.receipt, t("home.s4"), t("home.s4Body")],
+            [ICON.doc, t("home.s5"), t("home.s5Body")],
+            [ICON.star, t("home.s6"), t("home.s6Body")],
           ].map(([icon, title, body]) => (
             <RevealItem key={title} className="rounded-3xl border border-line p-6">
               <Icon path={icon} />
@@ -285,25 +286,25 @@ export default async function Home() {
             <SectionHeading
               eyebrow={t("home.referEyebrow")}
               title={t("home.referTitle")}
-              intro="Every account comes with a personal referral code. When someone signs up with your code and completes a deal on Reallow, you earn a percentage of the sale — straight into your Reallow wallet."
+              intro={t("home.referIntro")}
             />
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={links.referralCode} className="flex h-12 items-center rounded-full bg-clay px-6 font-medium text-white hover:opacity-90">
-                {links.signedIn ? "See your referral code" : "Get your referral code"}
+                {links.signedIn ? t("home.referSee") : t("home.referGet")}
               </Link>
               <Link
                 href="/help#referrals"
                 className="flex h-12 items-center rounded-full border border-line px-6 font-medium hover:border-clay hover:text-clay"
               >
-                How referrals work
+                {t("home.referHow")}
               </Link>
             </div>
           </div>
           <RevealGroup className="flex flex-col gap-3">
             {[
-              ["1", "Share your code", "Find it on your dashboard and send your invite link to friends, family and colleagues."],
-              ["2", "They find a home", "They sign up with your code, then rent or buy through Reallow."],
-              ["3", "You get paid", "Your earnings land in your wallet once approved. Withdraw to your bank from ₦3,000."],
+              ["1", t("home.ref1"), t("home.ref1Body")],
+              ["2", t("home.ref2"), t("home.ref2Body")],
+              ["3", t("home.ref3"), t("home.ref3Body")],
             ].map(([n, title, body]) => (
               <RevealItem key={n} className="flex gap-4 rounded-2xl border border-line bg-surface p-5">
                 <span className="font-display text-3xl font-semibold text-clay">{n}</span>
@@ -320,17 +321,17 @@ export default async function Home() {
       {/* Everything in one place — desktop/tablet only */}
       <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
-          eyebrow="Everything in one place"
-          title="Your whole move, managed from one dashboard."
+          eyebrow={t("home.featEyebrow")}
+          title={t("home.featTitle")}
         />
         <RevealGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            [ICON.calendar, "Meetings calendar", "Book inspections and meetings, accept or suggest new times, and see your history at a glance."],
-            [ICON.wallet, "Reallow wallet", "Fund your wallet, pay inspection fees in a tap, and collect your referral earnings."],
-            [ICON.receipt, "Transaction history", "Every payment and credit, with date and time, sorted however you like."],
-            [ICON.bell, "Instant notifications", "Know the moment a landlord accepts you or a meeting is confirmed — in the app and by email."],
-            [ICON.people, "One account for everything", "Rent, buy, let and sell from the same account. No switching profiles."],
-            [ICON.globe, "Your language", "Use Reallow in English, Yorùbá, Hausa, Igbo, Pidgin or Urhobo."],
+            [ICON.calendar, t("home.f1"), t("home.f1Body")],
+            [ICON.wallet, t("home.f2"), t("home.f2Body")],
+            [ICON.receipt, t("dash.transactions"), t("home.f3Body")],
+            [ICON.bell, t("home.f4"), t("home.f4Body")],
+            [ICON.people, t("home.f5"), t("home.f5Body")],
+            [ICON.globe, t("home.f6"), t("home.f6Body")],
           ].map(([icon, title, body]) => (
             <RevealItem key={title} className="flex gap-4 rounded-3xl border border-line p-6">
               <Icon path={icon} />
@@ -347,9 +348,9 @@ export default async function Home() {
       <section className="border-t border-line bg-foreground/[0.02]">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1fr_1.4fr]">
           <div>
-            <SectionHeading eyebrow="FAQ" title={t("home.faqTitle")} />
+            <SectionHeading eyebrow={t("home.faqEyebrow")} title={t("home.faqTitle")} />
             <Link href="/help" className="mt-6 inline-block text-sm font-medium text-clay hover:underline">
-              Visit the help centre →
+              {t("home.visitHelp")} →
             </Link>
           </div>
           <Reveal>
@@ -365,35 +366,34 @@ export default async function Home() {
           <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-white/5" />
           <div className="relative grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-center">
             <div>
-              <p className="font-mono text-xs tracking-widest uppercase opacity-80">Get the Reallow app</p>
+              <p className="font-mono text-xs tracking-widest uppercase opacity-80">{t("home.appEyebrow")}</p>
               <h2 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
                 {t("home.appTitle")}
               </h2>
               <p className="mt-4 max-w-lg text-lg leading-relaxed opacity-90">
-                Browse verified listings, get notified the moment you&apos;re accepted, and manage your meetings and
-                wallet on the go.
+                {t("home.appBody")}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <StoreButton href={APP_LINKS.ios} store="App Store" kicker="Download on the" />
-                <StoreButton href={APP_LINKS.android} store="Google Play" kicker="Get it on" />
+                <StoreButton href={APP_LINKS.ios} store="App Store" kicker={t("home.appStoreKicker")} soon={t("home.appSoon")} />
+                <StoreButton href={APP_LINKS.android} store="Google Play" kicker={t("home.playKicker")} soon={t("home.appSoon")} />
               </div>
             </div>
             <div className="hidden justify-center lg:flex">
               <div className="w-56 rotate-3 rounded-[2.5rem] border-[10px] border-black/80 bg-background p-4 text-foreground shadow-2xl">
-                <p className="text-xs text-foreground/50">Welcome back</p>
+                <p className="text-xs text-foreground/50">{t("dash.welcome")}</p>
                 <p className="font-semibold">Ada Okafor</p>
                 <div className="mt-4 grid grid-cols-3 gap-1.5">
-                  {["Meetings", "History", "Wallet"].map((t) => (
-                    <div key={t} className="rounded-lg bg-clay/10 p-2 text-center text-[9px] font-medium text-clay">{t}</div>
+                  {[t("dash.meetings"), t("home.mockHistory"), t("dash.wallet")].map((label) => (
+                    <div key={label} className="rounded-lg bg-clay/10 p-2 text-center text-[9px] font-medium text-clay">{label}</div>
                   ))}
                 </div>
                 <div className="mt-4 rounded-xl border border-line p-2.5">
-                  <p className="text-[10px] font-medium">Inspection confirmed</p>
-                  <p className="text-[9px] text-foreground/50">Sat, 10:00am · Effurun</p>
+                  <p className="text-[10px] font-medium">{t("notif.inspConfirmed.title")}</p>
+                  <p className="text-[9px] text-foreground/50">{t("home.mockWhen")}</p>
                 </div>
                 <div className="mt-2 rounded-xl border border-line p-2.5">
-                  <p className="text-[10px] font-medium">Landlord accepted you 🎉</p>
-                  <p className="text-[9px] text-foreground/50">2-bedroom flat, Jabi</p>
+                  <p className="text-[10px] font-medium">{t("home.mockAccepted")} 🎉</p>
+                  <p className="text-[9px] text-foreground/50">{t("home.mockListing")}</p>
                 </div>
               </div>
             </div>
@@ -407,7 +407,7 @@ export default async function Home() {
           <Reveal>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">{t("home.finalTitle")}</h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-foreground/70">
-              Join Reallow free today. Verified homes, honest prices, and a team that has your back.
+              {t("home.finalBody")}
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href={links.account} className="flex h-12 items-center rounded-full bg-clay px-7 font-medium text-white hover:opacity-90">
@@ -419,7 +419,7 @@ export default async function Home() {
             </div>
           </Reveal>
           <p className="mt-16 max-w-3xl text-[11px] leading-relaxed text-foreground/40">
-            Photo credits (Wikimedia Commons):{" "}
+            {t("home.photoCredits")}{" "}
             {PEOPLE_PHOTOS.map((photo, i) => (
               <span key={photo.src}>
                 <a href={photo.credit.source} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground/70">
@@ -432,7 +432,7 @@ export default async function Home() {
             <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground/70">
               CC BY-SA 4.0
             </a>
-            , cropped. People shown are illustrative and not Reallow customers.
+            {t("home.photoCreditsNote")}
           </p>
         </div>
       </section>
@@ -440,7 +440,7 @@ export default async function Home() {
   );
 }
 
-function StoreButton({ href, store, kicker }: { href?: string; store: string; kicker: string }) {
+function StoreButton({ href, store, kicker, soon }: { href?: string; store: string; kicker: string; soon: string }) {
   const content = (
     <>
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6" aria-hidden>
@@ -451,7 +451,7 @@ function StoreButton({ href, store, kicker }: { href?: string; store: string; ki
         )}
       </svg>
       <span className="text-left leading-tight">
-        <span className="block text-[10px] opacity-80">{href ? kicker : "Coming soon to"}</span>
+        <span className="block text-[10px] opacity-80">{href ? kicker : soon}</span>
         <span className="block text-base font-semibold">{store}</span>
       </span>
     </>

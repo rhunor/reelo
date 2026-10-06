@@ -2,6 +2,7 @@
 // CC BY-SA 4.0 — the licence requires crediting each photographer, which the home page
 // does in its "Photo credits" line. Keep that line in sync if you swap any of these.
 export interface HomePhoto {
+  id: string;
   src: string;
   alt: string;
   caption: string;
@@ -16,6 +17,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/market-woman.jpg",
     alt: "A smiling market woman at her stall in Kakuri market, Kaduna",
+    id: "trader",
     caption: "For the market trader",
     detail: "Find a shop-front flat or a room close to the market — with every cost spelled out before you pay.",
     position: "50% 35%",
@@ -24,6 +26,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/professionals.jpg",
     alt: "Young Nigerian professionals in a meeting around a table",
+    id: "professional",
     caption: "For the young professional",
     detail: "Move closer to work without paying an agent a year's commission for the privilege.",
     position: "50% 40%",
@@ -32,6 +35,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/mechanic.jpg",
     alt: "Mechanics repairing cars at a roadside workshop in Epe, Lagos",
+    id: "mechanic",
     caption: "For the mechanic",
     detail: "A verified home for your family, booked and paid for safely — no running around with cash.",
     position: "50% 60%",
@@ -40,6 +44,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/students.jpg",
     alt: "Smiling university students together on campus",
+    id: "student",
     caption: "For the student",
     detail: "Lodges and shared apartments near campus, inspected in person so what you see is what you get.",
     position: "50% 25%",
@@ -48,6 +53,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/tailor.jpg",
     alt: "A tailor cutting fabric at his sewing machine with ankara prints behind him",
+    id: "artisan",
     caption: "For the artisan",
     detail: "Whether you need a home, a shop, or both — Reallow handles the paperwork and payments.",
     position: "50% 45%",
@@ -56,6 +62,7 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
   {
     src: "/home/market-stall.jpg",
     alt: "A woman arranging peppers at her market stall",
+    id: "landlord",
     caption: "For the landlord next door",
     detail: "Have a room, flat, or house to let? List it free and let Reallow find you a verified tenant.",
     position: "40% 50%",

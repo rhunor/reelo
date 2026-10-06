@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 export function PasswordInput({
   name,
@@ -20,6 +21,7 @@ export function PasswordInput({
   autoComplete?: string;
 }) {
   const [visible, setVisible] = useState(false);
+  const { t } = useI18n();
 
   return (
     <div className="relative">
@@ -36,7 +38,7 @@ export function PasswordInput({
       <button
         type="button"
         onClick={() => setVisible((value) => !value)}
-        aria-label={visible ? "Hide password" : "Show password"}
+        aria-label={visible ? t("auth.hidePassword") : t("auth.showPassword")}
         tabIndex={-1}
         className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-foreground/50 hover:text-foreground"
       >

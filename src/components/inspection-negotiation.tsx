@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { InspectionBooking } from "@/types/models";
+import { useI18n } from "@/components/i18n-provider";
 
 // Shown to whichever party the booking belongs to — `viewerRole` decides whether this
 // person can currently act (they can only accept/counter a proposal the OTHER party made)
@@ -17,6 +18,7 @@ export function InspectionNegotiation({
   viewerRole: "landlord" | "tenant";
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [counterTime, setCounterTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export function InspectionNegotiation({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not respond to this proposal");
+      setError(data?.error ?? t("meetings.respondFailed"));
       return;
     }
 
@@ -46,12 +48,12 @@ export function InspectionNegotiation({
     return (
       <div className="mt-2 rounded-lg border border-verified/40 bg-verified/5 p-3">
         <p className="text-sm font-medium text-verified">
-          Inspection confirmed for {new Date(booking.scheduledFor).toLocaleString()}
+          {t("meetings.inspectionConfirmedFor", { when: new Date(booking.scheduledFor).toLocaleString() })}
         </p>
         <p className="mt-1 text-xs text-foreground/70">
           {viewerRole === "tenant"
-            ? "Reallow's agent will contact you with how to get to the meeting point."
-            : "Reallow's agent will bring the tenant to you."}
+            ? t("meetings.agentWillContact")
+            : t("meetings.agentWillBring")}
         </p>
       </div>
     );
@@ -62,9 +64,9 @@ export function InspectionNegotiation({
   return (
     <div className="mt-2 rounded-lg border border-line p-3">
       <p className="text-sm">
-        {booking.proposedBy === viewerRole ? "You suggested" : "Suggested"}{" "}
+        {booking.proposedBy === viewerRole ? t("meetings.youSuggested") : t("meetings.suggested")}{" "}
         {booking.proposedTime && new Date(booking.proposedTime).toLocaleString()}
-        {booking.proposedBy === viewerRole && " — waiting on the other party."}
+        {booking.proposedBy === viewerRole && ` — ${t("meetings.waitingOther")}`}
       </p>
 
       {isMyTurn && (
@@ -76,7 +78,7 @@ export function InspectionNegotiation({
               onClick={() => respond({ action: "accept" })}
               className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-50"
             >
-              Accept this time
+              {t("meetings.acceptTime")}
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +94,7 @@ export function InspectionNegotiation({
               onClick={() => respond({ action: "counter", proposedTime: counterTime })}
               className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-50"
             >
-              Suggest a different time
+              {t("meetings.suggestAnother")}
             </button>
           </div>
         </div>

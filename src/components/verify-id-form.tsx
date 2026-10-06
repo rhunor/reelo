@@ -2,28 +2,18 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 type IdType = "nin" | "drivers_licence";
 
-const OPTIONS: { value: IdType; label: string; field: string; placeholder: string; hint: string }[] = [
-  {
-    value: "nin",
-    label: "NIN",
-    field: "National Identification Number",
-    placeholder: "11-digit NIN",
-    hint: "On your NIN slip or national ID card. Dial *346# to retrieve it.",
-  },
-  {
-    value: "drivers_licence",
-    label: "Driver's licence",
-    field: "Driver's licence number",
-    placeholder: "e.g. ABC12345DE67",
-    hint: "The licence number printed on the front of your card.",
-  },
-];
+// Labels come from translations: id.<type>.label / .field / .placeholder / .hint
+const OPTIONS: { value: IdType }[] = [{ value: "nin" }, { value: "drivers_licence" }];
 
 export function VerifyIdForm({ defaultType = "nin" }: { defaultType?: IdType }) {
   const router = useRouter();
+  const { t } = useI18n();
+  const idText = (v: IdType, part: "label" | "field" | "placeholder" | "hint") => t(`id.${v}.${part}` as MessageKey);
   const [type, setType] = useState<IdType>(defaultType);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +34,7 @@ export function VerifyIdForm({ defaultType = "nin" }: { defaultType?: IdType }) 
     setLoading(false);
 
     if (!res.ok || !data?.success) {
-      setError(data?.message ?? data?.error ?? "We couldn't verify that number. Check it and try again.");
+      setError(data?.message ?? data?.error ?? t("id.failed"));
       return;
     }
     router.refresh();
@@ -66,23 +56,23 @@ export function VerifyIdForm({ defaultType = "nin" }: { defaultType?: IdType }) 
             }}
             className={`h-9 flex-1 rounded-full text-sm font-medium ${type === o.value ? "bg-background shadow-sm" : "text-foreground/60"}`}
           >
-            {o.label}
+            {idText(o.value, "label")}
           </button>
         ))}
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        {option.field}
+        {idText(option.value, "field")}
         <input
           value={value}
           onChange={(event) => setValue(type === "nin" ? event.target.value.replace(/\D/g, "").slice(0, 11) : event.target.value.toUpperCase())}
           inputMode={type === "nin" ? "numeric" : "text"}
           autoComplete="off"
           required
-          placeholder={option.placeholder}
+          placeholder={idText(option.value, "placeholder")}
           className="rounded-lg border border-line bg-transparent px-3 py-2.5 font-mono"
         />
-        <span className="text-xs text-foreground/50">{option.hint}</span>
+        <span className="text-xs text-foreground/50">{idText(option.value, "hint")}</span>
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -91,7 +81,7 @@ export function VerifyIdForm({ defaultType = "nin" }: { defaultType?: IdType }) 
         disabled={loading || !value}
         className="h-11 self-start rounded-full bg-clay px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {loading ? "Verifying…" : "Verify identity"}
+        {loading ? t("id.verifying") : t("id.verify")}
       </button>
     </form>
   );

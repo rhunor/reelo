@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n-provider";
-import { LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/dictionaries";
+import { LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/locales";
 
 const SHORT: Record<Locale, string> = { en: "EN", yo: "YO", ha: "HA", ig: "IG", pcm: "PCM", urh: "URH" };
 

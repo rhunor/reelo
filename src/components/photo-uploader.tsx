@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 // `capture="environment"` opens the phone's rear camera straight away (desktop browsers
 // still show a file picker) — used for on-site photos in field agents' visit reports.
@@ -13,6 +14,7 @@ export function PhotoUploader({
   onChange: (urls: string[]) => void;
   capture?: "environment" | "user";
 }) {
+  const { t } = useI18n();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +27,7 @@ export function PhotoUploader({
       const signatureRes = await fetch("/api/uploads/cloudinary-signature", { method: "POST" });
       if (!signatureRes.ok) {
         const data = await signatureRes.json().catch(() => null);
-        throw new Error(data?.error ?? "Could not start upload");
+        throw new Error(data?.error ?? t("camera.uploadFailed"));
       }
       const { cloudName, apiKey, timestamp, signature, folder } = await signatureRes.json();
 
@@ -44,7 +46,7 @@ export function PhotoUploader({
         });
 
         if (!uploadRes.ok) {
-          throw new Error("Upload failed");
+          throw new Error(t("camera.uploadFailed"));
         }
 
         const uploadData = await uploadRes.json();
@@ -70,7 +72,7 @@ export function PhotoUploader({
         onChange={(event) => handleFiles(event.target.files)}
         className="text-sm"
       />
-      {uploading && <p className="mt-1 text-xs text-foreground/50">Uploading…</p>}
+      {uploading && <p className="mt-1 text-xs text-foreground/50">{t("upload.uploading")}</p>}
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       {value.length > 0 && (
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">

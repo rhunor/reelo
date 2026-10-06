@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 const USER_REASONS = [
   "Suspicious or fraudulent",
@@ -22,6 +24,11 @@ const LISTING_REASONS = [
   "Other",
 ];
 
+// The stored reason stays English (admins read it); only the label shown is translated.
+function reasonKey(reason: string): MessageKey {
+  return ("report.reason." + reason.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_|_$/g, "")) as MessageKey;
+}
+
 export function ReportButton({
   targetType,
   targetId,
@@ -32,6 +39,7 @@ export function ReportButton({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
   const REASONS = targetType === "listing" ? LISTING_REASONS : USER_REASONS;
   const [reason, setReason] = useState(REASONS[0]);
   const [details, setDetails] = useState("");
@@ -78,16 +86,16 @@ export function ReportButton({
           >
             {sent ? (
               <>
-                <h2 className="text-lg font-semibold">Report sent</h2>
+                <h2 className="text-lg font-semibold">{t("report.sent")}</h2>
                 <p className="mt-2 text-sm text-foreground/70">
-                  Reallow will look into this. Thanks for flagging it.
+                  {t("report.sentBody")}
                 </p>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
                   className="mt-4 h-10 rounded-full bg-clay px-5 text-sm font-medium text-white"
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </>
             ) : (
@@ -100,14 +108,14 @@ export function ReportButton({
                 >
                   {REASONS.map((option) => (
                     <option key={option} value={option}>
-                      {option}
+                      {t(reasonKey(option))}
                     </option>
                   ))}
                 </select>
                 <textarea
                   value={details}
                   onChange={(event) => setDetails(event.target.value)}
-                  placeholder="Any details that would help Reallow investigate (optional)"
+                  placeholder={t("report.detailsPlaceholder")}
                   rows={3}
                   className="mt-2 w-full rounded-md border border-line bg-transparent px-3 py-2 text-sm"
                 />
@@ -118,7 +126,7 @@ export function ReportButton({
                     onClick={() => setOpen(false)}
                     className="h-10 rounded-full border border-line px-4 text-sm font-medium"
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="button"
@@ -126,7 +134,7 @@ export function ReportButton({
                     onClick={submit}
                     className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    {loading ? "Sending…" : "Submit report"}
+                    {loading ? t("common.sending") : t("report.submit")}
                   </button>
                 </div>
               </>

@@ -12,6 +12,7 @@ import { ROLE_LABEL, isCustomerRole } from "@/lib/roles";
 import { formatLagos } from "@/lib/time";
 import { TRANSACTION_TYPE_LABEL } from "@/lib/transaction-labels";
 import { heardAboutLabel } from "@/lib/acquisition";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -214,9 +215,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           </div>
           <form action={adminVerifyUser}>
             <input type="hidden" name="userId" value={id} />
-            <button type="submit" className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+            <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
               Mark verified
-            </button>
+            </SubmitButton>
           </form>
         </section>
       )}
@@ -231,9 +232,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           {!user.verifiedBadge && (
             <form action={adminVerifyUser}>
               <input type="hidden" name="userId" value={id} />
-              <button type="submit" className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+              <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
                 Mark identity verified (testing)
-              </button>
+              </SubmitButton>
             </form>
           )}
           {user.role !== "admin" &&
@@ -241,9 +242,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             (user.status === "banned" ? (
               <form action={unbanUser}>
                 <input type="hidden" name="userId" value={id} />
-                <button type="submit" className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+                <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
                   Unblock
-                </button>
+                </SubmitButton>
               </form>
             ) : (
               <details>
@@ -258,9 +259,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                     placeholder="Reason (internal)"
                     className="h-9 w-56 rounded-md border border-line bg-transparent px-2 text-sm"
                   />
-                  <button type="submit" className="h-9 rounded-full bg-red-600 px-4 text-sm font-medium text-white">
+                  <SubmitButton className="h-9 rounded-full bg-red-600 px-4 text-sm font-medium text-white">
                     Confirm block
-                  </button>
+                  </SubmitButton>
                 </form>
               </details>
             ))}
@@ -292,9 +293,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               placeholder="Add a note or remark (only admins see this)"
               className="rounded-md border border-line bg-transparent px-3 py-2 text-sm"
             />
-            <button type="submit" className="h-8 self-start rounded-full bg-clay px-4 text-xs font-medium text-white">
+            <SubmitButton className="h-8 self-start rounded-full bg-clay px-4 text-xs font-medium text-white">
               Add note
-            </button>
+            </SubmitButton>
           </form>
           <ul className="mt-4 flex flex-col gap-3">
             {[...(user.adminNotes ?? [])].reverse().map((note, i) => (

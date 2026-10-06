@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ProfilePictureUploader } from "@/components/profile-picture-uploader";
 import type { User } from "@/types/models";
+import { useI18n } from "@/components/i18n-provider";
 
 const inputClass = "rounded-lg border border-line px-3 py-2 bg-transparent";
 
@@ -14,16 +15,18 @@ function VisibilityToggle({
   name: string;
   defaultChecked?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <label className="flex items-center gap-1.5 text-xs text-foreground/60">
       <input type="checkbox" name={name} defaultChecked={defaultChecked} />
-      Visible to others
+      {t("profile.visible")}
     </label>
   );
 }
 
 export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "bankDetails"> }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [profilePictureUrl, setProfilePictureUrl] = useState(user?.profile?.profilePictureUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -68,7 +71,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not save profile");
+      setError(data?.error ?? t("profile.saveFailed"));
       return;
     }
 
@@ -79,7 +82,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
   return (
     <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
       <div>
-        <p className="mb-2 text-sm font-medium">Profile picture</p>
+        <p className="mb-2 text-sm font-medium">{t("profile.picture")}</p>
         <ProfilePictureUploader value={profilePictureUrl} onChange={setProfilePictureUrl} />
         <div className="mt-2">
           <VisibilityToggle name="profilePictureVisible" defaultChecked={user?.profile?.profilePictureVisible} />
@@ -87,7 +90,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Date of birth</label>
+        <label className="mb-1 block text-sm">{t("profile.dob")}</label>
         <input
           name="dateOfBirth"
           type="date"
@@ -95,15 +98,15 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
           max={new Date().toISOString().slice(0, 10)}
           className={inputClass + " w-full"}
         />
-        <p className="mt-1 text-xs text-foreground/50">Never shown to other users.</p>
+        <p className="mt-1 text-xs text-foreground/50">{t("profile.neverShown")}</p>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Gender</label>
+        <label className="mb-1 block text-sm">{t("profile.gender")}</label>
         <select name="gender" defaultValue={user?.profile?.gender ?? ""} className={inputClass + " w-full"}>
-          <option value="">Prefer not to say</option>
-          <option value="female">Female</option>
-          <option value="male">Male</option>
+          <option value="">{t("profile.preferNot")}</option>
+          <option value="female">{t("profile.female")}</option>
+          <option value="male">{t("profile.male")}</option>
         </select>
         <div className="mt-1">
           <VisibilityToggle name="genderVisible" defaultChecked={user?.profile?.genderVisible} />
@@ -111,7 +114,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">State of origin</label>
+        <label className="mb-1 block text-sm">{t("profile.stateOfOrigin")}</label>
         <input
           name="stateOfOrigin"
           defaultValue={user?.profile?.stateOfOrigin}
@@ -123,23 +126,23 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Present address</label>
+        <label className="mb-1 block text-sm">{t("profile.presentAddress")}</label>
         <input
           name="presentAddress"
           defaultValue={user?.profile?.presentAddress}
           className={inputClass + " w-full"}
         />
-        <p className="mt-1 text-xs text-foreground/50">Never shown to other users.</p>
+        <p className="mt-1 text-xs text-foreground/50">{t("profile.neverShown")}</p>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Marital status</label>
+        <label className="mb-1 block text-sm">{t("profile.maritalStatus")}</label>
         <select name="maritalStatus" defaultValue={user?.profile?.maritalStatus ?? ""} className={inputClass + " w-full"}>
-          <option value="">Prefer not to say</option>
-          <option value="single">Single</option>
-          <option value="married">Married</option>
-          <option value="divorced">Divorced</option>
-          <option value="widowed">Widowed</option>
+          <option value="">{t("profile.preferNot")}</option>
+          <option value="single">{t("profile.single")}</option>
+          <option value="married">{t("profile.married")}</option>
+          <option value="divorced">{t("profile.divorced")}</option>
+          <option value="widowed">{t("profile.widowed")}</option>
         </select>
         <div className="mt-1">
           <VisibilityToggle name="maritalStatusVisible" defaultChecked={user?.profile?.maritalStatusVisible} />
@@ -147,8 +150,8 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div>
-        <label className="mb-1 block text-sm">Religion</label>
-        <input name="religion" defaultValue={user?.profile?.religion} placeholder="Prefer not to say" className={inputClass + " w-full"} />
+        <label className="mb-1 block text-sm">{t("profile.religion")}</label>
+        <input name="religion" defaultValue={user?.profile?.religion} placeholder={t("profile.preferNot")} className={inputClass + " w-full"} />
         <div className="mt-1">
           <VisibilityToggle name="religionVisible" defaultChecked={user?.profile?.religionVisible} />
         </div>
@@ -156,16 +159,16 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm">Employment status</label>
+          <label className="mb-1 block text-sm">{t("profile.employmentStatus")}</label>
           <select
             name="employmentStatus"
             defaultValue={user?.profile?.employmentStatus ?? ""}
             className={inputClass + " w-full"}
           >
-            <option value="">Prefer not to say</option>
-            <option value="student">Student</option>
-            <option value="self_employed">Self-employed</option>
-            <option value="employed">Employed</option>
+            <option value="">{t("profile.preferNot")}</option>
+            <option value="student">{t("profile.student")}</option>
+            <option value="self_employed">{t("profile.selfEmployed")}</option>
+            <option value="employed">{t("profile.employed")}</option>
           </select>
           <div className="mt-1">
             <VisibilityToggle name="employmentStatusVisible" defaultChecked={user?.profile?.employmentStatusVisible} />
@@ -173,7 +176,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
         </div>
 
         <div>
-          <label className="mb-1 block text-sm">Occupation</label>
+          <label className="mb-1 block text-sm">{t("profile.occupation")}</label>
           <input name="occupation" defaultValue={user?.profile?.occupation} className={inputClass + " w-full"} />
           <div className="mt-1">
             <VisibilityToggle name="occupationVisible" defaultChecked={user?.profile?.occupationVisible} />
@@ -182,28 +185,27 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       <div className="rounded-lg border border-line p-4">
-        <p className="text-sm font-medium">Bank details</p>
+        <p className="text-sm font-medium">{t("profile.bankDetails")}</p>
         <p className="mt-1 text-xs text-foreground/50">
-          Never shown to other users — used only to verify your identity for payouts. The name on
-          your bank account must match your verified ID.
+          {t("profile.bankHint")}
         </p>
         <div className="mt-3 flex flex-col gap-3">
           <input
             name="bankAccountName"
-            placeholder="Account name"
+            placeholder={t("profile.accountName")}
             defaultValue={user?.bankDetails?.accountName}
             className={inputClass}
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
               name="bankAccountNumber"
-              placeholder="Account number"
+              placeholder={t("profile.accountNumber")}
               defaultValue={user?.bankDetails?.accountNumber}
               className={inputClass}
             />
             <input
               name="bankName"
-              placeholder="Bank name"
+              placeholder={t("profile.bankName")}
               defaultValue={user?.bankDetails?.bankName}
               className={inputClass}
             />
@@ -212,13 +214,13 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-verified">Saved.</p>}
+      {saved && <p className="text-sm text-verified">{t("common.saved")}</p>}
       <button
         type="submit"
         disabled={loading}
         className="h-11 self-start rounded-full bg-clay px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {loading ? "Saving…" : "Save profile"}
+        {loading ? t("common.saving") : t("profile.save")}
       </button>
     </form>
   );

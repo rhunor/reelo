@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { useRouter } from "next/navigation";
 
 export function NewTicketForm({ redirectBasePath }: { redirectBasePath: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +27,7 @@ export function NewTicketForm({ redirectBasePath }: { redirectBasePath: string }
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not send message");
+      setError(data?.error ?? t("contact.sendFailed"));
       setLoading(false);
       return;
     }
@@ -38,13 +40,13 @@ export function NewTicketForm({ redirectBasePath }: { redirectBasePath: string }
     <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
       <input
         name="subject"
-        placeholder="Subject"
+        placeholder={t("tickets.subject")}
         required
         className="rounded-md border border-line px-3 py-2 bg-transparent"
       />
       <textarea
         name="message"
-        placeholder="What can we help with?"
+        placeholder={t("tickets.whatHelp")}
         required
         rows={5}
         className="rounded-md border border-line px-3 py-2 bg-transparent"
@@ -55,7 +57,7 @@ export function NewTicketForm({ redirectBasePath }: { redirectBasePath: string }
         disabled={loading}
         className="h-11 rounded-full bg-clay text-white disabled:opacity-50"
       >
-        {loading ? "Sending…" : "Send to Reallow"}
+        {loading ? t("common.sending") : t("tickets.sendToReallow")}
       </button>
     </form>
   );

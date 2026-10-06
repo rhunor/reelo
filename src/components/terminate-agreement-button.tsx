@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
 
 export function TerminateAgreementButton({ agreementId }: { agreementId: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
-    if (!confirm("Mark this tenancy as ended on your end? This can't be undone.")) return;
+    if (!confirm(t("agreement.end.confirm"))) return;
 
     setLoading(true);
     setError(null);
@@ -20,7 +22,7 @@ export function TerminateAgreementButton({ agreementId }: { agreementId: string 
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not end the tenancy");
+      setError(data?.error ?? t("agreement.end.failed"));
       return;
     }
 
@@ -34,7 +36,7 @@ export function TerminateAgreementButton({ agreementId }: { agreementId: string 
         disabled={loading}
         className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-50"
       >
-        {loading ? "Saving…" : "Mark tenancy ended on my end"}
+        {loading ? t("common.saving") : t("agreement.end.button")}
       </button>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

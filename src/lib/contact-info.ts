@@ -5,8 +5,9 @@ export const OFFICE_ADDRESS = {
   lines: ["83 Effurun-Sapele Road", "Effurun, Warri", "Delta State, Nigeria"],
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=83+Effurun-Sapele+Road+Effurun+Warri+Delta+State",
 };
+// `daysKey` / `hoursKey` are translation keys; `hours` is shown as-is when there's no key.
 export const OPENING_HOURS = [
-  { days: "Monday – Friday", hours: "8:00am – 6:00pm" },
-  { days: "Saturday", hours: "10:00am – 3:00pm" },
-  { days: "Sunday & public holidays", hours: "Closed" },
-];
+  { daysKey: "hours.weekdays", hours: "8:00am – 6:00pm" },
+  { daysKey: "hours.saturday", hours: "10:00am – 3:00pm" },
+  { daysKey: "hours.sunday", hoursKey: "hours.closed", hours: "Closed" },
+] as const;

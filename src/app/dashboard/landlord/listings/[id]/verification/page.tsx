@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getT, getLocale } from "@/lib/i18n/server";
 import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -29,40 +30,46 @@ export default async function VerificationVisitPage({
   if (!listing || listing.landlordId.toString() !== session.user.id) notFound();
 
   const { verification } = listing;
+  const t = await getT();
+  const locale = await getLocale();
   const when = verification.scheduledFor ? new Date(verification.scheduledFor) : null;
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-6 py-16">
-      <p className="font-mono text-xs tracking-widest text-clay uppercase">Verification visit</p>
+      <p className="font-mono text-xs tracking-widest text-clay uppercase">{t("visit.eyebrow")}</p>
       <h1 className="mt-2 text-2xl font-semibold break-words">{listing.title}</h1>
       {listing.fullAddress && <p className="mt-1 text-sm text-foreground/70 break-words">{listing.fullAddress}</p>}
 
       {listing.status !== "pending_verification" ? (
-        <p className="mt-6 text-sm text-foreground/70">This listing is no longer awaiting verification.</p>
+        <p className="mt-6 text-sm text-foreground/70">{t("visit.noLongerPending")}</p>
       ) : !when ? (
         <p className="mt-6 text-sm text-foreground/70">
-          No visit has been scheduled yet — a Reallow agent will contact you to arrange one.
+          {t("visit.notScheduled")}
         </p>
       ) : (
         <div className="mt-6 rounded-lg border border-line p-5">
-          <p className="text-sm text-foreground/60">Scheduled for</p>
+          <p className="text-sm text-foreground/60">{t("visit.scheduledFor")}</p>
           <p className="mt-1 text-lg font-semibold">
-            {when.toLocaleString("en-NG", { dateStyle: "full", timeStyle: "short" })}
+            {when.toLocaleString(locale === "en" || locale === "urh" ? "en-NG" : `${locale}-NG`, {
+              dateStyle: "full",
+              timeStyle: "short",
+              timeZone: "Africa/Lagos",
+            })}
           </p>
 
           {verification.landlordResponse === "confirmed" ? (
             <p className="mt-4 text-sm font-medium text-verified">
-              You&apos;ve confirmed this time. A Reallow agent will see you then.
+              {t("visit.confirmed")}
             </p>
           ) : verification.landlordResponse === "declined" ? (
             <p className="mt-4 text-sm text-foreground/70">
-              You&apos;ve asked for a different time — a Reallow agent will call you to rearrange.
+              {t("dash.askedDifferentTime")}
             </p>
           ) : (
             <>
               {intent === "decline" && (
                 <p className="mt-4 text-sm text-foreground/70">
-                  Need a different time? Let us know below and an agent will call you.
+                  {t("visit.needDifferent")}
                 </p>
               )}
               <div className="mt-4 flex flex-wrap gap-3">
@@ -74,7 +81,7 @@ export default async function VerificationVisitPage({
                       intent === "decline" ? "border border-line" : "bg-clay text-white"
                     }`}
                   >
-                    Confirm this time
+                    {t("dash.confirmTime")}
                   </button>
                 </form>
                 <form action={declineVerificationInspection}>
@@ -85,7 +92,7 @@ export default async function VerificationVisitPage({
                       intent === "decline" ? "bg-clay text-white" : "border border-line"
                     }`}
                   >
-                    I need a different time
+                    {t("dash.needDifferentTime")}
                   </button>
                 </form>
               </div>
@@ -95,7 +102,7 @@ export default async function VerificationVisitPage({
       )}
 
       <Link href="/dashboard" className="mt-6 inline-block text-sm text-clay underline">
-        Back to your listings
+        {t("visit.back")}
       </Link>
     </div>
   );

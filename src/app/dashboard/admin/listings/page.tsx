@@ -4,6 +4,7 @@ import { getCollections } from "@/lib/db";
 import { setListingVisibility } from "@/app/dashboard/admin/actions";
 import { formatLagos } from "@/lib/time";
 import type { ListingStatus, Property } from "@/types/models";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +47,8 @@ function ActionButton({
     <form action={setListingVisibility}>
       <input type="hidden" name="listingId" value={listingId} />
       <input type="hidden" name="action" value={action} />
-      <button
-        type="submit"
+      <SubmitButton
+       
         className={
           tone === "primary"
             ? "h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white"
@@ -55,7 +56,7 @@ function ActionButton({
         }
       >
         {label}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -114,9 +115,9 @@ export default async function AdminListingsPage({
             placeholder="Search by title"
             className="h-9 w-56 rounded-md border border-line bg-transparent px-3 text-sm"
           />
-          <button type="submit" className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+          <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
             Search
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -223,9 +224,9 @@ export default async function AdminListingsPage({
                           placeholder="Reason (shown to the owner, optional)"
                           className="h-8 w-64 rounded-md border border-line bg-transparent px-2 text-xs"
                         />
-                        <button type="submit" className="h-8 rounded-full bg-red-600 px-3.5 text-xs font-medium text-white">
+                        <SubmitButton className="h-8 rounded-full bg-red-600 px-3.5 text-xs font-medium text-white">
                           Confirm take-down
-                        </button>
+                        </SubmitButton>
                       </form>
                     </details>
                   )}

@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { verifyGovernmentId } from "@/lib/kyc";
+import { getT } from "@/lib/i18n/server";
 
 // Nigerian licence numbers are letters and digits (e.g. ABC12345DE67), usually 12 characters.
 const schema = z.object({
@@ -26,6 +27,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await verifyGovernmentId(new ObjectId(session.user.id), "drivers_licence", parsed.data.licenceNumber);
+  const result = await verifyGovernmentId(new ObjectId(session.user.id), "drivers_licence", parsed.data.licenceNumber, await getT());
   return NextResponse.json(result, { status: result.status });
 }

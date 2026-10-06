@@ -8,6 +8,9 @@ import { PROPERTY_TYPES } from "@/lib/property-types";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
 import { CAUTION_FEE_CAP_RATE, computeListingCostBreakdown, formatRate } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
+import { propertyTypeKey } from "@/lib/property-types";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
@@ -47,6 +50,7 @@ function num(formData: FormData, name: string): number | undefined {
 
 export function NewListingForm() {
   const router = useRouter();
+  const { t } = useI18n();
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
   const [furnishing, setFurnishing] = useState<"furnished" | "semi_furnished" | "unfurnished">(
     "unfurnished",
@@ -67,7 +71,7 @@ export function NewListingForm() {
     setError(null);
 
     if (photoUrls.length === 0) {
-      setError("Upload at least one photo");
+      setError(t("form.needPhoto"));
       return;
     }
 
@@ -76,7 +80,7 @@ export function NewListingForm() {
     // 0 means "none" — the API only accepts positive optional amounts.
     const depositNGN = isRent ? num(formData, "depositNGN") || undefined : undefined;
     if (depositNGN && depositNGN > priceNGN * CAUTION_FEE_CAP_RATE) {
-      setError(`Caution fee can't exceed ${CAUTION_FEE_CAP_RATE * 100}% of annual rent`);
+      setError(t("form.cautionCap", { pct: CAUTION_FEE_CAP_RATE * 100 }));
       return;
     }
 
@@ -120,7 +124,7 @@ export function NewListingForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not create listing");
+      setError(data?.error ?? t("form.createFailed"));
       return;
     }
 
@@ -143,16 +147,15 @@ export function NewListingForm() {
         />
       )}
     <form onSubmit={handleSubmit} className={`mt-8 flex flex-col gap-4 ${review ? "hidden" : ""}`}>
-      <input name="title" placeholder="Title" required className={inputClass} />
+      <input name="title" placeholder={t("form.title")} required className={inputClass} />
       <textarea
         name="description"
-        placeholder="Description (optional)"
+        placeholder={t("form.description")}
         rows={4}
         className={inputClass}
       />
       <p className="-mt-2 text-xs text-foreground/50">
-        Don&apos;t include phone numbers, emails, or social handles anywhere in your listing — Reallow handles all
-        contact with applicants.
+        {t("form.noContactInfo")}
       </p>
 
       <div className="flex gap-2">
@@ -163,7 +166,7 @@ export function NewListingForm() {
             listingType === "rent" ? "border-transparent bg-clay text-white" : "border-line"
           }`}
         >
-          For rent
+          {t("listing.forRent")}
         </button>
         <button
           type="button"
@@ -172,17 +175,17 @@ export function NewListingForm() {
             listingType === "sale" ? "border-transparent bg-clay text-white" : "border-line"
           }`}
         >
-          For sale
+          {t("listing.forSale")}
         </button>
       </div>
 
       <select name="propertyType" required defaultValue="" className={inputClass}>
         <option value="" disabled>
-          Property type
+          {t("form.propertyType")}
         </option>
         {PROPERTY_TYPES.map((type) => (
           <option key={type} value={type}>
-            {type}
+            {t(propertyTypeKey(type) as MessageKey)}
           </option>
         ))}
       </select>
@@ -194,7 +197,7 @@ export function NewListingForm() {
               name="priceNGN"
               type="number"
               min={1}
-              placeholder="Rent (₦/year)"
+              placeholder={t("form.rentPerYear")}
               required
               className={inputClass}
             />
@@ -202,12 +205,12 @@ export function NewListingForm() {
               name="depositNGN"
               type="number"
               min={0}
-              placeholder="Caution fee (₦, optional)"
+              placeholder={t("form.cautionOptional")}
               className={inputClass}
             />
           </div>
           <p className="-mt-2 text-xs text-foreground/50">
-            Caution fee can&apos;t exceed {CAUTION_FEE_CAP_RATE * 100}% of annual rent.
+            {t("form.cautionCap", { pct: CAUTION_FEE_CAP_RATE * 100 })}.
           </p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -215,14 +218,14 @@ export function NewListingForm() {
               name="estateChargeNGN"
               type="number"
               min={0}
-              placeholder="Estate charge (₦, optional)"
+              placeholder={t("form.estateOptional")}
               className={inputClass}
             />
             <input
               name="minimumTermMonths"
               type="number"
               min={MINIMUM_LEASE_TERM_MONTHS}
-              placeholder={`Minimum tenancy (months, min. ${MINIMUM_LEASE_TERM_MONTHS})`}
+              placeholder={t("form.minTenancy", { min: MINIMUM_LEASE_TERM_MONTHS })}
               className={inputClass}
             />
           </div>
@@ -234,7 +237,7 @@ export function NewListingForm() {
           name="priceNGN"
           type="number"
           min={1}
-          placeholder="Sale price (₦)"
+          placeholder={t("form.salePrice")}
           required
           className={inputClass}
         />
@@ -256,7 +259,7 @@ export function NewListingForm() {
         </select>
         <select name="city" required defaultValue="" className={inputClass}>
           <option value="" disabled>
-            District
+            {t("form.district")}
           </option>
           {districts.map((district) => (
             <option key={district.value} value={district.value}>
@@ -264,26 +267,26 @@ export function NewListingForm() {
             </option>
           ))}
         </select>
-        <input name="area" placeholder="Estate / street (optional)" className={inputClass} />
+        <input name="area" placeholder={t("form.area")} className={inputClass} />
       </div>
 
       <div>
         <textarea
           name="fullAddress"
-          placeholder="Full property address"
+          placeholder={t("form.fullAddress")}
           required
           minLength={5}
           rows={2}
           className={inputClass + " w-full"}
         />
         <p className="mt-1 text-xs text-foreground/50">
-          Used only by Reallow to verify this property in person — never shown publicly.
+          {t("form.fullAddressHint")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <input name="bedrooms" type="number" min={0} placeholder="Bedrooms" className={inputClass} />
-        <input name="bathrooms" type="number" min={0} placeholder="Bathrooms" className={inputClass} />
+        <input name="bedrooms" type="number" min={0} placeholder={t("form.bedrooms")} className={inputClass} />
+        <input name="bathrooms" type="number" min={0} placeholder={t("form.bathrooms")} className={inputClass} />
       </div>
 
       <div className="flex gap-2">
@@ -296,34 +299,32 @@ export function NewListingForm() {
               furnishing === option ? "border-transparent bg-clay text-white" : "border-line"
             }`}
           >
-            {option.replace("_", "-")}
+            {t(`furnishing.${option}` as MessageKey)}
           </button>
         ))}
       </div>
 
-      <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
+      <input name="amenities" placeholder={t("form.amenities")} className={inputClass} />
 
       <div>
         <textarea
           name="tenantPreferences"
-          placeholder="Who are you looking for? (optional — e.g. working professional, no pets, minimum 2-year stay)"
+          placeholder={t("form.lookingFor")}
           rows={2}
           className={inputClass + " w-full"}
         />
         <p className="mt-1 text-xs text-foreground/50">
-          Shown publicly on the listing. Describe the situation you&apos;re looking for, not a
-          person&apos;s background — Reallow won&apos;t publish preferences based on protected
-          characteristics.
+          {t("form.lookingForHint")}
         </p>
       </div>
 
       <div>
-        <p className="mb-2 text-sm">Photos</p>
+        <p className="mb-2 text-sm">{t("form.photos")}</p>
         <PhotoUploader value={photoUrls} onChange={setPhotoUrls} />
       </div>
 
       <div>
-        <p className="mb-2 text-sm">Videos (optional)</p>
+        <p className="mb-2 text-sm">{t("form.videos")}</p>
         <VideoUploader value={videoUrls} onChange={setVideoUrls} />
       </div>
 
@@ -333,18 +334,14 @@ export function NewListingForm() {
         disabled={loading}
         className="h-11 rounded-full bg-clay text-white disabled:opacity-50"
       >
-        Review listing
+        {t("form.review")}
       </button>
     </form>
     </>
   );
 }
 
-const FURNISHING_LABEL: Record<ListingPayload["furnishing"], string> = {
-  furnished: "Furnished",
-  semi_furnished: "Semi-furnished",
-  unfurnished: "Unfurnished",
-};
+
 
 function ListingReview({
   review,
@@ -359,7 +356,9 @@ function ListingReview({
   onEdit: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useI18n();
   const isRent = review.listingType === "rent";
+  const party = t(isRent ? "form.tenant" : "form.buyer");
   const breakdown = computeListingCostBreakdown({
     listingType: review.listingType,
     priceNGN: review.priceNGN,
@@ -372,30 +371,30 @@ function ListingReview({
   const stateLabel = SUPPORTED_STATES.find((s) => s.value === review.state)?.label ?? review.state;
 
   const details: Array<[string, string | undefined]> = [
-    ["Title", review.title],
-    ["Listing type", isRent ? "For rent" : "For sale"],
-    ["Property type", review.propertyType],
-    ["Location", [review.area, district, stateLabel].filter(Boolean).join(", ")],
-    ["Full address", review.fullAddress],
-    ["Bedrooms", review.bedrooms?.toString()],
-    ["Bathrooms", review.bathrooms?.toString()],
-    ["Furnishing", FURNISHING_LABEL[review.furnishing]],
+    ["form.title", review.title],
+    ["form.listingType", t(isRent ? "listing.forRent" : "listing.forSale")],
+    ["form.propertyType", t(propertyTypeKey(review.propertyType) as MessageKey)],
+    ["form.location", [review.area, district, stateLabel].filter(Boolean).join(", ")],
+    ["form.fullAddress", review.fullAddress],
+    ["form.bedrooms", review.bedrooms?.toString()],
+    ["form.bathrooms", review.bathrooms?.toString()],
+    ["form.furnishing", t(`furnishing.${review.furnishing}` as MessageKey)],
     [
-      "Minimum tenancy",
+      "form.minimumTenancy",
       isRent
-        ? `${review.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS} month${
-            (review.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS) === 1 ? "" : "s"
-          }`
+        ? t((review.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS) === 1 ? "form.monthOne" : "form.months", {
+            count: review.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS,
+          })
         : undefined,
     ],
-    ["Amenities", review.amenities],
-    ["Who you're looking for", review.tenantPreferences],
-    ["Description", review.description],
+    ["form.amenitiesLabel", review.amenities],
+    ["form.lookingForLabel", review.tenantPreferences],
+    ["form.descriptionLabel", review.description],
     [
-      "Media",
-      `${review.photoUrls.length} photo${review.photoUrls.length === 1 ? "" : "s"}` +
+      "form.media",
+      t(review.photoUrls.length === 1 ? "form.photoOne" : "form.photoMany", { count: review.photoUrls.length }) +
         (review.videoUrls.length
-          ? `, ${review.videoUrls.length} video${review.videoUrls.length === 1 ? "" : "s"}`
+          ? `, ${t(review.videoUrls.length === 1 ? "form.videoOne" : "form.videoMany", { count: review.videoUrls.length })}`
           : ""),
     ],
   ];
@@ -410,10 +409,8 @@ function ListingReview({
   return (
     <div className="mt-8 flex flex-col gap-6">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">Review your listing</h2>
-        <p className="mt-1 text-sm text-foreground/60">
-          Check everything below, then confirm. You can go back and edit anything first.
-        </p>
+        <h2 className="text-xl font-semibold tracking-tight">{t("form.reviewTitle")}</h2>
+        <p className="mt-1 text-sm text-foreground/60">{t("form.reviewIntro")}</p>
       </div>
 
       {review.photoUrls.length > 0 && (
@@ -426,13 +423,13 @@ function ListingReview({
       )}
 
       <section className="rounded-2xl border border-line p-5">
-        <h3 className="text-sm font-medium">Property details</h3>
+        <h3 className="text-sm font-medium">{t("form.propertyDetails")}</h3>
         <dl className="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           {details
             .filter(([, value]) => value)
             .map(([label, value]) => (
-              <div key={label} className={label === "Description" || label === "Full address" ? "sm:col-span-2" : ""}>
-                <dt className="text-xs text-foreground/50">{label}</dt>
+              <div key={label} className={label === "form.descriptionLabel" || label === "form.fullAddress" ? "sm:col-span-2" : ""}>
+                <dt className="text-xs text-foreground/50">{t(label as MessageKey)}</dt>
                 <dd className="mt-0.5 break-words">{value}</dd>
               </div>
             ))}
@@ -440,37 +437,44 @@ function ListingReview({
       </section>
 
       <section className="rounded-2xl border border-line p-5">
-        <h3 className="text-sm font-medium">Cost breakdown</h3>
-        <p className="mt-1 text-xs text-foreground/50">
-          What the {isRent ? "tenant" : "buyer"} pays through Reallow, and where it goes.
-        </p>
+        <h3 className="text-sm font-medium">{t("form.costBreakdown")}</h3>
+        <p className="mt-1 text-xs text-foreground/50">{t("form.costIntro", { party })}</p>
         <dl className="mt-4 flex flex-col gap-2 text-sm">
-          {row(isRent ? "Rent (per year)" : "Sale price", breakdown.priceNGN, "text-foreground/80")}
-          {isRent && row("Caution fee", breakdown.cautionFeeNGN, "text-foreground/80")}
-          {isRent && row("Estate charge", breakdown.estateChargeNGN, "text-foreground/80")}
+          {row(t(isRent ? "listing.rentPerYear" : "listing.salePrice"), breakdown.priceNGN, "text-foreground/80")}
+          {/* Optional charges only appear when the owner actually set one. */}
+          {isRent && breakdown.cautionFeeNGN > 0 && row(t("listing.cautionFee"), breakdown.cautionFeeNGN, "text-foreground/80")}
+          {isRent && breakdown.estateChargeNGN > 0 && row(t("listing.estateCharge"), breakdown.estateChargeNGN, "text-foreground/80")}
           {row(
-            `Reallow service charge (${formatRate(breakdown.serviceChargeRate)} of ${isRent ? "rent" : "price"})`,
+            t(isRent ? "form.serviceOfRent" : "form.serviceOfPrice", { rate: formatRate(breakdown.serviceChargeRate) }),
             breakdown.serviceChargeNGN,
             "text-foreground/80",
           )}
           {row(
-            `Total the ${isRent ? "tenant" : "buyer"} pays`,
+            t("form.totalParty", { party }),
             breakdown.totalNGN,
             "mt-1 border-t border-line pt-3 font-medium",
           )}
         </dl>
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-verified/10 p-4">
-            <dt className="text-xs text-foreground/60">Amount going to you</dt>
+            <dt className="text-xs text-foreground/60">{t("form.toYou")}</dt>
             <dd className="mt-1 font-mono text-lg font-semibold">{naira(breakdown.toOwnerNGN)}</dd>
             <p className="mt-1 text-xs text-foreground/50">
-              {isRent ? "Rent + caution fee + estate charge" : "The full sale price"}
+              {isRent
+                ? [
+                    t("txType.rent"),
+                    breakdown.cautionFeeNGN > 0 && t("listing.cautionFee").toLowerCase(),
+                    breakdown.estateChargeNGN > 0 && t("listing.estateCharge").toLowerCase(),
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")
+                : t("form.toYouSale")}
             </p>
           </div>
           <div className="rounded-xl bg-foreground/5 p-4">
-            <dt className="text-xs text-foreground/60">Going to Reallow</dt>
+            <dt className="text-xs text-foreground/60">{t("form.toReallow")}</dt>
             <dd className="mt-1 font-mono text-lg font-semibold">{naira(breakdown.toReallowNGN)}</dd>
-            <p className="mt-1 text-xs text-foreground/50">Service charge, paid by the {isRent ? "tenant" : "buyer"}</p>
+            <p className="mt-1 text-xs text-foreground/50">{t("form.toReallowNote", { party })}</p>
           </div>
         </dl>
       </section>
@@ -483,7 +487,7 @@ function ListingReview({
           disabled={loading}
           className="h-11 flex-1 rounded-full border border-line text-sm font-medium disabled:opacity-50"
         >
-          Edit listing
+          {t("form.edit")}
         </button>
         <button
           type="button"
@@ -491,7 +495,7 @@ function ListingReview({
           disabled={loading}
           className="h-11 flex-1 rounded-full bg-clay text-sm font-medium text-white disabled:opacity-50"
         >
-          {loading ? "Submitting…" : "Confirm listing"}
+          {loading ? t("form.submitting") : t("form.confirm")}
         </button>
       </div>
     </div>

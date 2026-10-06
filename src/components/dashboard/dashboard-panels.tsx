@@ -24,7 +24,17 @@ const PANEL_TITLE: Record<Panel, MessageKey> = {
 };
 
 // Opens in place, directly under the row of buttons — no overlay, no blurred page.
-function InlinePanel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+function InlinePanel({
+  title,
+  closeLabel,
+  onClose,
+  children,
+}: {
+  title: string;
+  closeLabel: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +61,7 @@ function InlinePanel({ title, onClose, children }: { title: string; onClose: () 
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={closeLabel}
           className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 hover:bg-foreground/5"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
@@ -143,17 +153,17 @@ export function DashboardPanels({
   const allTiles: { panel: Panel; caption: string; badge?: number }[] = [
     {
       panel: "meetings",
-      caption: upcomingCount ? `${upcomingCount} upcoming` : "No upcoming meetings",
+      caption: upcomingCount ? t("meetings.upcomingCount", { count: upcomingCount }) : t("meetings.noUpcomingShort"),
       badge: actionCount || undefined,
     },
-    { panel: "transactions", caption: `${ledger.length} record${ledger.length === 1 ? "" : "s"}` },
+    { panel: "transactions", caption: t(ledger.length === 1 ? "tx.recordOne" : "tx.records", { count: ledger.length }) },
     { panel: "wallet", caption: `₦${walletBalanceNGN.toLocaleString()}` },
   ];
   const tiles = allTiles.filter((tile) => panels.includes(tile.panel));
 
   return (
     <>
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Your account">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("dash.yourAccount")}>
         {tiles.map((tile) => {
           const active = panel === tile.panel;
           return (
@@ -191,7 +201,7 @@ export function DashboardPanels({
       </div>
 
       {panel && (
-        <InlinePanel title={t(PANEL_TITLE[panel])} onClose={close}>
+        <InlinePanel title={t(PANEL_TITLE[panel])} closeLabel={t("common.close")} onClose={close}>
           {panel === "meetings" && (
             <MeetingsCalendar
               events={events}

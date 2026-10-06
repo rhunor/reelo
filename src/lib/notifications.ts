@@ -1,7 +1,7 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import type { InspectionBooking, Meeting, Property, SupportTicket } from "@/types/models";
-import { sendListingReceivedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
+import { sendListingReceivedEmail, sendListingReviewedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
 import { formatLagos } from "@/lib/time";
 import { landlordRecipients } from "@/lib/reallow-landlord";
 import type { Notification } from "@/types/models";
@@ -75,6 +75,7 @@ export async function notifySavedSearchMatches(listing: Property): Promise<void>
       type: "saved_search_match" as const,
       title: "A listing matching your search is now available",
       body: listing.title,
+      i18n: { title: "notif.savedSearch.title", body: "notif.plain", vars: { text: listing.title } },
       listingId: listing._id,
       read: false,
       createdAt: now,
@@ -117,6 +118,7 @@ export async function notifyMessageReceived(ticket: SupportTicket): Promise<void
     type: "ticket_new",
     title: "We've received your message",
     body: `“${ticket.subject}” — we'll reply as soon as possible. We'll notify you here and by email.`,
+    i18n: { title: "notif.msgReceived.title", body: "notif.msgReceived.body", vars: { subject: ticket.subject } },
     ticketId: ticket._id,
     href: `/dashboard/tenant/tickets/${ticket._id}`,
     read: false,
@@ -135,6 +137,7 @@ export async function notifyTicketReply(ticket: SupportTicket, replierId: Object
       type: "ticket_reply",
       title: "Reallow replied to your message",
       body: ticket.subject,
+      i18n: { title: "notif.replied.title", body: "notif.plain", vars: { text: ticket.subject } },
       ticketId: ticket._id,
       href: `/dashboard/tenant/tickets/${ticket._id}`,
       read: false,
@@ -165,16 +168,35 @@ export async function notifyTicketReply(ticket: SupportTicket, replierId: Object
 export async function notifyVerificationInspectionScheduled(listing: Property, scheduledFor: Date): Promise<void> {
   const { notifications, users } = await getCollections();
 
-  await notifications.insertOne({
-    userId: listing.landlordId,
-    type: "verification_inspection_scheduled",
-    title: "Confirm your property verification visit",
-    body: `Reallow scheduled the verification visit for ${listing.title} on ${formatLagos(scheduledFor)} — confirm it, or ask for a different time.`,
-    listingId: listing._id,
-    href: `/dashboard/landlord/listings/${listing._id}/verification`,
-    read: false,
-    createdAt: new Date(),
-  });
+  // One "confirm your visit" notification per listing: a new time replaces the old one
+  // (and marks it unread again) instead of stacking up a notification per change.
+  await notifications.updateOne(
+    { userId: listing.landlordId, type: "verification_inspection_scheduled", listingId: listing._id },
+    {
+      $set: {
+        title: "Confirm your property verification visit",
+        body: `Reallow scheduled the verification visit for ${listing.title} on ${formatLagos(scheduledFor)} — confirm it, or ask for a different time.`,
+        i18n: { title: "notif.visit.title", body: "notif.visit.body", vars: { title: listing.title, when: formatLagos(scheduledFor) } },
+        href: `/dashboard/landlord/listings/${listing._id}/verification`,
+        read: false,
+        createdAt: new Date(),
+      },
+    },
+    { upsert: true },
+  );
+  // Clear duplicates left over from before this was one-per-listing.
+  const latest = await notifications.findOne(
+    { userId: listing.landlordId, type: "verification_inspection_scheduled", listingId: listing._id },
+    { sort: { createdAt: -1 }, projection: { _id: 1 } },
+  );
+  if (latest) {
+    await notifications.deleteMany({
+      userId: listing.landlordId,
+      type: "verification_inspection_scheduled",
+      listingId: listing._id,
+      _id: { $ne: latest._id },
+    });
+  }
 
   const landlord = await users.findOne({ _id: listing.landlordId });
   if (landlord?.email) {
@@ -198,6 +220,7 @@ export async function notifyListingReceived(listing: Property): Promise<void> {
     type: "listing_received",
     title: "We've received your listing",
     body: `Good news — we've received ${listing.title}. A Reallow agent will contact you to arrange an in-person verification visit.`,
+    i18n: { title: "notif.listingReceived.title", body: "notif.listingReceived.body", vars: { title: listing.title } },
     listingId: listing._id,
     href: "/dashboard",
     read: false,
@@ -207,6 +230,40 @@ export async function notifyListingReceived(listing: Property): Promise<void> {
   const landlord = await users.findOne({ _id: listing.landlordId });
   if (landlord?.email) {
     await sendListingReceivedEmail(landlord.email, landlord.firstName ?? landlord.name, listing.title);
+  }
+}
+
+// Admin approved (listing is now live) or rejected the listing after verification.
+export async function notifyListingReviewed(listing: Property, outcome: "approved" | "rejected", reason?: string): Promise<void> {
+  const { notifications, users } = await getCollections();
+  const approved = outcome === "approved";
+
+  await notifications.insertOne({
+    userId: listing.landlordId,
+    type: approved ? "listing_approved" : "listing_rejected",
+    title: approved ? "Your listing is live" : "Your listing wasn't approved",
+    body: approved
+      ? `${listing.title} passed verification and is now live on Reallow. We'll notify you when someone applies.`
+      : `${listing.title} wasn't approved: ${reason}. You can fix it and resubmit from your dashboard.`,
+    i18n: approved
+      ? { title: "notif.approved.title", body: "notif.approved.body", vars: { title: listing.title } }
+      : { title: "notif.rejected.title", body: "notif.rejected.body", vars: { title: listing.title, reason: reason ?? "" } },
+    listingId: listing._id,
+    href: approved ? `/listings/${listing._id}` : "/dashboard",
+    read: false,
+    createdAt: new Date(),
+  });
+
+  const landlord = await users.findOne({ _id: listing.landlordId });
+  if (landlord?.email) {
+    await sendListingReviewedEmail(
+      landlord.email,
+      landlord.firstName ?? landlord.name,
+      listing.title,
+      listing._id!.toString(),
+      outcome,
+      reason,
+    );
   }
 }
 
@@ -242,6 +299,7 @@ export async function notifyInspectionProposal(booking: InspectionBooking, toUse
     type: "inspection_time_proposed",
     title: "New inspection time suggested",
     body: `A new time was suggested: ${formatLagos(booking.proposedTime!)}. Accept or suggest another.`,
+    i18n: { title: "notif.inspProposed.title", body: "notif.inspProposed.body", vars: { when: formatLagos(booking.proposedTime!) } },
     listingId: booking.listingId,
     href: MEETINGS_HREF,
     read: false,
@@ -261,6 +319,7 @@ export async function notifyInspectionConfirmed(booking: InspectionBooking): Pro
       type: "inspection_time_confirmed",
       title: "Inspection confirmed",
       body: `Confirmed for ${when}. Reallow's agent will contact you with how to get to the meeting point.`,
+      i18n: { title: "notif.inspConfirmed.title", body: "notif.inspConfirmed.tenant", vars: { when } },
       listingId: booking.listingId,
       href: MEETINGS_HREF,
       read: false,
@@ -271,6 +330,7 @@ export async function notifyInspectionConfirmed(booking: InspectionBooking): Pro
       type: "inspection_time_confirmed",
       title: "Inspection confirmed",
       body: `Confirmed for ${when}. Reallow's agent will bring the tenant to you.`,
+      i18n: { title: "notif.inspConfirmed.title", body: "notif.inspConfirmed.landlord", vars: { when } },
       listingId: booking.listingId,
       href: MEETINGS_HREF,
       read: false,
@@ -296,6 +356,10 @@ export async function notifyLandlordDecision(ticket: SupportTicket, decision: "a
         ? `${ticket.subject} — you can now book an inspection or a meeting.`
         : ticket.subject,
     ticketId: ticket._id,
+    i18n:
+      decision === "approved"
+        ? { title: "notif.accepted.title", body: "notif.accepted.body", vars: { subject: ticket.subject } }
+        : { title: "notif.declined.title", body: "notif.plain", vars: { text: ticket.subject } },
     href: decision === "approved" ? `${MEETINGS_HREF}&ticket=${ticket._id}` : undefined,
     read: false,
     createdAt: new Date(),
@@ -313,6 +377,7 @@ export async function notifyWelcome(userId: ObjectId, firstName: string): Promis
       type: "welcome",
       title: `Welcome to Reallow, ${firstName}!`,
       body: "Thanks for joining. Every listing here is verified in person by Reallow, and every payment goes through us — no agents, no surprises.",
+      i18n: { title: "notif.welcome.title", body: "notif.welcome.body", vars: { name: firstName } },
       href: "/dashboard",
       read: false,
       createdAt: now,
@@ -322,6 +387,7 @@ export async function notifyWelcome(userId: ObjectId, firstName: string): Promis
       type: "complete_profile",
       title: "Complete your profile",
       body: "Add your photo and a few details so landlords and Reallow know who they're dealing with.",
+      i18n: { title: "dash.completeProfile", body: "notif.completeProfile.body" },
       href: "/dashboard/settings#profile",
       read: false,
       // A millisecond later so it sorts directly under the welcome message.
@@ -339,6 +405,7 @@ export async function notifyNewApplication(ticket: SupportTicket, listing: Prope
     type: "new_application",
     title: "Someone applied for your property",
     body: `New application for ${listing.title}. View their profile to accept or decline.`,
+    i18n: { title: "notif.newApp.title", body: "notif.newApp.body", vars: { title: listing.title } },
     listingId: listing._id,
     ticketId: ticket._id,
     href: `/dashboard/applications/${ticket._id}`,
@@ -359,6 +426,11 @@ export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId
     type: "meeting_proposed" as const,
     title: isCounter ? `A different ${noun} time was suggested` : `New ${noun} request`,
     body: `Proposed for ${formatLagos(meeting.proposedTime)}. Accept, decline, or suggest another time.`,
+    i18n: {
+      title: `notif.req.${isCounter ? "counter" : "new"}.${meeting.kind}`,
+      body: "notif.req.body",
+      vars: { when: formatLagos(meeting.proposedTime) },
+    },
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
     read: false,
@@ -382,6 +454,11 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
     body: isInspection
       ? `Agreed for ${when}. Pay the inspection fee to lock it in — Reallow's agent will then contact you.`
       : `Your meeting is confirmed for ${when}.`,
+    i18n: {
+      title: isInspection ? "notif.agreed.title" : "notif.meetingConfirmed.title",
+      body: isInspection ? "notif.agreed.tenant" : "notif.meetingConfirmed.body",
+      vars: { when },
+    },
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
     read: false,
@@ -394,6 +471,11 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
       body: isInspection
         ? `Agreed for ${when}. It goes ahead once the applicant pays the inspection fee.`
         : `Your meeting is confirmed for ${when}.`,
+      i18n: {
+        title: isInspection ? "notif.agreed.title" : "notif.meetingConfirmed.title",
+        body: isInspection ? "notif.agreed.landlord" : "notif.meetingConfirmed.body",
+        vars: { when },
+      },
       listingId: meeting.listingId,
       href: MEETINGS_HREF,
       read: false,
@@ -407,6 +489,11 @@ export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId
     type: "meeting_declined" as const,
     title: `${meeting.kind === "inspection" ? "Inspection" : "Meeting"} request declined`,
     body: `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. You can book a new time from Meetings.`,
+    i18n: {
+      title: `notif.req.declined.${meeting.kind}`,
+      body: "notif.req.declinedBody",
+      vars: { when: formatLagos(meeting.proposedTime) },
+    },
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
     read: false,
@@ -430,6 +517,7 @@ export async function notifyMeetingPaid(meeting: Meeting): Promise<void> {
       type: "meeting_paid" as const,
       title: "Inspection is on",
       body: `The inspection fee is paid — ${when}. Reallow's agent will bring the applicant to you.`,
+      i18n: { title: "notif.paid.title", body: "notif.paid.body", vars: { when } },
       listingId: meeting.listingId,
       href: MEETINGS_HREF,
       read: false,
@@ -456,6 +544,7 @@ export async function notifyWalletFunded(userId: ObjectId, amountNGN: number): P
     type: "wallet_funded",
     title: "Wallet funded",
     body: `₦${amountNGN.toLocaleString()} was added to your Reallow wallet.`,
+    i18n: { title: "notif.wallet.title", body: "notif.wallet.body", vars: { amount: `₦${amountNGN.toLocaleString()}` } },
     href: "/dashboard?panel=wallet",
     read: false,
     createdAt: new Date(),
@@ -482,6 +571,11 @@ export async function notifyListingStatusChanged(
     type: "listing_status_changed",
     title: message.title,
     body: `${listing.title}: ${message.body}${note ? ` Note from Reallow: ${note}` : ""}`,
+    i18n: {
+      title: `notif.status.${action}.title`,
+      body: note ? `notif.status.${action}.bodyNote` : `notif.status.${action}.body`,
+      vars: { title: listing.title, note: note ?? "" },
+    },
     listingId: listing._id,
     href: "/dashboard",
     read: false,
@@ -523,6 +617,7 @@ export async function notifyRoleChanged(userId: ObjectId, role: string): Promise
     type: "role_changed",
     title: notice.title,
     body: notice.body,
+    i18n: { title: `notif.role.${ROLE_NOTICE[role] ? role : "customer"}.title`, body: `notif.role.${ROLE_NOTICE[role] ? role : "customer"}.body` },
     href: notice.href,
     read: false,
     createdAt: new Date(),
@@ -555,6 +650,7 @@ export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
     type: "id_review",
     title: "Your identity is verified",
     body: "You can now apply for properties, book inspections, and get your listings published.",
+    i18n: { title: "notif.idVerified.title", body: "notif.idVerified.body" },
     href: "/dashboard",
     read: false,
     createdAt: new Date(),

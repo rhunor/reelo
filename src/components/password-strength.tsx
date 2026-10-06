@@ -1,9 +1,12 @@
 "use client";
 
 import { PASSWORD_RULES } from "@/lib/password-policy";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 // Live checklist under a new-password field.
 export function PasswordStrength({ password }: { password: string }) {
+  const { t } = useI18n();
   const passed = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
   const strength = passed / PASSWORD_RULES.length;
   const barColor = strength === 1 ? "bg-verified" : strength >= 0.6 ? "bg-amber-500" : "bg-red-500";
@@ -20,7 +23,7 @@ export function PasswordStrength({ password }: { password: string }) {
           const ok = rule.test(password);
           return (
             <li key={rule.id} className={ok ? "text-verified" : "text-foreground/50"}>
-              {ok ? "✓" : "○"} {rule.label}
+              {ok ? "✓" : "○"} {t(`pwrule.${rule.id}` as MessageKey)}
             </li>
           );
         })}

@@ -6,17 +6,19 @@ export function AgreementPayButton({
   agreementId,
   amountNGN,
   walletBalanceNGN = 0,
+  label,
 }: {
   agreementId: string;
   amountNGN: number;
   walletBalanceNGN?: number;
+  label: string;
 }) {
   return (
     <PayChoice
       endpoint={`/api/agreements/${agreementId}/pay-checkout`}
       amountNGN={amountNGN}
       walletBalanceNGN={walletBalanceNGN}
-      label={`Pay ₦${amountNGN.toLocaleString()} via Reallow`}
+      label={label}
     />
   );
 }

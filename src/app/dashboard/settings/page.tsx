@@ -30,7 +30,7 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
       <Link href="/dashboard" className="text-sm text-foreground/60 hover:text-clay">
-        ← Dashboard
+        ← {t("nav.dashboard")}
       </Link>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">{t("settings.title")}</h1>
 
@@ -49,22 +49,19 @@ export default async function SettingsPage() {
 
         <div className="flex min-w-0 flex-col gap-8">
           <section id="profile" className="scroll-mt-24 rounded-2xl border border-line p-5 sm:p-6">
-            <h2 className="text-lg font-semibold">Complete your profile</h2>
+            <h2 className="text-lg font-semibold">{t("dash.completeProfile")}</h2>
             <p className="mt-1 text-sm text-foreground/60">
-              This helps Reallow get you a better match and confirms who to pay. Nothing here shows to
-              other users until you turn its visibility on, and your bank details never show to anyone
-              but Reallow. See our{" "}
+              {t("settings.profileIntro")}{" "}
               <a href="/privacy" className="underline">
-                Privacy Policy
+                {t("footer.privacy")}
               </a>
-              .
             </p>
             <CompleteProfileForm user={user} />
           </section>
 
           <section id="contact" className="scroll-mt-24 rounded-2xl border border-line p-5 sm:p-6">
-            <h2 className="text-lg font-semibold">Contact details</h2>
-            <p className="mt-1 mb-5 text-sm text-foreground/60">How you log in and how Reallow reaches you.</p>
+            <h2 className="text-lg font-semibold">{t("settings.contactTitle")}</h2>
+            <p className="mt-1 mb-5 text-sm text-foreground/60">{t("settings.contactIntro")}</p>
             <ContactSettingsForm
               email={user.email}
               phone={user.phone}
@@ -74,8 +71,8 @@ export default async function SettingsPage() {
           </section>
 
           <section id="security" className="scroll-mt-24 rounded-2xl border border-line p-5 sm:p-6">
-            <h2 className="text-lg font-semibold">Security</h2>
-            <p className="mt-1 mb-5 text-sm text-foreground/60">Change the password you log in with.</p>
+            <h2 className="text-lg font-semibold">{t("settings.security")}</h2>
+            <p className="mt-1 mb-5 text-sm text-foreground/60">{t("settings.securityIntro")}</p>
             <ChangePasswordForm />
           </section>
 

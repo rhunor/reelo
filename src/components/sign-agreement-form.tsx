@@ -2,9 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n-provider";
 
 export function SignAgreementForm({ agreementId }: { agreementId: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -14,7 +16,7 @@ export function SignAgreementForm({ agreementId }: { agreementId: string }) {
     setError(null);
 
     if (!agreed) {
-      setError("Confirm you agree to sign electronically");
+      setError(t("agreement.sign.confirmFirst"));
       return;
     }
 
@@ -31,7 +33,7 @@ export function SignAgreementForm({ agreementId }: { agreementId: string }) {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not sign");
+      setError(data?.error ?? t("agreement.sign.failed"));
       return;
     }
 
@@ -41,7 +43,7 @@ export function SignAgreementForm({ agreementId }: { agreementId: string }) {
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 rounded-lg border border-line p-4">
       <label className="flex flex-col gap-1 text-sm">
-        Type your full legal name to sign
+        {t("agreement.sign.typeName")}
         <input
           name="fullName"
           required
@@ -51,7 +53,7 @@ export function SignAgreementForm({ agreementId }: { agreementId: string }) {
       </label>
       <label className="flex items-center gap-2 text-sm text-foreground/70">
         <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
-        I agree this constitutes my electronic signature on this agreement.
+        {t("agreement.sign.consent")}
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
@@ -59,7 +61,7 @@ export function SignAgreementForm({ agreementId }: { agreementId: string }) {
         disabled={loading}
         className="h-10 self-start rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
       >
-        {loading ? "Signing…" : "Sign agreement"}
+        {loading ? t("agreement.sign.signing") : t("agreement.sign.button")}
       </button>
     </form>
   );

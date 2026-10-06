@@ -10,13 +10,15 @@ import { ReportButton } from "@/components/report-button";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatLagos } from "@/lib/time";
 import { redactContactInfo } from "@/lib/contact-guard";
+import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 export const dynamic = "force-dynamic";
 
-const EMPLOYMENT: Record<string, string> = {
-  student: "Student",
-  self_employed: "Self-employed",
-  employed: "Employed",
+const EMPLOYMENT: Record<string, MessageKey> = {
+  student: "profile.student",
+  self_employed: "profile.selfEmployed",
+  employed: "profile.employed",
 };
 
 // What a landlord sees when they open an application: only what the applicant chose to
@@ -40,6 +42,9 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   if (!applicant) notFound();
 
   const p = applicant.profile ?? {};
+  const t = await getT();
+  // Stored choices (gender, marital status) have translated labels; free text stays as typed.
+  const choice = (value?: string) => (value ? t(`profile.${value}` as MessageKey) : undefined);
   const tp = applicant.tenantProfile?.visibleToLandlords ? applicant.tenantProfile : undefined;
   const decision = ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined);
   const sharesAnything = Boolean(
@@ -53,19 +58,19 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       tp,
   );
   // Name only shows once they've chosen to share something about themselves.
-  const displayName = sharesAnything ? (applicant.firstName ?? applicant.name.split(" ")[0]) : "Applicant";
+  const displayName = sharesAnything ? (applicant.firstName ?? applicant.name.split(" ")[0]!) : t("app.applicant");
 
   const fields: Array<[string, string | undefined]> = [
-    ["Employment status", p.employmentStatusVisible ? EMPLOYMENT[p.employmentStatus ?? ""] : undefined],
-    ["Occupation", p.occupationVisible ? p.occupation : undefined],
-    ["Gender", p.genderVisible ? p.gender : undefined],
-    ["State of origin", p.stateOfOriginVisible ? p.stateOfOrigin : undefined],
-    ["Marital status", p.maritalStatusVisible ? p.maritalStatus : undefined],
-    ["Religion", p.religionVisible ? p.religion : undefined],
-    ["Employer", tp?.employer],
-    ["Monthly income", tp?.monthlyIncomeNGN !== undefined ? `₦${tp.monthlyIncomeNGN.toLocaleString()}` : undefined],
-    ["Household size", tp?.householdSize !== undefined ? String(tp.householdSize) : undefined],
-    ["Pets", tp?.hasPets === undefined ? undefined : tp.hasPets ? "Yes" : "No"],
+    [t("profile.employmentStatus"), p.employmentStatusVisible && EMPLOYMENT[p.employmentStatus ?? ""] ? t(EMPLOYMENT[p.employmentStatus ?? ""]!) : undefined],
+    [t("profile.occupation"), p.occupationVisible ? p.occupation : undefined],
+    [t("profile.gender"), p.genderVisible ? choice(p.gender) : undefined],
+    [t("profile.stateOfOrigin"), p.stateOfOriginVisible ? p.stateOfOrigin : undefined],
+    [t("profile.maritalStatus"), p.maritalStatusVisible ? choice(p.maritalStatus) : undefined],
+    [t("profile.religion"), p.religionVisible ? p.religion : undefined],
+    [t("app.employer"), tp?.employer],
+    [t("app.monthlyIncome"), tp?.monthlyIncomeNGN !== undefined ? `₦${tp.monthlyIncomeNGN.toLocaleString()}` : undefined],
+    [t("app.householdSize"), tp?.householdSize !== undefined ? String(tp.householdSize) : undefined],
+    [t("app.pets"), tp?.hasPets === undefined ? undefined : t(tp.hasPets ? "common.yes" : "common.no")],
   ];
   const shownFields = fields.filter(([, value]) => value);
 
@@ -75,16 +80,16 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
         href={onBehalfOfReallow ? "/dashboard/admin/applications" : "/dashboard/landlord/candidates"}
         className="text-sm text-foreground/60 hover:text-clay"
       >
-        ← All applications
+        ← {t("app.all")}
       </Link>
       {onBehalfOfReallow && (
         <p className="mt-3 rounded-xl border border-clay/30 bg-clay/5 px-3 py-2 text-xs">
-          This property is listed by Reallow — you&apos;re reviewing as the landlord on Reallow&apos;s behalf.
+          {t("app.onBehalf")}
         </p>
       )}
 
       <p className="mt-6 text-xs text-foreground/50">
-        Application for{" "}
+        {t("app.applicationFor")}{" "}
         <Link href={`/listings/${listing._id}`} className="underline">
           {listing.title}
         </Link>{" "}
@@ -103,22 +108,21 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             {applicant.verifiedBadge ? (
               <VerifiedBadge />
             ) : (
-              <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">Not verified</span>
+              <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">{t("app.notVerified")}</span>
             )}
           </div>
           {applicant.ratingCount ? (
             <p className="mt-0.5 text-xs text-foreground/60">
-              ★ {applicant.ratingAverage!.toFixed(1)} from {applicant.ratingCount} review
-              {applicant.ratingCount === 1 ? "" : "s"}
+              ★ {t(applicant.ratingCount === 1 ? "app.ratingOne" : "app.rating", { avg: applicant.ratingAverage!.toFixed(1), count: applicant.ratingCount })}
             </p>
           ) : null}
         </div>
       </div>
 
       <section className="mt-4 rounded-2xl border border-line p-5">
-        <h2 className="text-sm font-semibold">What they&apos;ve shared</h2>
+        <h2 className="text-sm font-semibold">{t("app.shared")}</h2>
         {shownFields.length === 0 && !tp?.aboutMe ? (
-          <p className="mt-2 text-sm text-foreground/50">This applicant hasn&apos;t made any profile details visible.</p>
+          <p className="mt-2 text-sm text-foreground/50">{t("app.sharedNone")}</p>
         ) : (
           <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
             {shownFields.map(([label, value]) => (
@@ -133,11 +137,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       </section>
 
       <section className="mt-4 rounded-2xl border border-line p-5">
-        <h2 className="text-sm font-semibold">Your decision</h2>
-        <p className="mt-1 mb-3 text-xs text-foreground/60">
-          Either way we let them know. You and the applicant never see each other&apos;s phone number or
-          email, and can&apos;t message each other — Reallow arranges everything.
-        </p>
+        <h2 className="text-sm font-semibold">{t("app.decision")}</h2>
+        <p className="mt-1 mb-3 text-xs text-foreground/60">{t("app.decisionHint")}</p>
         <PreferCandidateButton ticketId={ticket._id!.toString()} decision={decision} />
         {decision === "approved" && onBehalfOfReallow && (
           <p className="mt-4 text-xs text-foreground/60">
@@ -154,20 +155,20 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               href={`/dashboard?panel=meetings&ticket=${ticket._id}&kind=inspection`}
               className="flex h-9 items-center rounded-full bg-clay px-4 text-sm font-medium text-white"
             >
-              Book inspection
+              {t("meetings.bookInspection")}
             </Link>
             <Link
               href={`/dashboard?panel=meetings&ticket=${ticket._id}&kind=meeting`}
               className="flex h-9 items-center rounded-full border border-line px-4 text-sm font-medium hover:border-clay hover:text-clay"
             >
-              Book meeting
+              {t("meetings.bookMeeting")}
             </Link>
           </div>
         )}
       </section>
 
       <div className="mt-4">
-        <ReportButton targetType="user" targetId={applicant._id!.toString()} label="Report this applicant" />
+        <ReportButton targetType="user" targetId={applicant._id!.toString()} label={t("report.applicant")} />
       </div>
     </div>
   );

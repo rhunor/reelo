@@ -7,59 +7,70 @@ import { PayChoice } from "@/components/pay-choice";
 import { MeetingFeedbackForm } from "@/components/dashboard/meeting-feedback-form";
 import { LAGOS_TIME_ZONE, toLagosDateTimeLocal } from "@/lib/time";
 import type { BookableApplication, CalendarEvent } from "@/lib/dashboard-data";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
+import type { TranslateVars } from "@/lib/i18n/interpolate";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+type T = (key: MessageKey, vars?: TranslateVars) => string;
+
+// Dates follow the chosen language where the browser has it (Yorùbá, Hausa, Igbo, Pidgin
+// are in CLDR); anything else falls back to Nigerian English.
+const dateLocale = (locale: string) => (locale === "en" || locale === "urh" ? "en-NG" : `${locale}-NG`);
 
 // Reallow only operates in Nigeria (WAT, no DST), so every calendar day is a Lagos day.
 const dayKey = (date: Date | string) => toLagosDateTimeLocal(new Date(date)).slice(0, 10);
-const timeOf = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-NG", { timeZone: LAGOS_TIME_ZONE, hour: "numeric", minute: "2-digit" });
-const longDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-NG", {
+const timeOf = (iso: string, locale: string) =>
+  new Date(iso).toLocaleTimeString(dateLocale(locale), { timeZone: LAGOS_TIME_ZONE, hour: "numeric", minute: "2-digit" });
+const longDate = (iso: string, locale: string) =>
+  new Date(iso).toLocaleDateString(dateLocale(locale), {
     timeZone: LAGOS_TIME_ZONE,
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-const keyToLabel = (key: string) =>
-  new Date(`${key}T12:00:00+01:00`).toLocaleDateString("en-NG", {
+const keyToLabel = (key: string, locale: string) =>
+  new Date(`${key}T12:00:00+01:00`).toLocaleDateString(dateLocale(locale), {
     timeZone: LAGOS_TIME_ZONE,
     weekday: "long",
     day: "numeric",
     month: "long",
   });
+// Mon–Sun, from a known Monday.
+const weekdays = (locale: string) =>
+  Array.from({ length: 7 }, (_, i) =>
+    new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(dateLocale(locale), { weekday: "short", timeZone: "UTC" }),
+  );
 
 function isHeld(event: CalendarEvent) {
   return (event.status === "confirmed" || event.status === "completed") && new Date(event.at).getTime() < Date.now();
 }
 
-function headline(event: CalendarEvent): string {
+function headline(event: CalendarEvent, t: T): string {
   const title = `“${event.listingTitle}”`;
   if (isHeld(event)) {
-    if (event.kind === "verification") return `Reallow verified your property ${title}`;
-    if (event.kind === "inspection") return event.side === "landlord" ? `Your property ${title} was inspected` : `You inspected ${title}`;
-    return event.side === "landlord" ? `You met with an applicant for ${title}` : `You met with the landlord of ${title}`;
+    if (event.kind === "verification") return t("meetings.h.verified", { title });
+    if (event.kind === "inspection") return t(event.side === "landlord" ? "meetings.h.wasInspected" : "meetings.h.youInspected", { title });
+    return t(event.side === "landlord" ? "meetings.h.metApplicant" : "meetings.h.metLandlord", { title });
   }
-  if (event.kind === "verification") return `Reallow verification visit · ${event.listingTitle}`;
-  if (event.kind === "inspection") return `Inspection · ${event.listingTitle}`;
-  return event.side === "landlord"
-    ? `Meeting with an applicant · ${event.listingTitle}`
-    : `Meeting with the landlord · ${event.listingTitle}`;
+  if (event.kind === "verification") return t("meetings.h.verificationVisit", { title: event.listingTitle });
+  if (event.kind === "inspection") return t("meetings.h.inspection", { title: event.listingTitle });
+  return t(event.side === "landlord" ? "meetings.h.meetingApplicant" : "meetings.h.meetingLandlord", { title: event.listingTitle });
 }
 
-function statusBadge(event: CalendarEvent): { label: string; className: string } {
+function statusBadge(event: CalendarEvent, t: T): { label: string; className: string } {
   const amber = "bg-amber-500/10 text-amber-700 dark:text-amber-400";
   const green = "bg-verified/10 text-verified";
   const grey = "bg-foreground/5 text-foreground/60";
   const red = "bg-red-500/10 text-red-600";
-  if (event.status === "pending") return { label: event.myTurn ? "Awaiting your response" : "Pending approval", className: amber };
-  if (event.status === "declined") return { label: "Declined", className: red };
-  if (event.status === "cancelled") return { label: "Cancelled", className: grey };
-  if (isHeld(event)) return { label: event.status === "completed" ? "Completed" : "Held", className: grey };
+  if (event.status === "pending")
+    return { label: t(event.myTurn ? "meetings.s.yourResponse" : "meetings.s.pending"), className: amber };
+  if (event.status === "declined") return { label: t("meetings.s.declined"), className: red };
+  if (event.status === "cancelled") return { label: t("meetings.s.cancelled"), className: grey };
+  if (isHeld(event)) return { label: t(event.status === "completed" ? "meetings.s.completed" : "meetings.s.held"), className: grey };
   if (event.kind === "inspection" && event.source === "meeting" && !event.paid)
-    return { label: "Time agreed · fee unpaid", className: amber };
-  return { label: "Meeting date confirmed", className: green };
+    return { label: t("meetings.s.feeUnpaid"), className: amber };
+  return { label: t("meetings.s.confirmed"), className: green };
 }
 
 function dotClass(event: CalendarEvent) {
@@ -72,12 +83,13 @@ function dotClass(event: CalendarEvent) {
 
 export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; walletBalanceNGN: number }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countering, setCountering] = useState(false);
   const [counterTime, setCounterTime] = useState("");
   const [rating, setRating] = useState(false);
-  const badge = statusBadge(event);
+  const badge = statusBadge(event, t);
 
   async function respond(body: Record<string, string>) {
     setBusy(true);
@@ -90,7 +102,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
     const data = await res.json().catch(() => null);
     setBusy(false);
     if (!res.ok) {
-      setError(data?.error ?? "Couldn't send your response");
+      setError(data?.error ?? t("meetings.respondFailed"));
       return;
     }
     setCountering(false);
@@ -101,10 +113,10 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
     <div className="rounded-xl border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium break-words">{headline(event)}</p>
+          <p className="text-sm font-medium break-words">{headline(event, t)}</p>
           <p className="mt-0.5 text-xs text-foreground/60">
-            {longDate(event.at)} · {timeOf(event.at)}
-            {event.kind === "inspection" && " · with a Reallow agent"}
+            {longDate(event.at, locale)} · {timeOf(event.at, locale)}
+            {event.kind === "inspection" && ` · ${t("meetings.withAgent")}`}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}>
@@ -113,7 +125,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
       </div>
 
       {event.status === "pending" && !event.myTurn && event.source === "meeting" && (
-        <p className="mt-2 text-xs text-foreground/50">Waiting for the other side to accept, decline, or suggest another time.</p>
+        <p className="mt-2 text-xs text-foreground/50">{t("meetings.waitingOtherSide")}</p>
       )}
 
       {event.source === "meeting" && event.myTurn && (
@@ -125,7 +137,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
               onClick={() => respond({ action: "accept" })}
               className="h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white disabled:opacity-50"
             >
-              Accept
+              {t("meetings.accept")}
             </button>
             <button
               type="button"
@@ -133,7 +145,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
               onClick={() => respond({ action: "decline" })}
               className="h-8 rounded-full border border-line px-3.5 text-xs font-medium disabled:opacity-50"
             >
-              Decline
+              {t("meetings.decline")}
             </button>
             <button
               type="button"
@@ -141,7 +153,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
               onClick={() => setCountering((v) => !v)}
               className="h-8 rounded-full border border-line px-3.5 text-xs font-medium disabled:opacity-50"
             >
-              Suggest another time
+              {t("meetings.suggestAnother")}
             </button>
           </div>
           {countering && (
@@ -159,7 +171,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
                 onClick={() => respond({ action: "counter", proposedTime: counterTime })}
                 className="h-9 rounded-full bg-clay px-4 text-xs font-medium text-white disabled:opacity-50"
               >
-                Send
+                {t("common.send")}
               </button>
             </div>
           )}
@@ -171,20 +183,20 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
           href={event.verificationHref}
           className="mt-3 inline-flex h-8 items-center rounded-full bg-clay px-3.5 text-xs font-medium text-white"
         >
-          Confirm or change this time
+          {t("meetings.confirmOrChange")}
         </Link>
       )}
 
       {event.payAmountNGN !== undefined && (
         <div className="mt-3">
           <p className="mb-2 text-xs text-foreground/60">
-            Pay the inspection fee to lock this in — it covers Reallow&apos;s agent attending.
+            {t("meetings.payHint")}
           </p>
           <PayChoice
             endpoint={`/api/meetings/${event.id}/pay`}
             amountNGN={event.payAmountNGN}
             walletBalanceNGN={walletBalanceNGN}
-            label={`Pay ₦${event.payAmountNGN.toLocaleString()} inspection fee`}
+            label={t("meetings.payFee", { amount: `₦${event.payAmountNGN.toLocaleString()}` })}
           />
         </div>
       )}
@@ -198,10 +210,10 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
             onClick={() => setRating(true)}
             className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3.5 text-xs font-medium hover:border-clay hover:text-clay"
           >
-            ★ Rate this {event.kind === "meeting" ? "meeting" : "visit"}
+            ★ {t(event.kind === "meeting" ? "meetings.rateMeeting" : "meetings.rateVisit")}
           </button>
         ))}
-      {event.feedbackGiven && <p className="mt-2 text-xs text-foreground/50">Thanks — you left feedback on this.</p>}
+      {event.feedbackGiven && <p className="mt-2 text-xs text-foreground/50">{t("meetings.feedbackThanks")}</p>}
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
@@ -222,6 +234,7 @@ export function MeetingsCalendar({
   initialKind?: "inspection" | "meeting";
 }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const todayKey = dayKey(new Date());
   const [month, setMonth] = useState(() => todayKey.slice(0, 7)); // "YYYY-MM"
   const [selectedDay, setSelectedDay] = useState<string>(todayKey);
@@ -271,14 +284,14 @@ export function MeetingsCalendar({
     setMonth(date.toISOString().slice(0, 7));
   }
 
-  const monthLabel = new Date(`${month}-15T12:00:00Z`).toLocaleDateString("en-NG", { month: "long", year: "numeric" });
+  const monthLabel = new Date(`${month}-15T12:00:00Z`).toLocaleDateString(dateLocale(locale), { month: "long", year: "numeric" });
   const selectedApp = bookable.find((b) => b.ticketId === ticketId);
   const dayEvents = eventsByDay.get(selectedDay) ?? [];
 
   async function sendRequest() {
     setBookError(null);
-    if (!ticketId) return setBookError("Choose which application this is for");
-    if (selectedDay < todayKey) return setBookError("Pick today or a later day on the calendar");
+    if (!ticketId) return setBookError(t("meetings.chooseApplication"));
+    if (selectedDay < todayKey) return setBookError(t("meetings.pickFutureDay"));
     setSending(true);
     const res = await fetch("/api/meetings", {
       method: "POST",
@@ -287,7 +300,7 @@ export function MeetingsCalendar({
     });
     const data = await res.json().catch(() => null);
     setSending(false);
-    if (!res.ok) return setBookError(data?.error ?? "Couldn't send the request");
+    if (!res.ok) return setBookError(data?.error ?? t("meetings.requestFailed"));
     setBookSent(true);
     router.refresh();
   }
@@ -298,23 +311,23 @@ export function MeetingsCalendar({
       <div className={`rounded-xl p-4 ${next ? "bg-clay/10" : "bg-foreground/5"}`}>
         {next ? (
           <>
-            <p className="text-xs font-medium tracking-wide text-clay uppercase">Up next</p>
-            <p className="mt-1 text-sm font-medium">{headline(next)}</p>
+            <p className="text-xs font-medium tracking-wide text-clay uppercase">{t("meetings.upNext")}</p>
+            <p className="mt-1 text-sm font-medium">{headline(next, t)}</p>
             <p className="mt-0.5 text-xs text-foreground/60">
-              {longDate(next.at)} · {timeOf(next.at)} · {statusBadge(next).label}
+              {longDate(next.at, locale)} · {timeOf(next.at, locale)} · {statusBadge(next, t).label}
             </p>
           </>
         ) : (
-          <p className="text-sm font-medium">You don&apos;t have an upcoming meeting.</p>
+          <p className="text-sm font-medium">{t("meetings.noUpcoming")}</p>
         )}
         {upcoming.length > 1 && (
-          <p className="mt-2 text-xs text-foreground/50">+{upcoming.length - 1} more upcoming</p>
+          <p className="mt-2 text-xs text-foreground/50">{t("meetings.moreUpcoming", { count: upcoming.length - 1 })}</p>
         )}
       </div>
 
       {needsAction.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-medium tracking-wide text-foreground/50 uppercase">Needs your attention</p>
+          <p className="mb-2 text-xs font-medium tracking-wide text-foreground/50 uppercase">{t("meetings.needsAttention")}</p>
           <div className="flex flex-col gap-2">
             {needsAction.map((event) => (
               <EventCard key={`${event.source}-${event.id}`} event={event} walletBalanceNGN={walletBalanceNGN} />
@@ -325,12 +338,12 @@ export function MeetingsCalendar({
 
       {history.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-medium tracking-wide text-foreground/50 uppercase">Your meeting history</p>
+          <p className="mb-2 text-xs font-medium tracking-wide text-foreground/50 uppercase">{t("meetings.history")}</p>
           <ul className="flex flex-col divide-y divide-line rounded-xl border border-line">
             {(showAllHistory ? history : history.slice(0, 3)).map((event) => (
               <li key={`${event.source}-${event.id}`} className="flex gap-3 px-4 py-2.5 text-sm">
-                <span className="w-24 shrink-0 text-xs text-foreground/50">{longDate(event.at).replace(/^\w+, /, "")}</span>
-                <span className="min-w-0">On this day, {headline(event).charAt(0).toLowerCase() + headline(event).slice(1)}.</span>
+                <span className="w-24 shrink-0 text-xs text-foreground/50">{longDate(event.at, locale)}</span>
+                <span className="min-w-0">{headline(event, t)}</span>
               </li>
             ))}
           </ul>
@@ -340,7 +353,7 @@ export function MeetingsCalendar({
               onClick={() => setShowAllHistory((v) => !v)}
               className="mt-1.5 text-xs text-clay hover:underline"
             >
-              {showAllHistory ? "Show less" : `Show all ${history.length}`}
+              {showAllHistory ? t("common.showLess") : t("common.showAll", { count: history.length })}
             </button>
           )}
         </div>
@@ -356,26 +369,26 @@ export function MeetingsCalendar({
           }}
           className="flex h-10 items-center justify-center gap-2 rounded-full border border-dashed border-clay/60 text-sm font-medium text-clay hover:bg-clay/5"
         >
-          + Book an inspection or meeting
+          + {t("meetings.bookCta")}
         </button>
       )}
 
       {booking && (
         <div className="rounded-xl border border-clay/40 p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">Book an inspection or meeting</p>
+            <p className="text-sm font-semibold">{t("meetings.bookCta")}</p>
             <button type="button" onClick={() => setBooking(false)} className="text-xs text-foreground/50 hover:text-foreground">
-              Close
+              {t("common.close")}
             </button>
           </div>
           {bookSent ? (
             <p className="mt-3 text-sm text-verified">
-              Request sent — it shows as pending approval on the calendar until the other side responds.
+              {t("meetings.requestSent")}
             </p>
           ) : (
             <div className="mt-3 flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-xs text-foreground/60">
-                Application
+                {t("meetings.application")}
                 <select
                   value={ticketId}
                   onChange={(e) => setTicketId(e.target.value)}
@@ -383,7 +396,7 @@ export function MeetingsCalendar({
                 >
                   {bookable.map((b) => (
                     <option key={b.ticketId} value={b.ticketId}>
-                      {b.listingTitle} — {b.side === "landlord" ? "an applicant you accepted" : "your accepted application"}
+                      {b.listingTitle} — {t(b.side === "landlord" ? "meetings.applicantYouAccepted" : "meetings.yourAcceptedApplication")}
                     </option>
                   ))}
                 </select>
@@ -398,28 +411,26 @@ export function MeetingsCalendar({
                       kind === option ? "border-transparent bg-clay text-white" : "border-line"
                     }`}
                   >
-                    {option === "inspection" ? "Book inspection" : "Book meeting"}
+                    {t(option === "inspection" ? "meetings.bookInspection" : "meetings.bookMeeting")}
                   </button>
                 ))}
               </div>
               <p className="text-xs text-foreground/50">
                 {kind === "inspection"
-                  ? `A Reallow agent attends. Once the time is agreed, the applicant pays a ₦${(selectedApp?.inspectionFeeNGN ?? 0).toLocaleString()} inspection fee.`
-                  : "A free meeting between you and the other side, arranged through Reallow."}
+                  ? t("meetings.inspectionHint", { fee: `₦${(selectedApp?.inspectionFeeNGN ?? 0).toLocaleString()}` })
+                  : t("meetings.meetingHint")}
                 {kind === "inspection" && selectedApp && !selectedApp.applicantVerified &&
-                  (selectedApp.side === "tenant"
-                    ? " You'll need to verify your identity first."
-                    : " The applicant needs to verify their identity first.")}
+                  ` ${t(selectedApp.side === "tenant" ? "meetings.youVerifyFirst" : "meetings.applicantVerifyFirst")}`}
               </p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex flex-col gap-1 text-xs text-foreground/60">
-                  Day
+                  {t("meetings.day")}
                   <span className="flex h-10 items-center rounded-md border border-line px-3 text-sm text-foreground">
-                    {keyToLabel(selectedDay)}
+                    {keyToLabel(selectedDay, locale)}
                   </span>
                 </div>
                 <label className="flex flex-col gap-1 text-xs text-foreground/60">
-                  Time
+                  {t("meetings.time")}
                   <input
                     type="time"
                     value={time}
@@ -433,10 +444,10 @@ export function MeetingsCalendar({
                   onClick={sendRequest}
                   className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  {sending ? "Sending…" : "Send request"}
+                  {sending ? t("common.sending") : t("meetings.sendRequest")}
                 </button>
               </div>
-              <p className="text-xs text-foreground/50">Tap a day on the calendar below to change the date.</p>
+              <p className="text-xs text-foreground/50">{t("meetings.tapDay")}</p>
               {bookError && <p className="text-sm text-red-600">{bookError}</p>}
             </div>
           )}
@@ -449,7 +460,7 @@ export function MeetingsCalendar({
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
-            aria-label="Previous month"
+            aria-label={t("meetings.prevMonth")}
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/5"
           >
             ‹
@@ -458,14 +469,14 @@ export function MeetingsCalendar({
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            aria-label="Next month"
+            aria-label={t("meetings.nextMonth")}
             className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-foreground/5"
           >
             ›
           </button>
         </div>
         <div className="grid grid-cols-7 text-center text-[11px] font-medium text-foreground/40">
-          {WEEKDAYS.map((d) => (
+          {weekdays(locale).map((d) => (
             <span key={d} className="py-1">
               {d}
             </span>
@@ -504,17 +515,17 @@ export function MeetingsCalendar({
           })}
         </div>
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-foreground/50">
-          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-verified" /> Confirmed</span>
-          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Pending approval</span>
-          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-foreground/30" /> Past</span>
-          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Declined</span>
+          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-verified" /> {t("meetings.legendConfirmed")}</span>
+          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> {t("meetings.s.pending")}</span>
+          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-foreground/30" /> {t("meetings.legendPast")}</span>
+          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-red-400" /> {t("meetings.s.declined")}</span>
         </div>
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-semibold">{keyToLabel(selectedDay)}</p>
+        <p className="mb-2 text-sm font-semibold">{keyToLabel(selectedDay, locale)}</p>
         {dayEvents.length === 0 ? (
-          <p className="text-sm text-foreground/50">Nothing on this day.</p>
+          <p className="text-sm text-foreground/50">{t("meetings.nothingThisDay")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {dayEvents.map((event) => (
@@ -526,7 +537,7 @@ export function MeetingsCalendar({
 
       {events.length === 0 && bookable.length === 0 && (
         <p className="text-center text-xs text-foreground/50">
-          Once a landlord accepts your application — or you accept an applicant — you can book inspections and meetings here.
+          {t("meetings.emptyHint")}
         </p>
       )}
     </div>

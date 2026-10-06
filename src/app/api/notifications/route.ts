@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { notificationHref } from "@/lib/notification-links";
+import { notificationHref, notificationText } from "@/lib/notification-links";
+import { getT } from "@/lib/i18n/server";
 
 // Feeds the navbar's notification dropdown — the latest few, each with its resolved link.
 export async function GET() {
@@ -22,13 +23,13 @@ export async function GET() {
   const related = ticketIds.length ? await tickets.find({ _id: { $in: ticketIds } }).toArray() : [];
   const ticketById = new Map(related.map((t) => [t._id!.toString(), t]));
   const viewer = { id: session.user.id, role: session.user.role };
+  const t = await getT();
 
   return NextResponse.json({
     unreadCount,
     notifications: latest.map((n) => ({
       id: n._id!.toString(),
-      title: n.title,
-      body: n.body,
+      ...notificationText(n, t),
       href: notificationHref(n, viewer, ticketById),
       read: n.read,
       createdAt: n.createdAt,

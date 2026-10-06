@@ -8,6 +8,7 @@ import { approveListing, rejectListing, scheduleInspection } from "./actions";
 import { CheckInButton } from "@/components/check-in-button";
 import { StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
 import { formatLagos, toLagosDateTimeLocal } from "@/lib/time";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +22,17 @@ export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { properties, users, tickets, agreements, withdrawalRequests, reports } = await getCollections();
-  const found = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!found) redirect("/login");
-  // Older accounts predate referral codes — give them one now.
-  const me = await ensureReferralCode(found);
-  const [pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount] = await Promise.all([
+  const [found, pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount] = await Promise.all([
+    users.findOne({ _id: new ObjectId(session.user.id) }),
     properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray(),
     tickets.countDocuments({ status: { $in: ["open", "in_progress"] } }),
     agreements.countDocuments({ "payment.status": "paid_to_reallow" }),
     withdrawalRequests.countDocuments({ status: "pending" }),
     reports.countDocuments({ status: { $in: ["open", "reviewing"] } }),
   ]);
+  if (!found) redirect("/login");
+  // Older accounts predate referral codes — give them one now.
+  const me = await ensureReferralCode(found);
 
   const landlords = await users
     .find({ _id: { $in: pending.map((listing) => listing.landlordId) } })
@@ -139,22 +140,46 @@ export default async function AdminDashboardPage() {
                 <p className="mt-2 text-xs text-foreground/50">
                   By {listing.verification.agentReport.submittedByName ?? "a field agent"} ·{" "}
                   {formatLagos(listing.verification.agentReport.submittedAt)}
+                  {listing.verification.agentReport.rating ? (
+                    <>
+                      {" · "}
+                      <span className="text-amber-500">{"★".repeat(listing.verification.agentReport.rating)}</span>
+                      <span className="text-foreground/20">{"★".repeat(5 - listing.verification.agentReport.rating)}</span>
+                    </>
+                  ) : null}
                 </p>
-                <p className="mt-2 text-sm whitespace-pre-line break-words">{listing.verification.agentReport.narration}</p>
+                {listing.verification.agentReport.narration && (
+                  <p className="mt-2 text-sm whitespace-pre-line break-words">{listing.verification.agentReport.narration}</p>
+                )}
                 {listing.verification.agentReport.comments && (
                   <p className="mt-2 rounded-lg bg-foreground/5 p-2 text-sm break-words">
                     <span className="text-xs font-medium text-foreground/50">Comments: </span>
                     {listing.verification.agentReport.comments}
                   </p>
                 )}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {listing.verification.agentReport.photoUrls.map((url) => (
-                    <a key={url} href={url} target="_blank" rel="noopener noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- Cloudinary URL */}
-                      <img src={url} alt="" className="h-20 w-28 rounded-lg object-cover hover:opacity-90" />
-                    </a>
-                  ))}
-                </div>
+                {(
+                  [
+                    ["The property", listing.verification.agentReport.photoUrls, listing.verification.agentReport.videoUrls],
+                    ["The road to the property", listing.verification.agentReport.roadPhotoUrls, listing.verification.agentReport.roadVideoUrls],
+                  ] as const
+                ).map(([label, photos, videos]) =>
+                  photos?.length || videos?.length ? (
+                    <div key={label} className="mt-3">
+                      <p className="text-xs font-medium text-foreground/50">{label}</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {photos?.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- Cloudinary URL */}
+                            <img src={url} alt="" className="h-20 w-28 rounded-lg object-cover hover:opacity-90" />
+                          </a>
+                        ))}
+                        {videos?.map((url) => (
+                          <video key={url} src={url} controls preload="metadata" className="h-20 w-28 rounded-lg bg-black object-cover" />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null,
+                )}
               </details>
             ) : (
               listing.verification.scheduledFor && (
@@ -184,25 +209,25 @@ export default async function AdminDashboardPage() {
                 required
                 className="h-9 rounded-md border border-line px-3 text-sm bg-transparent"
               />
-              <button
-                type="submit"
+              <SubmitButton
+               
                 disabled={!landlordVerified}
                 className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-40"
               >
                 {scheduledFor ? "Update visit time" : "Schedule visit"}
-              </button>
+              </SubmitButton>
             </form>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <form action={approveListing}>
                 <input type="hidden" name="listingId" value={listing._id!.toString()} />
-                <button
-                  type="submit"
+                <SubmitButton
+                 
                   disabled={!landlordVerified}
                   className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-40"
                 >
                   Approve &amp; publish
-                </button>
+                </SubmitButton>
               </form>
 
               <form action={rejectListing} className="flex flex-wrap items-center gap-2">
@@ -212,12 +237,12 @@ export default async function AdminDashboardPage() {
                   placeholder="Rejection reason"
                   className="h-9 min-w-0 flex-1 rounded-md border border-line px-3 text-sm bg-transparent"
                 />
-                <button
-                  type="submit"
+                <SubmitButton
+                 
                   className="h-9 rounded-full border border-line px-4 text-sm font-medium"
                 >
                   Reject
-                </button>
+                </SubmitButton>
               </form>
             </div>
           </div>

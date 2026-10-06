@@ -3,11 +3,13 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy
 
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import {
   notifySavedSearchMatches,
+  notifyListingReviewed,
   notifyVerificationInspectionScheduled,
   notifyVerificationVisitDeclined,
   notifyListingStatusChanged,
@@ -66,8 +68,10 @@ export async function scheduleInspection(formData: FormData) {
   const now = new Date();
   const scheduledDate = parseLagosDateTimeLocal(scheduledFor);
 
-  await properties.updateOne(
-    { _id: new ObjectId(listingId) },
+  // Only acts when the time actually changes. The filter makes this atomic, so a
+  // double-click or re-saving the same time can't notify the landlord twice.
+  const result = await properties.updateOne(
+    { _id: new ObjectId(listingId), "verification.scheduledFor": { $ne: scheduledDate } },
     {
       $set: {
         "verification.scheduledFor": scheduledDate,
@@ -80,7 +84,9 @@ export async function scheduleInspection(formData: FormData) {
     },
   );
 
-  await notifyVerificationInspectionScheduled(listing, scheduledDate);
+  if (result.modifiedCount === 0) return;
+
+  after(() => notifyVerificationInspectionScheduled(listing, scheduledDate));
 
   revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/staff");
@@ -102,8 +108,9 @@ export async function approveListing(formData: FormData) {
 
   const now = new Date();
 
-  await properties.updateOne(
-    { _id: new ObjectId(listingId) },
+  // Filtered on status so approving twice (double-click) doesn't notify twice.
+  const result = await properties.updateOne(
+    { _id: new ObjectId(listingId), status: { $ne: "published" } },
     {
       $set: {
         status: "published",
@@ -114,7 +121,13 @@ export async function approveListing(formData: FormData) {
     },
   );
 
-  await notifySavedSearchMatches(listing);
+  if (result.modifiedCount > 0) {
+    // Notifications and emails go out after the response so the admin isn't kept waiting.
+    after(async () => {
+      await notifyListingReviewed(listing, "approved");
+      await notifySavedSearchMatches(listing);
+    });
+  }
 
   revalidatePath("/dashboard/admin");
 }
@@ -196,9 +209,11 @@ export async function rejectListing(formData: FormData) {
 
   const { properties } = await getCollections();
   const now = new Date();
+  const listing = await properties.findOne({ _id: new ObjectId(listingId) });
+  if (!listing) throw new Error("Listing not found");
 
-  await properties.updateOne(
-    { _id: new ObjectId(listingId) },
+  const result = await properties.updateOne(
+    { _id: listing._id, status: { $ne: "rejected" } },
     {
       $set: {
         status: "rejected",
@@ -209,6 +224,7 @@ export async function rejectListing(formData: FormData) {
       },
     },
   );
+  if (result.modifiedCount > 0) after(() => notifyListingReviewed(listing, "rejected", reason));
 
   revalidatePath("/dashboard/admin");
 }
@@ -323,7 +339,7 @@ export async function setListingVisibility(formData: FormData) {
     );
   }
 
-  await notifyListingStatusChanged(listing, action, note);
+  after(() => notifyListingStatusChanged(listing, action, note));
   revalidateModeration();
   revalidatePath(`/listings/${listingId}`);
 }
@@ -413,7 +429,7 @@ export async function declineVerificationInspection(formData: FormData) {
       },
     },
   );
-  await notifyVerificationVisitDeclined(listing);
+  after(() => notifyVerificationVisitDeclined(listing));
 
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/landlord/listings/${listing._id}/verification`);
@@ -440,7 +456,7 @@ export async function adminVerifyUser(formData: FormData) {
   );
 
   await recomputeVerifiedBadge(new ObjectId(userId));
-  await notifyIdentityVerified(new ObjectId(userId));
+  after(() => notifyIdentityVerified(new ObjectId(userId)));
   revalidatePath(`/dashboard/admin/users/${userId}`);
 
   revalidatePath("/dashboard/admin/users");
@@ -635,7 +651,7 @@ export async function changeUserRole(_previous: RoleFormState, formData: FormDat
       ? { $set: { role: nextRole, staffBase: staffBase as User["staffBase"], updatedAt: now } }
       : { $set: { role: nextRole, updatedAt: now }, $unset: { staffBase: "" } },
   );
-  await notifyRoleChanged(userId, isCustomerRole(nextRole) ? "customer" : nextRole);
+  after(() => notifyRoleChanged(userId, isCustomerRole(nextRole) ? "customer" : nextRole));
 
   revalidatePath("/dashboard/admin/users");
   return {

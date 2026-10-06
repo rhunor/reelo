@@ -111,7 +111,7 @@ export function HomeHero({ listPropertyHref = "/register?role=landlord" }: { lis
           </div>
           <div className="absolute top-6 left-6 flex items-center gap-2 rounded-full bg-surface px-4 py-2 shadow-lg">
             <PulseDot className="h-2 w-2 rounded-full bg-verified" />
-            <span className="text-sm font-medium">Verified by Reallow</span>
+            <span className="text-sm font-medium">{t("home.verifiedByReallow")}</span>
           </div>
 
         </motion.div>

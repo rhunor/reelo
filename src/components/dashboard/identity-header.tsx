@@ -4,15 +4,17 @@ import { ReferralCodeCard } from "@/components/dashboard/referral-code-card";
 import { UserAvatar } from "@/components/user-avatar";
 import { VerifiedBadge } from "@/components/verified-badge";
 import type { User } from "@/types/models";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
+import { getT } from "@/lib/i18n/server";
 
-const ROLE_BADGE: Partial<Record<User["role"], string>> = {
-  staff: "Field staff",
-  support: "Support",
-  admin: "Admin",
+const ROLE_BADGE: Partial<Record<User["role"], MessageKey>> = {
+  staff: "role.staff",
+  support: "role.support",
+  admin: "role.admin",
 };
 
 // The top of every dashboard — same look whatever the role, with a role badge for staff.
-export function IdentityHeader({
+export async function IdentityHeader({
   user,
   greeting,
   action,
@@ -21,7 +23,9 @@ export function IdentityHeader({
   greeting: string;
   action?: ReactNode;
 }) {
-  const roleBadge = ROLE_BADGE[user.role];
+  const t = await getT();
+  const roleBadgeKey = ROLE_BADGE[user.role];
+  const roleBadge = roleBadgeKey ? t(roleBadgeKey) : undefined;
 
   return (
     <section className="flex flex-col gap-5 rounded-3xl border border-line bg-gradient-to-br from-clay/[0.07] to-transparent p-5 sm:flex-row sm:items-center sm:p-7">

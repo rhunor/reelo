@@ -7,6 +7,7 @@ import { VerifiedBadge } from "@/components/verified-badge";
 import { ROLE_LABEL } from "@/lib/roles";
 import { formatLagos } from "@/lib/time";
 import type { User } from "@/types/models";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -122,9 +123,9 @@ export default async function AdminUsersPage({
             </option>
           ))}
         </select>
-        <button type="submit" className="h-10 rounded-full border border-line px-4 text-sm font-medium">
+        <SubmitButton className="h-10 rounded-full border border-line px-4 text-sm font-medium">
           Apply
-        </button>
+        </SubmitButton>
       </form>
 
       {tab.id === "staff" && (

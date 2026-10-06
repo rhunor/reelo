@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 const SUMMARY = `Reallow connects you directly with the other party through Reallow — you never contact each other yourselves until a deal actually closes, Reallow coordinates everything up to that point.
 
@@ -15,6 +16,7 @@ Reallow can suspend any account or remove any listing for misconduct or suspecte
 By creating an account you agree to the full Terms of Service and Privacy Policy, linked below.`;
 
 export function TermsScrollAccept() {
+  const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [reachedBottom, setReachedBottom] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -40,19 +42,20 @@ export function TermsScrollAccept() {
           className="mt-0.5"
         />
         <span>
-          I agree to the{" "}
+          {t("terms.agreeTo")}{" "}
           <button type="button" onClick={() => setOpen(true)} className="text-clay underline">
-            Terms of Service and Privacy Policy
+            {t("terms.termsAndPrivacy")}
           </button>{" "}
-          <span className="text-foreground/50">(tap to read them first, or just tick to agree)</span>
+          <span className="text-foreground/50">{t("terms.tapToRead")}</span>
         </span>
       </label>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl bg-background p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Terms of Service &amp; Privacy Policy</h2>
-            <p className="mt-1 text-xs text-foreground/50">Scroll to the bottom to continue.</p>
+            <h2 className="text-lg font-semibold">{t("terms.termsAndPrivacy")}</h2>
+            <p className="mt-1 text-xs text-foreground/50">{t("terms.scrollToContinue")}</p>
+            {locale !== "en" && <p className="mt-1 text-xs text-foreground/50">{t("terms.englishOnly")}</p>}
             <div
               ref={scrollRef}
               onScroll={handleScroll}
@@ -60,8 +63,9 @@ export function TermsScrollAccept() {
             >
               {SUMMARY}
               <p className="mt-4 text-xs text-foreground/50">
-                Full text: <a href="/terms" target="_blank" className="underline">Terms of Service</a> ·{" "}
-                <a href="/privacy" target="_blank" className="underline">Privacy Policy</a>
+                {t("terms.fullText")}{" "}
+                <a href="/terms" target="_blank" className="underline">{t("footer.terms")}</a> ·{" "}
+                <a href="/privacy" target="_blank" className="underline">{t("footer.privacy")}</a>
               </p>
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -70,7 +74,7 @@ export function TermsScrollAccept() {
                 onClick={() => setOpen(false)}
                 className="h-10 rounded-full border border-line px-4 text-sm font-medium"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -81,7 +85,7 @@ export function TermsScrollAccept() {
                 }}
                 className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
               >
-                I agree
+                {t("terms.iAgree")}
               </button>
             </div>
           </div>

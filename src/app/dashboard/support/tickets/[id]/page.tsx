@@ -6,6 +6,7 @@ import { TicketMessages } from "@/components/ticket-messages";
 import { ReplyForm } from "@/components/reply-form";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { resolveTicket, reopenTicket } from "../../actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -74,22 +75,22 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
         {ticket.status !== "resolved" ? (
           <form action={resolveTicket}>
             <input type="hidden" name="ticketId" value={ticket._id!.toString()} />
-            <button
-              type="submit"
+            <SubmitButton
+             
               className="h-9 rounded-full border border-line px-4 text-sm font-medium"
             >
               Mark resolved
-            </button>
+            </SubmitButton>
           </form>
         ) : (
           <form action={reopenTicket}>
             <input type="hidden" name="ticketId" value={ticket._id!.toString()} />
-            <button
-              type="submit"
+            <SubmitButton
+             
               className="h-9 rounded-full border border-line px-4 text-sm font-medium"
             >
               Reopen
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>

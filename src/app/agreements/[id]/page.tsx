@@ -12,19 +12,16 @@ import { PrintButton } from "@/components/print-button";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { markAgreementPaidOut } from "@/app/dashboard/admin/actions";
 import { computeAgreementTotal, formatRate } from "@/lib/fees";
+import { getLocale, getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  sent: "Awaiting signatures",
-  signed_by_landlord: "Signed by landlord — awaiting tenant",
-  signed_by_tenant: "Signed by tenant — awaiting landlord",
-  fully_signed: "Fully signed",
-};
-
 export default async function AgreementPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getT();
+  const locale = await getLocale();
+  const date = (value: Date | string) => new Date(value).toLocaleDateString(locale === "en" ? "en-NG" : locale);
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (!ObjectId.isValid(id)) notFound();
@@ -73,8 +70,10 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
   const termMonths =
     typeof agreement.terms.leaseEndOrTermMonths === "number"
-      ? `${agreement.terms.leaseEndOrTermMonths} month${agreement.terms.leaseEndOrTermMonths === 1 ? "" : "s"}`
-      : new Date(agreement.terms.leaseEndOrTermMonths).toLocaleDateString();
+      ? t(agreement.terms.leaseEndOrTermMonths === 1 ? "form.monthOne" : "form.months", {
+          count: agreement.terms.leaseEndOrTermMonths,
+        })
+      : date(agreement.terms.leaseEndOrTermMonths);
 
   const paymentBreakdown = computeAgreementTotal(agreement.terms);
 
@@ -82,13 +81,13 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 print:max-w-none print:p-0">
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-          <h1 className="text-2xl font-semibold">Tenancy agreement</h1>
+          <h1 className="text-2xl font-semibold">{t("agreement.heading")}</h1>
           {listing && <p className="mt-1 text-foreground/70">{listing.title}</p>}
           <p className="mt-1 text-sm font-medium">
-            {STATUS_LABEL[agreement.status]} · {termMonths}
+            {t(`agreement.page.${agreement.status}` as MessageKey)} · {termMonths}
           </p>
         </div>
-        <PrintButton />
+        <PrintButton label={t("agreement.print")} />
       </div>
 
       <div className="mt-6 print:mt-0">
@@ -105,32 +104,32 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       <div className="print:hidden">
       {showTenantProfile && tenant?.tenantProfile && (
         <div className="mt-6 rounded-lg border border-line p-6">
-          <p className="text-sm font-medium">About the tenant</p>
+          <p className="text-sm font-medium">{t("agreement.aboutTenant")}</p>
           <p className="mt-1 text-xs text-foreground/50">
-            Shared by the tenant — visible to you because they chose to share it.
+            {t("agreement.aboutTenantNote")}
           </p>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
             {tenant.tenantProfile.occupation && (
               <div>
-                <dt className="text-foreground/50">Occupation</dt>
+                <dt className="text-foreground/50">{t("profile.occupation")}</dt>
                 <dd className="mt-0.5">{tenant.tenantProfile.occupation}</dd>
               </div>
             )}
             {tenant.tenantProfile.employer && (
               <div>
-                <dt className="text-foreground/50">Employer</dt>
+                <dt className="text-foreground/50">{t("agreement.employer")}</dt>
                 <dd className="mt-0.5">{tenant.tenantProfile.employer}</dd>
               </div>
             )}
             {tenant.tenantProfile.monthlyIncomeNGN !== undefined && (
               <div>
-                <dt className="text-foreground/50">Monthly income</dt>
+                <dt className="text-foreground/50">{t("agreement.monthlyIncome")}</dt>
                 <dd className="mt-0.5">₦{tenant.tenantProfile.monthlyIncomeNGN.toLocaleString()}</dd>
               </div>
             )}
             {tenant.tenantProfile.householdSize !== undefined && (
               <div>
-                <dt className="text-foreground/50">Household size</dt>
+                <dt className="text-foreground/50">{t("agreement.householdSize")}</dt>
                 <dd className="mt-0.5">{tenant.tenantProfile.householdSize}</dd>
               </div>
             )}
@@ -148,58 +147,58 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       {agreement.status === "fully_signed" && (
         <>
           <p className="mt-6 text-sm text-foreground/70">
-            Both parties have signed. Use &quot;Print / save as PDF&quot; above to keep a copy.
+            {t("agreement.bothSigned")}
           </p>
 
           <div className="mt-6 rounded-lg border border-line p-4">
-            <p className="text-sm font-medium">Rent &amp; deposit</p>
+            <p className="text-sm font-medium">{t("agreement.rentDeposit")}</p>
             <p className="mt-1 text-xs text-foreground/50">
-              Paid straight to Reallow, never directly to the landlord — Reallow holds it and pays
-              the landlord out separately.
+              {t("agreement.paidToReallow")}
             </p>
 
             {agreement.payment.status === "unpaid" && isTenantParty && (
               <div className="mt-3 flex flex-col gap-3">
                 <PaymentBreakdown
                   lines={[
-                    { label: "Rent", amountNGN: paymentBreakdown.priceNGN },
+                    { label: t("txType.rent"), amountNGN: paymentBreakdown.priceNGN },
                     ...(paymentBreakdown.cautionFeeNGN > 0
-                      ? [{ label: "Caution fee", amountNGN: paymentBreakdown.cautionFeeNGN }]
+                      ? [{ label: t("listing.cautionFee"), amountNGN: paymentBreakdown.cautionFeeNGN }]
                       : []),
                     ...(paymentBreakdown.estateChargeNGN > 0
-                      ? [{ label: "Estate charge", amountNGN: paymentBreakdown.estateChargeNGN }]
+                      ? [{ label: t("listing.estateCharge"), amountNGN: paymentBreakdown.estateChargeNGN }]
                       : []),
                     {
-                      label: `Reallow service charge (${formatRate(paymentBreakdown.serviceChargeRate)})`,
+                      label: t("listing.serviceCharge", { rate: formatRate(paymentBreakdown.serviceChargeRate) }),
                       amountNGN: paymentBreakdown.serviceChargeNGN,
                     },
                   ]}
                   totalNGN={paymentBreakdown.totalNGN}
+                  totalLabel={t("agreement.total")}
                 />
                 <AgreementPayButton
                   agreementId={agreement._id!.toString()}
                   amountNGN={paymentBreakdown.totalNGN}
                   walletBalanceNGN={viewerWalletNGN}
+                  label={t("agreement.payVia", { amount: `₦${paymentBreakdown.totalNGN.toLocaleString()}` })}
                 />
               </div>
             )}
             {agreement.payment.status === "unpaid" && !isTenantParty && (
-              <p className="mt-3 text-sm text-foreground/70">Awaiting payment from the tenant.</p>
+              <p className="mt-3 text-sm text-foreground/70">{t("agreement.awaitingPayment")}</p>
             )}
 
             {agreement.payment.status === "paid_to_reallow" && (
               <>
                 <p className="mt-3 text-sm text-verified">
-                  Reallow received ₦{agreement.payment.amountNGN?.toLocaleString()} in total
-                  {agreement.payment.paidAt &&
-                    ` on ${new Date(agreement.payment.paidAt).toLocaleDateString()}`}
-                  .
+                  {agreement.payment.paidAt
+                    ? t("agreement.receivedOn", {
+                        amount: `₦${agreement.payment.amountNGN?.toLocaleString() ?? 0}`,
+                        date: date(agreement.payment.paidAt),
+                      })
+                    : t("agreement.received", { amount: `₦${agreement.payment.amountNGN?.toLocaleString() ?? 0}` })}
                 </p>
                 <p className="mt-1 text-sm text-foreground/70">
-                  Landlord&apos;s portion — rent, caution fee, and estate charge only, not the
-                  service charge — is{" "}
-                  <span className="font-medium">₦{paymentBreakdown.toOwnerNGN.toLocaleString()}</span>
-                  , held pending payout.
+                  {t("agreement.landlordPortion", { amount: `₦${paymentBreakdown.toOwnerNGN.toLocaleString()}` })}
                 </p>
                 {session.user.role === "admin" && (
                   <form action={markAgreementPaidOut} className="mt-3">
@@ -217,34 +216,31 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
             {agreement.payment.status === "paid_out_to_landlord" && (
               <p className="mt-3 text-sm text-verified">
-                Paid out to the landlord
-                {agreement.payment.payoutAt &&
-                  ` on ${new Date(agreement.payment.payoutAt).toLocaleDateString()}`}
-                .
+                {agreement.payment.payoutAt
+                  ? t("agreement.paidOutOn", { date: date(agreement.payment.payoutAt) })
+                  : t("agreement.paidOutDone")}
               </p>
             )}
           </div>
 
           {agreement.payment.status !== "unpaid" && (
             <div className="mt-6 rounded-lg border border-line p-4">
-              <p className="text-sm font-medium">Ending the tenancy</p>
+              <p className="text-sm font-medium">{t("agreement.ending")}</p>
               <p className="mt-1 text-xs text-foreground/50">
-                Let Reallow know when the tenancy ends. Continuing past the lease term is between
-                you and the other party — Reallow doesn&apos;t need to be told unless one of you is
-                ending it.
+                {t("agreement.endingNote")}
               </p>
               <div className="mt-3 flex flex-col gap-1 text-sm">
                 <p>
-                  Landlord:{" "}
+                  {t("agreement.landlordLabel")}:{" "}
                   {agreement.terminatedByLandlord
-                    ? `ended ${new Date(agreement.terminatedByLandlordAt!).toLocaleDateString()}`
-                    : "tenancy ongoing"}
+                    ? t("agreement.endedOn", { date: date(agreement.terminatedByLandlordAt!) })
+                    : t("agreement.ongoing")}
                 </p>
                 <p>
-                  Tenant:{" "}
+                  {t("agreement.tenantLabel")}:{" "}
                   {agreement.terminatedByTenant
-                    ? `ended ${new Date(agreement.terminatedByTenantAt!).toLocaleDateString()}`
-                    : "tenancy ongoing"}
+                    ? t("agreement.endedOn", { date: date(agreement.terminatedByTenantAt!) })
+                    : t("agreement.ongoing")}
                 </p>
               </div>
 
@@ -263,18 +259,20 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
           {party && agreement.payment.status === "unpaid" && (
             <p className="mt-4 text-sm text-foreground/50">
-              Reviews open once rent &amp; deposit have been paid.
+              {t("agreement.reviewsOpen")}
             </p>
           )}
           {party && agreement.payment.status !== "unpaid" && !myReview && (
             <ReviewForm
               agreementId={agreement._id!.toString()}
-              revieweeLabel={party === "landlord" ? "tenant" : "landlord"}
+              reviewee={party === "landlord" ? "tenant" : "landlord"}
             />
           )}
           {party && agreement.payment.status !== "unpaid" && myReview && (
             <p className="mt-4 text-sm text-foreground/70">
-              You rated {party === "landlord" ? "the tenant" : "the landlord"} {myReview.rating}/5.
+              {t(party === "landlord" ? "agreement.youRatedTenant" : "agreement.youRatedLandlord", {
+                rating: myReview.rating,
+              })}
             </p>
           )}
         </>

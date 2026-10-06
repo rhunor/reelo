@@ -23,3 +23,8 @@ export const PROPERTY_TYPES = [
 ] as const;
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
+
+// Translation key for a property type's display label — the stored value stays English.
+export function propertyTypeKey(type: string): string {
+  return "ptype." + type.toLowerCase().replace(/[^a-z]+/g, "_").replace(/^_|_$/g, "");
+}

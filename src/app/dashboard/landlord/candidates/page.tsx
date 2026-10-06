@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function LandlordCandidatesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const t = await getT();
 
   const { properties, tickets, users, inspectionBookings } = await getCollections();
 
@@ -47,17 +49,13 @@ export default async function LandlordCandidatesPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
       <Link href="/dashboard" className="text-sm text-foreground/60 hover:text-clay">
-        ← Dashboard
+        ← {t("nav.dashboard")}
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold">Applications</h1>
-      <p className="mt-2 text-sm text-foreground/70">
-        Everyone who&apos;s applied for one of your listings. Open an application to see what the
-        applicant chose to share and accept or decline — once accepted, either of you can book an
-        inspection or a meeting.
-      </p>
+      <h1 className="mt-3 text-2xl font-semibold">{t("dash.applications")}</h1>
+      <p className="mt-2 text-sm text-foreground/70">{t("app.listIntro")}</p>
 
       {inquiries.length === 0 && (
-        <p className="mt-8 text-foreground/50">No inquiries yet.</p>
+        <p className="mt-8 text-foreground/50">{t("app.none")}</p>
       )}
 
       <div className="mt-8 flex flex-col gap-4">
@@ -70,14 +68,14 @@ export default async function LandlordCandidatesPage() {
             <div key={ticket._id!.toString()} className="rounded-lg border border-line p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs text-foreground/50">{listing?.title ?? "A listing"}</p>
+                  <p className="text-xs text-foreground/50">{listing?.title ?? t("app.aListing")}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <p className="font-medium">{profile ? tenant?.name : "Applicant"}</p>
+                    <p className="font-medium">{profile ? tenant?.name : t("app.applicant")}</p>
                     {tenant?.verifiedBadge ? (
                       <VerifiedBadge />
                     ) : (
                       <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">
-                        Not verified
+                        {t("app.notVerified")}
                       </span>
                     )}
                   </div>
@@ -86,7 +84,7 @@ export default async function LandlordCandidatesPage() {
 
               {tenant && (
                 <div className="mt-1">
-                  <ReportButton targetType="user" targetId={tenant._id!.toString()} label="Report this tenant" />
+                  <ReportButton targetType="user" targetId={tenant._id!.toString()} label={t("report.applicant")} />
                 </div>
               )}
 
@@ -94,26 +92,26 @@ export default async function LandlordCandidatesPage() {
                 <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
                   {profile.occupation && (
                     <div>
-                      <dt className="text-foreground/50">Occupation</dt>
+                      <dt className="text-foreground/50">{t("profile.occupation")}</dt>
                       <dd className="mt-0.5">{profile.occupation}</dd>
                     </div>
                   )}
                   {profile.monthlyIncomeNGN !== undefined && (
                     <div>
-                      <dt className="text-foreground/50">Monthly income</dt>
+                      <dt className="text-foreground/50">{t("app.monthlyIncome")}</dt>
                       <dd className="mt-0.5">₦{profile.monthlyIncomeNGN.toLocaleString()}</dd>
                     </div>
                   )}
                   {profile.householdSize !== undefined && (
                     <div>
-                      <dt className="text-foreground/50">Household size</dt>
+                      <dt className="text-foreground/50">{t("app.householdSize")}</dt>
                       <dd className="mt-0.5">{profile.householdSize}</dd>
                     </div>
                   )}
                 </dl>
               ) : (
                 <p className="mt-2 text-sm text-foreground/50">
-                  This tenant hasn&apos;t shared their profile.
+                  {t("app.sharedNone")}
                 </p>
               )}
               {profile?.aboutMe && <p className="mt-2 text-sm text-foreground/70">{redactContactInfo(profile.aboutMe)}</p>}
@@ -122,7 +120,7 @@ export default async function LandlordCandidatesPage() {
                 href={`/dashboard/applications/${ticket._id}`}
                 className="mt-3 inline-block text-sm font-medium text-clay hover:underline"
               >
-                View full profile →
+                {t("app.viewProfile")} →
               </Link>
 
               <div className="mt-4">
