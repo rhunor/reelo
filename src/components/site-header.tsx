@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNav } from "@/components/mobile-nav";
 import { LanguageSelect } from "@/components/language-select";
 import { getCollections } from "@/lib/db";
+import { isStaffRole } from "@/lib/roles";
 import { getT } from "@/lib/i18n/server";
 
 import { NotificationBell } from "@/components/notification-bell";
@@ -60,6 +61,7 @@ export async function SiteHeader() {
         email={session.user.email ?? ""}
         pictureUrl={pictureUrl}
         dashboardHref={dashboardHref}
+        listPropertyHref={isStaffRole(session.user.role) ? undefined : "/dashboard/landlord/listings/new"}
         logout={logout}
       />
     </>

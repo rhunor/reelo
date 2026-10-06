@@ -72,12 +72,28 @@ export default async function DashboardPage({
   const initialPanel = PANELS.find((p) => p === params.panel);
   const profileIncomplete = !user.profile?.profilePictureUrl || !user.profile?.dateOfBirth;
 
+  // "Browse properties" lives in the navbar and "List a property" in the profile menu, so
+  // the dashboard only keeps the account's own areas.
   const shortcuts = [
-    { href: "/dashboard/landlord/listings/new", label: t("nav.listProperty"), primary: true },
-    { href: "/listings", label: t("dash.browse") },
-    { href: "/dashboard/landlord/candidates", label: t("dash.applications") },
-    { href: "/dashboard/agreements", label: t("dash.agreements") },
-    { href: "/dashboard/tenant/tickets", label: t("dash.messages"), badge: unreadReplies },
+    {
+      href: "/dashboard/landlord/candidates",
+      label: t("dash.applications"),
+      caption: "People who applied for your properties",
+      icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 10v-1a6 6 0 0 1 12 0v1M17 11a3 3 0 1 0 0-6M22 21v-1a5 5 0 0 0-4-4.9",
+    },
+    {
+      href: "/dashboard/agreements",
+      label: t("dash.agreements"),
+      caption: "Your tenancy agreements",
+      icon: "M7 3h7l5 5v13H7V3Zm7 0v5h5M10 13h6M10 17h6",
+    },
+    {
+      href: "/dashboard/tenant/tickets",
+      label: t("dash.messages"),
+      caption: unreadReplies ? `${unreadReplies} new repl${unreadReplies === 1 ? "y" : "ies"}` : "Questions? Talk to Reallow",
+      icon: "M4 5h16v11H8l-4 4V5Zm4 5h8M8 8h5",
+      badge: unreadReplies,
+    },
   ];
 
   return (
@@ -129,20 +145,24 @@ export default async function DashboardPage({
         />
       </section>
 
-      <nav className="mt-6 flex flex-wrap gap-2">
+      <nav className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
         {shortcuts.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className={
-              link.primary
-                ? "flex h-9 items-center rounded-full bg-clay px-4 text-sm font-medium text-white hover:opacity-90"
-                : "flex h-9 items-center rounded-full border border-line px-4 text-sm font-medium hover:border-clay hover:text-clay"
-            }
+            className="group relative flex flex-col items-start gap-3 rounded-2xl border border-line bg-surface p-3 transition-all hover:-translate-y-0.5 hover:border-clay/50 hover:shadow-md sm:p-5"
           >
-            {link.label}
-            {"badge" in link && link.badge ? (
-              <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-[11px] font-semibold text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-clay/10 text-clay">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                <path d={link.icon} />
+              </svg>
+            </span>
+            <span>
+              <span className="block text-sm font-semibold sm:text-base">{link.label}</span>
+              <span className="mt-0.5 block text-[11px] text-foreground/50 sm:text-xs">{link.caption}</span>
+            </span>
+            {link.badge ? (
+              <span className="absolute top-3 right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-[11px] font-semibold text-white">
                 {link.badge}
               </span>
             ) : null}

@@ -528,3 +528,35 @@ export async function notifyRoleChanged(userId: ObjectId, role: string): Promise
     createdAt: new Date(),
   });
 }
+
+// An ID number is waiting for a manual check (automatic verification isn't switched on yet).
+export async function notifyIdAwaitingReview(userId: ObjectId, name: string, idLabel: string): Promise<void> {
+  const { users, notifications } = await getCollections();
+  const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
+  if (admins.length === 0) return;
+  const now = new Date();
+  await notifications.insertMany(
+    admins.map((admin) => ({
+      userId: admin._id as ObjectId,
+      type: "id_review" as const,
+      title: "ID waiting for verification",
+      body: `${name} submitted their ${idLabel}. Check it and mark them verified.`,
+      href: `/dashboard/admin/users/${userId}`,
+      read: false,
+      createdAt: now,
+    })),
+  );
+}
+
+export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
+  const { notifications } = await getCollections();
+  await notifications.insertOne({
+    userId,
+    type: "id_review",
+    title: "Your identity is verified",
+    body: "You can now apply for properties, book inspections, and get your listings published.",
+    href: "/dashboard",
+    read: false,
+    createdAt: new Date(),
+  });
+}

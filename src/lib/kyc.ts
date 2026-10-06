@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import { lookupDriversLicence, lookupNin, type IdentityRecord } from "@/lib/dojah";
+import { isDojahConfigured, lookupDriversLicence, lookupNin, type IdentityRecord } from "@/lib/dojah";
+import { notifyIdAwaitingReview } from "@/lib/notifications";
 import type { User } from "@/types/models";
 
 // verifiedBadge means "one government ID verified and matching this account" — a NIN or a
@@ -55,7 +56,7 @@ export async function verifyGovernmentId(
   userId: ObjectId,
   type: IdType,
   number: string,
-): Promise<{ success: boolean; message: string; verifiedBadge: boolean; status: number }> {
+): Promise<{ success: boolean; pending?: boolean; message: string; verifiedBadge: boolean; status: number }> {
   const { users } = await getCollections();
   const field = FIELD[type];
   const user = await users.findOne({ _id: userId });
@@ -67,6 +68,23 @@ export async function verifyGovernmentId(
       message: `This ${LABEL[type]} is already linked to another Reallow account.`,
       verifiedBadge: user.verifiedBadge,
       status: 409,
+    };
+  }
+
+  // No Dojah keys yet: hold the number for a Reallow admin to check by hand instead of
+  // showing the user an error. Admins are notified and verify from Admin → People.
+  if (!isDojahConfigured()) {
+    await users.updateOne(
+      { _id: userId },
+      { $set: { [`${field}.status`]: "pending", [`${field}.value`]: number, updatedAt: new Date() } },
+    );
+    await notifyIdAwaitingReview(userId, user.name, LABEL[type]);
+    return {
+      success: true,
+      pending: true,
+      message: `Thanks — we've received your ${LABEL[type]}. Reallow will confirm your identity shortly and let you know.`,
+      verifiedBadge: user.verifiedBadge,
+      status: 200,
     };
   }
 

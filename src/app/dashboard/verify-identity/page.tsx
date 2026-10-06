@@ -19,6 +19,8 @@ export default async function VerifyIdentityPage() {
   const verifiedWith =
     user.nin.status === "verified" ? "NIN" : user.driversLicence?.status === "verified" ? "driver's licence" : null;
   const lastFailed = user.nin.status === "failed" || user.driversLicence?.status === "failed";
+  const pendingWith =
+    user.nin.status === "pending" ? "NIN" : user.driversLicence?.status === "pending" ? "driver's licence" : null;
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 py-12 sm:px-6 sm:py-16">
@@ -31,7 +33,15 @@ export default async function VerifyIdentityPage() {
         needed to apply for a property, book an inspection, or have a property you&apos;ve listed published.
       </p>
 
-      {verifiedWith ? (
+      {!verifiedWith && pendingWith ? (
+        <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <p className="font-medium">We&apos;ve received your {pendingWith}</p>
+          <p className="mt-1 text-foreground/70">
+            Reallow is checking it and will confirm your identity shortly — you&apos;ll get a notification as soon as
+            it&apos;s done. No need to submit it again.
+          </p>
+        </div>
+      ) : verifiedWith ? (
         <div className="mt-6 flex items-center gap-3 rounded-2xl border border-verified/40 bg-verified/5 p-4">
           <VerifiedBadge label="Verified" />
           <span className="text-sm text-foreground/70">Your identity is verified with your {verifiedWith}.</span>

@@ -28,7 +28,7 @@ export async function SiteFooter() {
       links: [
         { href: "/help", label: "Help centre" },
         { href: "/contact", label: "Contact us" },
-        { href: messageHref, label: "Message Reallow" },
+        { href: messageHref, label: "Message support" },
       ],
     },
     {

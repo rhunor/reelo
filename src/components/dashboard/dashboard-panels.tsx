@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import { MeetingsCalendar } from "@/components/dashboard/meetings-calendar";
 import { TransactionsPanel } from "@/components/dashboard/transactions-panel";
 import { WalletPanel } from "@/components/wallet-panel";
@@ -22,62 +23,61 @@ const PANEL_TITLE: Record<Panel, MessageKey> = {
   wallet: "dash.wallet",
 };
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+// Opens in place, directly under the row of buttons — no overlay, no blurred page.
+function InlinePanel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener("keydown", onKey);
-    };
+    // Bring it into view if it opened below the fold (e.g. from a notification link).
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect && rect.top > window.innerHeight * 0.8) ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center sm:p-6"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    <motion.div
+      ref={ref}
+      role="region"
+      aria-label={title}
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="mt-3 scroll-mt-24 rounded-3xl border border-clay/30 bg-surface shadow-sm"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:max-w-2xl sm:rounded-3xl"
-      >
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 hover:bg-foreground/5"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-              <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-        <div className="overflow-y-auto px-5 py-5">{children}</div>
+      <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+        <h2 className="font-semibold">{title}</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 hover:bg-foreground/5"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       </div>
-    </div>
+      <div className="px-4 py-5 sm:px-5">{children}</div>
+    </motion.div>
   );
 }
 
 const ICONS: Record<Panel, ReactNode> = {
   meetings: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
     </svg>
   ),
   transactions: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
       <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
     </svg>
   ),
   wallet: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
       <path strokeLinejoin="round" d="M3 7a2 2 0 0 1 2-2h13v4" />
       <rect x="3" y="7" width="18" height="13" rx="2" />
       <circle cx="16.5" cy="13.5" r="1.2" fill="currentColor" />
@@ -117,8 +117,8 @@ export function DashboardPanels({
     initialPanel && panels.includes(initialPanel) ? initialPanel : null,
   );
 
-  // Keep the open window in the URL (so a notification can deep-link into it) without a
-  // navigation — the window opens over the dashboard, never on a separate page.
+  // Keep the open panel in the URL (so a notification can deep-link into it) without a
+  // navigation — it opens in place on the dashboard, never on a separate page.
   function open(next: Panel | null) {
     setPanel(next);
     const url = new URL(window.location.href);
@@ -130,6 +130,8 @@ export function DashboardPanels({
     }
     window.history.replaceState(null, "", url);
   }
+
+  const close = useCallback(() => open(null), []);
 
   // Fixed for this render pass; the page refreshes after every action anyway.
   const [now] = useState(() => Date.now());
@@ -151,32 +153,45 @@ export function DashboardPanels({
 
   return (
     <>
-      <div className={`grid gap-2 sm:gap-3 ${tiles.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-        {tiles.map((tile) => (
-          <button
-            key={tile.panel}
-            type="button"
-            onClick={() => open(tile.panel)}
-            className="group relative flex flex-col items-start gap-3 rounded-2xl border border-line bg-surface p-3 text-left transition-all hover:-translate-y-0.5 hover:border-clay/50 hover:shadow-md sm:p-5"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-clay/10 text-clay">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Your account">
+        {tiles.map((tile) => {
+          const active = panel === tile.panel;
+          return (
+            <button
+              key={tile.panel}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-expanded={active}
+              onClick={() => open(active ? null : tile.panel)}
+              title={tile.caption}
+              className={`relative flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors ${
+                active
+                  ? "border-transparent bg-clay text-white shadow-sm"
+                  : "border-line hover:border-clay hover:text-clay"
+              }`}
+            >
               {ICONS[tile.panel]}
-            </span>
-            <span>
-              <span className="block text-sm font-semibold sm:text-base">{t(PANEL_TITLE[tile.panel])}</span>
-              <span className="mt-0.5 block text-[11px] text-foreground/50 sm:text-xs">{tile.caption}</span>
-            </span>
-            {tile.badge && (
-              <span className="absolute top-3 right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-[11px] font-semibold text-white">
-                {tile.badge}
-              </span>
-            )}
-          </button>
-        ))}
+              {t(PANEL_TITLE[tile.panel])}
+              {tile.panel === "wallet" && (
+                <span className={`font-mono text-xs ${active ? "text-white/80" : "text-foreground/50"}`}>{tile.caption}</span>
+              )}
+              {tile.badge && (
+                <span
+                  className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
+                    active ? "bg-white text-clay" : "bg-clay text-white"
+                  }`}
+                >
+                  {tile.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {panel && (
-        <Modal title={t(PANEL_TITLE[panel])} onClose={() => open(null)}>
+        <InlinePanel title={t(PANEL_TITLE[panel])} onClose={close}>
           {panel === "meetings" && (
             <MeetingsCalendar
               events={events}
@@ -196,7 +211,7 @@ export function DashboardPanels({
               hasBankDetails={hasBankDetails}
             />
           )}
-        </Modal>
+        </InlinePanel>
       )}
     </>
   );

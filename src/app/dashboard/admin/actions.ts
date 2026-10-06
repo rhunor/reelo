@@ -12,6 +12,7 @@ import {
   notifyVerificationVisitDeclined,
   notifyListingStatusChanged,
   notifyRoleChanged,
+  notifyIdentityVerified,
 } from "@/lib/notifications";
 import { isCustomerRole } from "@/lib/roles";
 import { SUPPORTED_STATES } from "@/lib/locations";
@@ -429,19 +430,18 @@ export async function adminVerifyUser(formData: FormData) {
 
   const { users } = await getCollections();
   const now = new Date();
+  const user = await users.findOne({ _id: new ObjectId(userId) }, { projection: { driversLicence: 1, nin: 1 } });
+  // Confirm whichever ID they submitted for review (NIN by default).
+  const field = user?.driversLicence?.status === "pending" && user.nin.status !== "pending" ? "driversLicence" : "nin";
 
   await users.updateOne(
     { _id: new ObjectId(userId) },
-    {
-      $set: {
-        "nin.status": "verified",
-        "nin.verifiedAt": now,
-        updatedAt: now,
-      },
-    },
+    { $set: { [`${field}.status`]: "verified", [`${field}.verifiedAt`]: now, updatedAt: now } },
   );
 
   await recomputeVerifiedBadge(new ObjectId(userId));
+  await notifyIdentityVerified(new ObjectId(userId));
+  revalidatePath(`/dashboard/admin/users/${userId}`);
 
   revalidatePath("/dashboard/admin/users");
 }

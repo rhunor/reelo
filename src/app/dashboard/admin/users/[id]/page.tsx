@@ -195,6 +195,32 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </div>
       </section>
 
+      {!user.verifiedBadge && (user.nin.status === "pending" || user.driversLicence?.status === "pending") && (
+        <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            <p className="font-semibold">ID waiting for verification</p>
+            <p className="mt-1 text-foreground/70">
+              {user.nin.status === "pending" ? (
+                <>
+                  NIN: <span className="font-mono">{user.nin.value}</span>
+                </>
+              ) : (
+                <>
+                  Driver&apos;s licence: <span className="font-mono">{user.driversLicence?.value}</span>
+                </>
+              )}{" "}
+              — check it matches <span className="font-medium">{user.name}</span>, then mark them verified.
+            </p>
+          </div>
+          <form action={adminVerifyUser}>
+            <input type="hidden" name="userId" value={id} />
+            <button type="submit" className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+              Mark verified
+            </button>
+          </form>
+        </section>
+      )}
+
       {/* Controls */}
       <section className="mt-4 flex flex-col gap-4 rounded-2xl border border-line p-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div>

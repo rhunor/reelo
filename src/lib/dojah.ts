@@ -5,6 +5,11 @@
 // Env: DOJAH_APP_ID, DOJAH_SECRET_KEY (Dashboard → Developers → Configuration), DOJAH_ENV.
 const BASE_URL = process.env.DOJAH_ENV === "production" ? "https://api.dojah.io" : "https://sandbox.dojah.io";
 
+// Until the keys are added, verification falls back to manual review (see kyc.ts).
+export function isDojahConfigured(): boolean {
+  return Boolean(process.env.DOJAH_APP_ID && process.env.DOJAH_SECRET_KEY);
+}
+
 export interface IdentityRecord {
   firstName?: string;
   lastName?: string;

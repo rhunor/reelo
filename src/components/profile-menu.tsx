@@ -11,12 +11,15 @@ export function ProfileMenu({
   email,
   pictureUrl,
   dashboardHref,
+  listPropertyHref,
   logout,
 }: {
   name: string;
   email: string;
   pictureUrl?: string;
   dashboardHref: string;
+  // Only for ordinary accounts — staff can't list properties.
+  listPropertyHref?: string;
   logout: () => Promise<void>;
 }) {
   const { t } = useI18n();
@@ -55,6 +58,15 @@ export function ProfileMenu({
               </svg>
               {t("nav.dashboard")}
             </Link>
+            {listPropertyHref && (
+              <Link href={listPropertyHref} onClick={close} className={itemClass}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 text-foreground/60">
+                  <path strokeLinejoin="round" d="M3 11l9-7 9 7v10H3V11Z" />
+                  <path strokeLinecap="round" d="M12 12v6M9 15h6" />
+                </svg>
+                {t("nav.listProperty")}
+              </Link>
+            )}
             <Link href="/dashboard/settings" onClick={close} className={itemClass}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 text-foreground/60">
                 <circle cx="12" cy="12" r="3" />

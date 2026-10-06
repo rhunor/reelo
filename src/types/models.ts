@@ -569,7 +569,8 @@ export type NotificationType =
   | "wallet_funded"
   | "report_new"
   | "listing_status_changed"
-  | "role_changed";
+  | "role_changed"
+  | "id_review";
 
 export type ReportTargetType = "user" | "listing";
 export type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
