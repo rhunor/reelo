@@ -93,3 +93,12 @@ h3,
 h4 {
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Top-of-screen page-loading bar (components/navigation-progress.tsx): races to ~70% and
+   creeps towards 90% until the new page arrives, then the component fills and fades it. */
+@keyframes nav-progress {
+  0% { width: 0%; }
+  15% { width: 45%; }
+  40% { width: 70%; }
+  100% { width: 90%; }
+}

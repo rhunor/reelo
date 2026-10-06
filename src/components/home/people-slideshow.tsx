@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { HomePhoto } from "@/lib/home-photos";
 
 const INTERVAL_MS = 5500;
+const SWIPE_PX = 40;
 
 export function PeopleSlideshow({ photos }: { photos: HomePhoto[] }) {
   const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
   const go = useCallback((next: number) => setIndex((next + photos.length) % photos.length), [photos.length]);
 
   useEffect(() => {
@@ -21,18 +23,48 @@ export function PeopleSlideshow({ photos }: { photos: HomePhoto[] }) {
 
   const photo = photos[index]!;
 
+  const dots = (
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Choose a photo">
+      {photos.map((p, i) => (
+        <button
+          key={p.src}
+          type="button"
+          role="tab"
+          aria-selected={i === index}
+          aria-label={p.caption}
+          onClick={() => go(i)}
+          className={`h-2 rounded-full transition-all ${i === index ? "w-8 bg-clay" : "w-2 bg-foreground/20 hover:bg-foreground/40"}`}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <div
-      className="grid items-stretch gap-6 lg:grid-cols-[1.35fr_1fr]"
+      className="grid gap-6 lg:grid-cols-[1.35fr_1fr]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
       aria-roledescription="carousel"
       aria-label="Who Reallow is for"
     >
-      <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-foreground/5 sm:aspect-[16/10]">
-        <AnimatePresence initial={false} mode="popLayout">
+      {/* Photo. A fixed height (not just an aspect ratio) — iOS Safari collapses an
+          aspect-ratio box whose children are all absolutely positioned inside a grid,
+          which is why the photos weren't showing on phones. */}
+      <div
+        className="relative h-[26rem] overflow-hidden rounded-3xl bg-foreground/5 sm:h-[28rem] lg:h-[30rem]"
+        onTouchStart={(event) => {
+          touchStartX.current = event.touches[0]!.clientX;
+          setPaused(true);
+        }}
+        onTouchEnd={(event) => {
+          const start = touchStartX.current;
+          touchStartX.current = null;
+          if (start === null) return;
+          const delta = event.changedTouches[0]!.clientX - start;
+          if (Math.abs(delta) > SWIPE_PX) go(index + (delta < 0 ? 1 : -1));
+        }}
+      >
+        <AnimatePresence initial={false}>
           <motion.div
             key={photo.src}
             className="absolute inset-0"
@@ -50,11 +82,15 @@ export function PeopleSlideshow({ photos }: { photos: HomePhoto[] }) {
               style={{ objectPosition: photo.position ?? "50% 50%" }}
               priority={index === 0}
             />
-            {/* Inside the keyed layer so the caption always fades with its own photo. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
-            <p className="absolute bottom-5 left-5 pr-28 font-display text-2xl font-semibold text-white drop-shadow sm:text-3xl">
-              {photo.caption}
-            </p>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5 pr-24 sm:p-6 sm:pr-28">
+              <p className="font-mono text-[11px] tracking-widest text-white/70 uppercase">
+                {String(index + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}
+              </p>
+              <p className="mt-1 font-display text-2xl font-semibold text-white drop-shadow sm:text-3xl">{photo.caption}</p>
+              {/* On phones the description sits on the photo — one card instead of two. */}
+              <p className="mt-1.5 text-sm leading-relaxed text-white/85 lg:hidden">{photo.detail}</p>
+            </div>
           </motion.div>
         </AnimatePresence>
         <div className="absolute right-4 bottom-4 flex gap-2">
@@ -77,38 +113,23 @@ export function PeopleSlideshow({ photos }: { photos: HomePhoto[] }) {
         </div>
       </div>
 
-      <div className="flex flex-col justify-between gap-6 rounded-3xl border border-line bg-surface p-6 sm:p-8">
-        <div>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={photo.caption}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.35 }}
-            >
-              <p className="font-mono text-xs tracking-widest text-clay uppercase">
-                {String(index + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}
-              </p>
-              <h3 className="mt-3 text-2xl font-semibold tracking-tight">{photo.caption}</h3>
-              <p className="mt-3 leading-relaxed text-foreground/70">{photo.detail}</p>
-            </motion.div>
-          </AnimatePresence>
-        </div>
+      <div className="flex justify-center lg:hidden">{dots}</div>
 
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Choose a photo">
-          {photos.map((p, i) => (
-            <button
-              key={p.src}
-              type="button"
-              role="tab"
-              aria-selected={i === index}
-              aria-label={p.caption}
-              onClick={() => go(i)}
-              className={`h-2 rounded-full transition-all ${i === index ? "w-8 bg-clay" : "w-2 bg-foreground/20 hover:bg-foreground/40"}`}
-            />
-          ))}
-        </div>
+      {/* Desktop: description panel beside the photo. */}
+      <div className="hidden flex-col justify-between gap-6 rounded-3xl border border-line bg-surface p-8 lg:flex">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={photo.caption}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.35 }}
+          >
+            <h3 className="text-2xl font-semibold tracking-tight">{photo.caption}</h3>
+            <p className="mt-3 leading-relaxed text-foreground/70">{photo.detail}</p>
+          </motion.div>
+        </AnimatePresence>
+        {dots}
       </div>
     </div>
   );

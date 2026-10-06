@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n-provider";
 import { LOCALE_COOKIE, LOCALES, type Locale } from "@/lib/i18n/dictionaries";
 
-export function LanguageSelect({ className = "" }: { className?: string }) {
+const SHORT: Record<Locale, string> = { en: "EN", yo: "YO", ha: "HA", ig: "IG", pcm: "PCM", urh: "URH" };
+
+// `compact` is the header version: globe + short code, full names in the dropdown.
+export function LanguageSelect({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   const router = useRouter();
   const { locale, t } = useI18n();
 
@@ -24,11 +27,16 @@ export function LanguageSelect({ className = "" }: { className?: string }) {
       <select
         value={locale}
         onChange={(event) => choose(event.target.value as Locale)}
-        className="rounded-md border border-line bg-transparent px-2 py-1 text-sm"
+        title={t("settings.language")}
+        className={
+          compact
+            ? "h-9 cursor-pointer rounded-full border border-line bg-transparent pr-1 pl-2 text-xs font-medium hover:border-clay"
+            : "rounded-md border border-line bg-transparent px-2 py-1 text-sm"
+        }
       >
         {LOCALES.map((option) => (
           <option key={option.code} value={option.code}>
-            {option.label}
+            {compact ? `${SHORT[option.code]} · ${option.label}` : option.label}
           </option>
         ))}
       </select>

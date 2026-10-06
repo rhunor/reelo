@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { PulseDot } from "@/components/reveal";
+import { useI18n } from "@/components/i18n-provider";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -38,6 +39,7 @@ const popIn: Variants = {
 
 export function HomeHero() {
   const reduceMotion = useReducedMotion();
+  const { t } = useI18n();
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-12 pb-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:pt-20 lg:pb-24">
@@ -52,17 +54,15 @@ export function HomeHero() {
           variants={reduceMotion ? undefined : hop}
           className="mt-4 text-5xl leading-[1.05] font-semibold tracking-tight sm:text-6xl"
         >
-          Rent or buy a verified home.
+          {t("home.heroTitle1")}
           <br />
-          <span className="text-clay">No agent. No surprises.</span>
+          <span className="text-clay">{t("home.heroTitle2")}</span>
         </motion.h1>
         <motion.p
           variants={reduceMotion ? undefined : fadeUp}
           className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70"
         >
-          Every property on Reallow is inspected in person and every landlord is identity-checked.
-          You see the full cost — to the naira — before you pay, and your money is held safely by
-          Reallow until you get your keys.
+          {t("home.heroBody")}
         </motion.p>
 
         <motion.div variants={reduceMotion ? undefined : popIn} className="mt-8 flex flex-wrap gap-4">
@@ -70,13 +70,13 @@ export function HomeHero() {
             href="/listings"
             className="flex h-12 items-center justify-center rounded-full bg-clay px-6 font-medium text-white transition-all hover:-translate-y-0.5 hover:opacity-90 hover:shadow-lg"
           >
-            Find a home
+            {t("home.ctaFind")}
           </Link>
           <Link
             href="/register?role=landlord"
             className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
           >
-            List your property — free
+            {t("home.ctaList")}
           </Link>
         </motion.div>
 
@@ -84,7 +84,7 @@ export function HomeHero() {
           variants={reduceMotion ? undefined : fadeUp}
           className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-foreground/70"
         >
-          {["Inspected in person", "NIN & BVN verified", "Every naira itemised"].map((point) => (
+          {[t("home.point1"), t("home.point2"), t("home.point3")].map((point) => (
             <li key={point} className="flex items-center gap-2">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-verified/15 text-[11px] text-verified">✓</span>
               {point}
@@ -100,7 +100,7 @@ export function HomeHero() {
           animate={reduceMotion ? undefined : { opacity: 1, x: 0, rotate: 0 }}
           transition={{ type: "spring", stiffness: 70, damping: 15, delay: 0.15 }}
         >
-          <div className="relative aspect-4/5 w-full overflow-hidden rounded-3xl">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl sm:aspect-4/5">
             <Image
               src="https://images.unsplash.com/photo-1757970326337-95d7cca56fa1?q=80&w=1400&auto=format&fit=crop"
               alt="Modern apartment building with balconies, the kind of verified listing found on Reallow"
@@ -113,15 +113,7 @@ export function HomeHero() {
             <PulseDot className="h-2 w-2 rounded-full bg-verified" />
             <span className="text-sm font-medium">Verified by Reallow</span>
           </div>
-          <div className="absolute right-4 bottom-4 left-4 rounded-2xl bg-surface/95 p-4 shadow-xl backdrop-blur sm:right-6 sm:bottom-6 sm:left-auto sm:w-72">
-            <p className="text-xs text-foreground/50">2-bedroom flat · Effurun</p>
-            <dl className="mt-2 flex flex-col gap-1 text-sm">
-              <div className="flex justify-between"><dt className="text-foreground/60">Rent</dt><dd className="font-mono">₦900,000</dd></div>
-              <div className="flex justify-between"><dt className="text-foreground/60">Caution fee</dt><dd className="font-mono">₦100,000</dd></div>
-              <div className="flex justify-between"><dt className="text-foreground/60">Service charge (10%)</dt><dd className="font-mono">₦90,000</dd></div>
-              <div className="mt-1 flex justify-between border-t border-line pt-1.5 font-semibold"><dt>Total</dt><dd className="font-mono">₦1,090,000</dd></div>
-            </dl>
-          </div>
+
         </motion.div>
       </div>
     </section>

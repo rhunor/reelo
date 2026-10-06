@@ -5,12 +5,11 @@ import { HomeHero } from "@/components/home-hero";
 import { PeopleSlideshow } from "@/components/home/people-slideshow";
 import { FaqList } from "@/components/faq-list";
 import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
-import { computeListingCostBreakdown, formatRate } from "@/lib/fees";
+import { formatRate, getServiceChargeRate } from "@/lib/fees";
 import { FAQ_TOPICS } from "@/lib/faqs";
 import { PEOPLE_PHOTOS } from "@/lib/home-photos";
 import { APP_LINKS } from "@/lib/app-links";
-
-const naira = (n: number) => `₦${n.toLocaleString()}`;
+import { getT } from "@/lib/i18n/server";
 
 function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: ReactNode; intro?: ReactNode }) {
   return (
@@ -47,16 +46,8 @@ const ICON = {
   home: "M3 11l9-7 9 7v10H3V11Zm6 10v-6h6v6",
 };
 
-export default function Home() {
-  // A real breakdown from the same function every listing uses, so the example can never
-  // drift from what people are actually charged.
-  const example = computeListingCostBreakdown({
-    listingType: "rent",
-    priceNGN: 1_200_000,
-    cautionFeeNGN: 120_000,
-    estateChargeNGN: 60_000,
-  });
-  const saleExample = computeListingCostBreakdown({ listingType: "sale", priceNGN: 25_000_000 });
+export default async function Home() {
+  const t = await getT();
   const faqs = FAQ_TOPICS.flatMap((t) => t.faqs).filter((f) =>
     [
       "What will I pay in total?",
@@ -72,20 +63,20 @@ export default function Home() {
 
       {/* Reallow is for everybody */}
       <section className="border-t border-line bg-foreground/[0.02]">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
           <SectionHeading
-            eyebrow="Reallow is for everybody"
-            title="Whoever you are, wherever you work — there's a verified home for you."
+            eyebrow={t("home.everyoneEyebrow")}
+            title={t("home.everyoneTitle")}
             intro="Market traders, mechanics, office workers, students, artisans, families. Reallow was built for everyday Nigerians who are tired of fake listings, endless agent fees, and money that disappears."
           />
-          <div className="mt-10">
+          <div className="mt-8 sm:mt-10">
             <PeopleSlideshow photos={PEOPLE_PHOTOS} />
           </div>
         </div>
       </section>
 
-      {/* Old way vs Reallow */}
-      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+      {/* Old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
+      <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
           eyebrow="Why Reallow"
           title="House-hunting in Nigeria shouldn't feel like a gamble."
@@ -131,9 +122,9 @@ export default function Home() {
 
       {/* How it works */}
       <section className="border-y border-line bg-foreground/[0.02]">
-        <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-          <SectionHeading eyebrow="How it works" title="Simple steps, whichever side you're on." />
-          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
+          <SectionHeading eyebrow={t("home.howEyebrow")} title={t("home.howTitle")} />
+          <div className="mt-8 grid gap-6 sm:mt-12 lg:grid-cols-2">
             {[
               {
                 title: "Renting or buying",
@@ -184,24 +175,24 @@ export default function Home() {
       </section>
 
       {/* Transparency */}
-      <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
+      <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
         <div>
           <SectionHeading
-            eyebrow="Total transparency"
-            title="What you see is exactly what you pay."
+            eyebrow={t("home.transparencyEyebrow")}
+            title={t("home.transparencyTitle")}
             intro={
               <>
-                Every listing shows the full breakdown before you commit. Reallow&apos;s only charge is a flat service
-                charge — {formatRate(example.serviceChargeRate)} of the annual rent on a tenancy,{" "}
-                {formatRate(saleExample.serviceChargeRate)} of the price on a sale — paid on top, never taken out of the
+                Every listing shows exactly what you&apos;ll pay before you commit. Reallow&apos;s only charge is a flat service
+                charge — {formatRate(getServiceChargeRate("rent"))} of the annual rent on a tenancy,{" "}
+                {formatRate(getServiceChargeRate("sale"))} of the price on a sale — paid on top, never taken out of the
                 owner&apos;s money.
               </>
             }
           />
-          <RevealGroup className="mt-8 grid gap-3 sm:grid-cols-2">
+          <RevealGroup className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["No agent commission", "No “agreement fee”, “legal fee” or “knocking fee”."],
-              ["No surprise charges", "If it's not on the breakdown, you don't pay it."],
+              ["No surprise charges", "If it isn't shown before you pay, you don't pay it."],
               ["Owners get the full amount", "Rent, caution fee and estate charge go to the landlord."],
               ["Every payment receipted", "Every naira is recorded in your transaction history."],
             ].map(([title, body]) => (
@@ -213,47 +204,11 @@ export default function Home() {
           </RevealGroup>
         </div>
 
-        <Reveal direction="right">
-          <div className="relative mx-auto max-w-md rounded-3xl border border-line bg-surface p-6 shadow-xl sm:p-8">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">Example: 3-bedroom flat, Abuja</p>
-              <span className="rounded-full bg-verified/10 px-2.5 py-0.5 text-xs font-medium text-verified">Verified</span>
-            </div>
-            <dl className="mt-6 flex flex-col gap-3 text-sm">
-              {[
-                ["Rent (per year)", example.priceNGN],
-                ["Caution fee", example.cautionFeeNGN],
-                ["Estate charge", example.estateChargeNGN],
-                [`Reallow service charge (${formatRate(example.serviceChargeRate)})`, example.serviceChargeNGN],
-              ].map(([label, amount]) => (
-                <div key={label as string} className="flex justify-between gap-4">
-                  <dt className="text-foreground/70">{label}</dt>
-                  <dd className="font-mono">{naira(amount as number)}</dd>
-                </div>
-              ))}
-              <div className="mt-2 flex justify-between gap-4 border-t border-dashed border-line pt-4 text-base font-semibold">
-                <dt>Total you pay</dt>
-                <dd className="font-mono">{naira(example.totalNGN)}</dd>
-              </div>
-            </dl>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-verified/10 p-3">
-                <p className="text-xs text-foreground/60">Landlord receives</p>
-                <p className="mt-0.5 font-mono font-semibold">{naira(example.toOwnerNGN)}</p>
-              </div>
-              <div className="rounded-2xl bg-foreground/5 p-3">
-                <p className="text-xs text-foreground/60">Reallow&apos;s charge</p>
-                <p className="mt-0.5 font-mono font-semibold">{naira(example.toReallowNGN)}</p>
-              </div>
-            </div>
-            <p className="mt-4 text-center text-xs text-foreground/50">Held safely by Reallow until the keys are handed over.</p>
-          </div>
-        </Reveal>
       </section>
 
       {/* Landlord pitch */}
       <section className="border-y border-white/10 bg-[#1b1611] text-[#f5efe6]">
-        <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
+        <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-2 lg:items-center">
           <Reveal direction="left" className="relative order-last aspect-[4/3] overflow-hidden rounded-3xl lg:order-first">
             <Image
               src="https://images.unsplash.com/photo-1757970326337-95d7cca56fa1?q=80&w=1200&auto=format&fit=crop"
@@ -264,9 +219,9 @@ export default function Home() {
             />
           </Reveal>
           <div>
-            <p className="font-mono text-xs tracking-widest text-[#ec8a5e] uppercase">For landlords &amp; sellers</p>
+            <p className="font-mono text-xs tracking-widest text-[#ec8a5e] uppercase">{t("home.landlordEyebrow")}</p>
             <h2 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
-              Fill your property with people you can trust.
+              {t("home.landlordTitle")}
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-[#f5efe6]/70">
               Listing is free, and you keep every naira of your asking price. Reallow verifies your tenants, arranges every
@@ -289,14 +244,14 @@ export default function Home() {
               href="/register?role=landlord"
               className="mt-8 inline-flex h-12 items-center rounded-full bg-[#e8774a] px-6 font-medium text-white hover:opacity-90"
             >
-              List your property — free
+              {t("home.ctaList")}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Safety */}
-      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+      {/* Safety — desktop/tablet only */}
+      <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
           eyebrow="Safety, built in"
           title="Protected at every step."
@@ -322,11 +277,11 @@ export default function Home() {
 
       {/* Referrals */}
       <section className="border-y border-line bg-gradient-to-br from-clay/[0.1] via-gold/[0.06] to-transparent">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_1fr] lg:items-center">
           <div>
             <SectionHeading
-              eyebrow="Refer & earn"
-              title="Share Reallow. Earn when your people move in."
+              eyebrow={t("home.referEyebrow")}
+              title={t("home.referTitle")}
               intro="Every account comes with a personal referral code. When someone signs up with your code and completes a deal on Reallow, you earn a percentage of the sale — straight into your Reallow wallet."
             />
             <div className="mt-8 flex flex-wrap gap-3">
@@ -359,8 +314,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Everything in one place */}
-      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+      {/* Everything in one place — desktop/tablet only */}
+      <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
           eyebrow="Everything in one place"
           title="Your whole move, managed from one dashboard."
@@ -387,9 +342,9 @@ export default function Home() {
 
       {/* FAQs */}
       <section className="border-t border-line bg-foreground/[0.02]">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.4fr]">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1fr_1.4fr]">
           <div>
-            <SectionHeading eyebrow="Questions" title="Good to know." />
+            <SectionHeading eyebrow="FAQ" title={t("home.faqTitle")} />
             <Link href="/help" className="mt-6 inline-block text-sm font-medium text-clay hover:underline">
               Visit the help centre →
             </Link>
@@ -401,7 +356,7 @@ export default function Home() {
       </section>
 
       {/* Get the app */}
-      <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+      <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
         <Reveal className="relative overflow-hidden rounded-[2rem] bg-clay px-6 py-12 text-white sm:px-12 sm:py-16">
           <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-white/10" />
           <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-white/5" />
@@ -409,7 +364,7 @@ export default function Home() {
             <div>
               <p className="font-mono text-xs tracking-widest uppercase opacity-80">Get the Reallow app</p>
               <h2 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
-                Your next home, in your pocket.
+                {t("home.appTitle")}
               </h2>
               <p className="mt-4 max-w-lg text-lg leading-relaxed opacity-90">
                 Browse verified listings, get notified the moment you&apos;re accepted, and manage your meetings and
@@ -445,18 +400,18 @@ export default function Home() {
 
       {/* Final CTA */}
       <section className="border-t border-line">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 py-20 text-center sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-20">
           <Reveal>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">Ready to move — the honest way?</h2>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">{t("home.finalTitle")}</h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-foreground/70">
-              Join Reallow free today. Verified homes, itemised costs, and a team that has your back.
+              Join Reallow free today. Verified homes, honest prices, and a team that has your back.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href="/register" className="flex h-12 items-center rounded-full bg-clay px-7 font-medium text-white hover:opacity-90">
-                Create a free account
+                {t("home.finalCta")}
               </Link>
               <Link href="/listings" className="flex h-12 items-center rounded-full border border-line px-7 font-medium hover:border-clay hover:text-clay">
-                Browse properties
+                {t("home.ctaFind")}
               </Link>
             </div>
           </Reveal>

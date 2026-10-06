@@ -8,7 +8,9 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PageTransition } from "@/components/page-transition";
+import { Suspense } from "react";
 import { I18nProvider } from "@/components/i18n-provider";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { getLocale } from "@/lib/i18n/server";
 import { LOCALES, clientMessages } from "@/lib/i18n/dictionaries";
 
@@ -36,6 +38,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col font-sans">
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <I18nProvider locale={locale} messages={clientMessages(locale)}>
           <SiteHeader />
           <main className="flex flex-1 flex-col">

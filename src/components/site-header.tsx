@@ -4,6 +4,7 @@ import { auth, signOut } from "@/auth";
 import { ReallowLogo } from "@/components/reallow-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNav } from "@/components/mobile-nav";
+import { LanguageSelect } from "@/components/language-select";
 import { getCollections } from "@/lib/db";
 import { getT } from "@/lib/i18n/server";
 
@@ -110,6 +111,7 @@ export async function SiteHeader() {
           ) : (
             guestLinks
           )}
+          <LanguageSelect compact />
           <ThemeToggle />
           {accountControls}
         </div>
@@ -118,6 +120,7 @@ export async function SiteHeader() {
           <ThemeToggle />
           {accountControls}
           <MobileNav>
+            <LanguageSelect />
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="hover:text-clay">
                 {link.label}

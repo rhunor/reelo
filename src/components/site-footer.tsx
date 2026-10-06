@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import { LanguageSelect } from "@/components/language-select";
 import { ReallowFullLogo } from "@/components/reallow-logo";
 import { SocialIcons } from "@/components/social-icons";
 import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-info";
@@ -90,7 +89,6 @@ export async function SiteFooter() {
 
         <div className="mt-10 flex flex-col gap-4 border-t border-line pt-6 text-xs text-foreground/50 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Reallow. All rights reserved.</p>
-          <LanguageSelect />
         </div>
       </div>
     </footer>
