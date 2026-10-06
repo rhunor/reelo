@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Reveal, RevealGroup, RevealItem, HoverLift, PulseDot } from "@/components/reveal";
+import { auth } from "@/auth";
+import { ctaLinks } from "@/lib/cta-links";
 
 export const metadata = { title: "About — Reallow" };
 
@@ -42,7 +44,8 @@ const values = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const links = ctaLinks(await auth());
   return (
     <div className="flex-1">
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-6 py-16 lg:grid-cols-2 lg:items-center lg:py-24">
@@ -65,7 +68,7 @@ export default function AboutPage() {
               Browse listings
             </Link>
             <Link
-              href="/register?role=landlord"
+              href={links.listProperty}
               className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
             >
               List your property
@@ -257,7 +260,7 @@ export default function AboutPage() {
               Browse listings
             </Link>
             <Link
-              href="/register?role=landlord"
+              href={links.listProperty}
               className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
             >
               List your property

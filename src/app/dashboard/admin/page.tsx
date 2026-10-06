@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ensureReferralCode } from "@/lib/referrals";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
@@ -20,8 +21,10 @@ export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { properties, users, tickets, agreements, withdrawalRequests, reports } = await getCollections();
-  const me = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!me) redirect("/login");
+  const found = await users.findOne({ _id: new ObjectId(session.user.id) });
+  if (!found) redirect("/login");
+  // Older accounts predate referral codes — give them one now.
+  const me = await ensureReferralCode(found);
   const [pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount] = await Promise.all([
     properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray(),
     tickets.countDocuments({ status: { $in: ["open", "in_progress"] } }),

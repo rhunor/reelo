@@ -37,7 +37,7 @@ const popIn: Variants = {
   show: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 280, damping: 16 } },
 };
 
-export function HomeHero() {
+export function HomeHero({ listPropertyHref = "/register?role=landlord" }: { listPropertyHref?: string }) {
   const reduceMotion = useReducedMotion();
   const { t } = useI18n();
 
@@ -73,7 +73,7 @@ export function HomeHero() {
             {t("home.ctaFind")}
           </Link>
           <Link
-            href="/register?role=landlord"
+            href={listPropertyHref}
             className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
           >
             {t("home.ctaList")}

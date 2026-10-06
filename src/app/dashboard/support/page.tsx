@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ensureReferralCode } from "@/lib/referrals";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -12,8 +13,10 @@ export default async function SupportDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { tickets, users } = await getCollections();
-  const me = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!me) redirect("/login");
+  const found = await users.findOne({ _id: new ObjectId(session.user.id) });
+  if (!found) redirect("/login");
+  // Older accounts predate referral codes — give them one now.
+  const me = await ensureReferralCode(found);
   const [openTickets, inProgressCount, resolvedCount] = await Promise.all([
     tickets.find({ status: { $in: ["open", "in_progress"] } }).sort({ updatedAt: -1 }).toArray(),
     tickets.countDocuments({ status: "in_progress" }),

@@ -4,6 +4,7 @@ import { ReallowFullLogo } from "@/components/reallow-logo";
 import { SocialIcons } from "@/components/social-icons";
 import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-info";
 import { isStaffRole } from "@/lib/roles";
+import { ctaLinks } from "@/lib/cta-links";
 
 export async function SiteFooter() {
   const session = await auth();
@@ -19,7 +20,7 @@ export async function SiteFooter() {
         { href: "/", label: "Home" },
         { href: "/listings", label: "Listings" },
         { href: "/about", label: "About Reallow" },
-        { href: "/register?role=landlord", label: "List your property" },
+        { href: ctaLinks(session).listProperty, label: "List your property" },
       ],
     },
     {

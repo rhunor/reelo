@@ -1,3 +1,4 @@
+import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
 import type { UserRole } from "@/types/models";
@@ -39,4 +40,22 @@ export async function generateReferralCode(firstName: string): Promise<string> {
 
   // Astronomically unlikely to ever reach here, but never leave a user without a code.
   return `${base}${Date.now().toString(36).toUpperCase()}`;
+}
+
+// Every account gets a referral code — verified or not, any role. Accounts created before
+// referrals existed have none, so dashboards call this to backfill one on first visit.
+// The update only applies if the account still has no code, so two tabs loading at once
+// can't hand out two different codes; the stored value is returned either way.
+export async function ensureReferralCode<T extends { _id?: ObjectId; referralCode?: string; firstName?: string; name: string }>(
+  user: T,
+): Promise<T> {
+  if (user.referralCode || !user._id) return user;
+  const { users } = await getCollections();
+  const code = await generateReferralCode(user.firstName ?? user.name.split(" ")[0] ?? "REALLOW");
+  await users.updateOne(
+    { _id: user._id, $or: [{ referralCode: { $exists: false } }, { referralCode: "" }] },
+    { $set: { referralCode: code } },
+  );
+  const saved = await users.findOne({ _id: user._id }, { projection: { referralCode: 1 } });
+  return { ...user, referralCode: saved?.referralCode ?? code };
 }

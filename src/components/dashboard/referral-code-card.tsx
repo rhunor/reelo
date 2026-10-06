@@ -16,7 +16,7 @@ export function ReferralCodeCard({ code }: { code: string }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div id="referral-code" className="flex scroll-mt-24 flex-wrap items-center gap-2">
       <span className="text-xs text-foreground/50">{t("dash.referralCode")}</span>
       <button
         type="button"

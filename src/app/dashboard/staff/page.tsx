@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ensureReferralCode } from "@/lib/referrals";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
@@ -51,8 +52,10 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   const { all } = await searchParams;
 
   const { properties, users, inspectionBookings, meetings, meetingFeedback } = await getCollections();
-  const me = await users.findOne({ _id: new ObjectId(session.user.id) });
-  if (!me) redirect("/login");
+  const found = await users.findOne({ _id: new ObjectId(session.user.id) });
+  if (!found) redirect("/login");
+  // Older accounts predate referral codes — give them one now.
+  const me = await ensureReferralCode(found);
   // Staff earn referral commissions too, so they get the same wallet and history windows.
   const money = await loadDashboardData(session.user.id, []);
   // Staff see their own city by default; "Show all cities" lifts the filter.

@@ -1,5 +1,6 @@
 // Shared between the footer and the /contact page, so there's one place to update these.
 export const SOCIAL_LINKS = [
+  { label: "Facebook", href: "https://www.facebook.com/reallowofficial/" },
   { label: "X", href: "https://x.com/reallowofficial?s=11" },
   {
     label: "Instagram",

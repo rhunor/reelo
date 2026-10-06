@@ -10,6 +10,8 @@ import { FAQ_TOPICS } from "@/lib/faqs";
 import { PEOPLE_PHOTOS } from "@/lib/home-photos";
 import { APP_LINKS } from "@/lib/app-links";
 import { getT } from "@/lib/i18n/server";
+import { auth } from "@/auth";
+import { ctaLinks } from "@/lib/cta-links";
 
 function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: ReactNode; intro?: ReactNode }) {
   return (
@@ -48,6 +50,7 @@ const ICON = {
 
 export default async function Home() {
   const t = await getT();
+  const links = ctaLinks(await auth());
   const faqs = FAQ_TOPICS.flatMap((t) => t.faqs).filter((f) =>
     [
       "What will I pay in total?",
@@ -59,7 +62,7 @@ export default async function Home() {
 
   return (
     <div className="flex-1">
-      <HomeHero />
+      <HomeHero listPropertyHref={links.listProperty} />
 
       {/* Reallow is for everybody */}
       <section className="border-t border-line bg-foreground/[0.02]">
@@ -138,7 +141,7 @@ export default async function Home() {
               },
               {
                 title: "Letting or selling",
-                cta: { href: "/register?role=landlord", label: "List your property" },
+                cta: { href: links.listProperty, label: "List your property" },
                 steps: [
                   ["List your property — free", "Add photos and details, review your cost breakdown, and confirm."],
                   ["We verify it in person", "A Reallow agent visits at a time you confirm. Then your listing goes live."],
@@ -241,7 +244,7 @@ export default async function Home() {
               ))}
             </RevealGroup>
             <Link
-              href="/register?role=landlord"
+              href={links.listProperty}
               className="mt-8 inline-flex h-12 items-center rounded-full bg-[#e8774a] px-6 font-medium text-white hover:opacity-90"
             >
               {t("home.ctaList")}
@@ -285,8 +288,8 @@ export default async function Home() {
               intro="Every account comes with a personal referral code. When someone signs up with your code and completes a deal on Reallow, you earn a percentage of the sale — straight into your Reallow wallet."
             />
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register" className="flex h-12 items-center rounded-full bg-clay px-6 font-medium text-white hover:opacity-90">
-                Get your referral code
+              <Link href={links.referralCode} className="flex h-12 items-center rounded-full bg-clay px-6 font-medium text-white hover:opacity-90">
+                {links.signedIn ? "See your referral code" : "Get your referral code"}
               </Link>
               <Link
                 href="/help#referrals"
@@ -407,8 +410,8 @@ export default async function Home() {
               Join Reallow free today. Verified homes, honest prices, and a team that has your back.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/register" className="flex h-12 items-center rounded-full bg-clay px-7 font-medium text-white hover:opacity-90">
-                {t("home.finalCta")}
+              <Link href={links.account} className="flex h-12 items-center rounded-full bg-clay px-7 font-medium text-white hover:opacity-90">
+                {links.signedIn ? t("nav.dashboard") : t("home.finalCta")}
               </Link>
               <Link href="/listings" className="flex h-12 items-center rounded-full border border-line px-7 font-medium hover:border-clay hover:text-clay">
                 {t("home.ctaFind")}

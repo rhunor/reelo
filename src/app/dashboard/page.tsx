@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ensureReferralCode } from "@/lib/referrals";
 import { redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -47,12 +48,13 @@ export default async function DashboardPage({
   const t = await getT();
   const { users, properties, tickets } = await getCollections();
   const userId = new ObjectId(session.user.id);
-  const [user, listings, unreadReplies] = await Promise.all([
+  const [found, listings, unreadReplies] = await Promise.all([
     users.findOne({ _id: userId }),
     properties.find({ landlordId: userId }).sort({ createdAt: -1 }).toArray(),
     tickets.countDocuments({ userId, unreadReplyForUser: true }),
   ]);
-  if (!user) redirect("/login");
+  if (!found) redirect("/login");
+  const user = await ensureReferralCode(found);
 
   const data = await loadDashboardData(session.user.id, listings);
   const savedListings = user.savedListingIds?.length
