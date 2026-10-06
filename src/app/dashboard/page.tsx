@@ -177,9 +177,38 @@ export default async function DashboardPage({
         </section>
       )}
 
-      {listings.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold">{t("dash.yourProperties")}</h2>
+      <section className="mt-10">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">
+            {t("dash.yourProperties")}
+            {listings.length > 0 && <span className="ml-1.5 font-normal text-foreground/50">{listings.length}</span>}
+          </h2>
+          {listings.length > 0 && (
+            <Link href="/dashboard/landlord/listings/new" className="text-sm font-medium text-clay hover:underline">
+              + List another property
+            </Link>
+          )}
+        </div>
+        {listings.length === 0 ? (
+          <div className="mt-3 flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clay/10 text-clay" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" className="h-6 w-6">
+                <path d="M3 11l9-7 9 7v10H3V11Zm6 10v-6h6v6" />
+              </svg>
+            </span>
+            <p className="mt-3 font-medium">No property listed yet</p>
+            <p className="mt-1 max-w-sm text-sm text-foreground/60">
+              Have a room, flat or house to rent out or sell? List it free — Reallow verifies it and finds you verified
+              applicants.
+            </p>
+            <Link
+              href="/dashboard/landlord/listings/new"
+              className="mt-4 flex h-10 items-center rounded-full bg-clay px-5 text-sm font-medium text-white hover:opacity-90"
+            >
+              List a property
+            </Link>
+          </div>
+        ) : (
           <div className="mt-3 flex flex-col divide-y divide-line rounded-2xl border border-line">
             {listings.map((listing) => {
               const status = STATUS[listing.status];
@@ -261,8 +290,8 @@ export default async function DashboardPage({
               );
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }
