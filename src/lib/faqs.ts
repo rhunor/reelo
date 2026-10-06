@@ -14,7 +14,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
     faqs: [
       {
         q: "How do I apply for a property?",
-        a: "Open the listing and tap “Apply for this property” (or “Save for later” to come back to it). You need a verified identity (NIN and BVN) to apply. The landlord sees what you've chosen to share on your profile and accepts or declines — we notify you either way.",
+        a: "Open the listing and tap “Apply for this property” (or “Save for later” to come back to it). You need a verified identity (NIN or driver's licence) to apply. The landlord sees what you've chosen to share on your profile and accepts or declines — we notify you either way.",
       },
       {
         q: "What will I pay in total?",
@@ -98,7 +98,7 @@ export const FAQ_TOPICS: FaqTopic[] = [
     faqs: [
       {
         q: "Why do I need to verify my identity?",
-        a: "Verifying your NIN and BVN keeps everyone on Reallow real. It's required to apply for a property, book an inspection, or get a listing published.",
+        a: "Verifying your NIN or driver's licence keeps everyone on Reallow real. It's required to apply for a property, book an inspection, or get a listing published.",
       },
       {
         q: "How do I change my email, phone, or password?",

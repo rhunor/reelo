@@ -1,4 +1,5 @@
 "use server";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
@@ -419,10 +420,9 @@ export async function declineVerificationInspection(formData: FormData) {
   revalidatePath("/dashboard/admin");
 }
 
-// Testing-only bypass for the real Youverify NIN/BVN calls — lets staff verify an account
-// manually so the verified-user flows (applying for a listing, booking inspections) can be
-// exercised without a live third-party check. Mirrors the exact status shape the real
-// verify-nin/verify-bvn routes set.
+// Testing-only bypass for the real Dojah ID check — lets an admin verify an account manually
+// so the verified-user flows (applying for a listing, booking inspections) can be exercised
+// without a live lookup. Marks the NIN verified, which is enough for the badge.
 export async function adminVerifyUser(formData: FormData) {
   await requireAdmin();
   const userId = formData.get("userId") as string;
@@ -436,8 +436,6 @@ export async function adminVerifyUser(formData: FormData) {
       $set: {
         "nin.status": "verified",
         "nin.verifiedAt": now,
-        "bvn.status": "verified",
-        "bvn.verifiedAt": now,
         updatedAt: now,
       },
     },
@@ -547,8 +545,8 @@ export async function createStaffAccount(
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { status: "error", message: "Enter a valid email address." };
   }
-  if (password.length < 8) {
-    return { status: "error", message: "The password needs at least 8 characters." };
+  if (!isStrongPassword(password)) {
+    return { status: "error", message: PASSWORD_POLICY_MESSAGE };
   }
 
   const { users } = await getCollections();

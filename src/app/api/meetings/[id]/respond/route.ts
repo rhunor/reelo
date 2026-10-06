@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canActAsLandlord } from "@/lib/reallow-landlord";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -34,7 +35,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!meeting) {
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
-  const side = meetingSide(meeting, session.user.id);
+  // Admins answer on the landlord side for Reallow-owned listings.
+  const side =
+    meetingSide(meeting, session.user.id) ??
+    ((await canActAsLandlord(meeting.landlordId, session.user)) ? ("landlord" as const) : null);
   if (!side) {
     return NextResponse.json({ error: "Not your meeting" }, { status: 403 });
   }

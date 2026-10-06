@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canActAsLandlord } from "@/lib/reallow-landlord";
 import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -31,7 +32,9 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   const ticket = await tickets.findOne({ _id: new ObjectId(id) });
   if (!ticket?.listingId) notFound();
   const listing = await properties.findOne({ _id: ticket.listingId });
-  if (!listing || listing.landlordId.toString() !== session.user.id) notFound();
+  if (!listing || !(await canActAsLandlord(listing.landlordId, session.user))) notFound();
+  // An admin reviewing on behalf of Reallow (the listing's owner), not the landlord themselves.
+  const onBehalfOfReallow = listing.landlordId.toString() !== session.user.id;
 
   const applicant = await users.findOne({ _id: ticket.userId });
   if (!applicant) notFound();
@@ -68,9 +71,17 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6">
-      <Link href="/dashboard/landlord/candidates" className="text-sm text-foreground/60 hover:text-clay">
+      <Link
+        href={onBehalfOfReallow ? "/dashboard/admin/applications" : "/dashboard/landlord/candidates"}
+        className="text-sm text-foreground/60 hover:text-clay"
+      >
         ← All applications
       </Link>
+      {onBehalfOfReallow && (
+        <p className="mt-3 rounded-xl border border-clay/30 bg-clay/5 px-3 py-2 text-xs">
+          This property is listed by Reallow — you&apos;re reviewing as the landlord on Reallow&apos;s behalf.
+        </p>
+      )}
 
       <p className="mt-6 text-xs text-foreground/50">
         Application for{" "}
@@ -128,7 +139,16 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           email, and can&apos;t message each other — Reallow arranges everything.
         </p>
         <PreferCandidateButton ticketId={ticket._id!.toString()} decision={decision} />
-        {decision === "approved" && (
+        {decision === "approved" && onBehalfOfReallow && (
+          <p className="mt-4 text-xs text-foreground/60">
+            The applicant can now book an inspection or meeting. Their requests appear in{" "}
+            <Link href="/dashboard/admin/applications" className="text-clay underline">
+              Admin → Applications
+            </Link>{" "}
+            for you to accept, decline or reschedule.
+          </p>
+        )}
+        {decision === "approved" && !onBehalfOfReallow && (
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href={`/dashboard?panel=meetings&ticket=${ticket._id}&kind=inspection`}

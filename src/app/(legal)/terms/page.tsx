@@ -29,7 +29,7 @@ export default function TermsPage() {
             <li>Be at least 18 years of age;</li>
             <li>Have the legal capacity to enter into binding contracts under Nigerian law;</li>
             <li>Not be prohibited from using the Platform under applicable law; and</li>
-            <li>Provide a genuine National Identification Number (NIN) and Bank Verification Number (BVN) that belong to you.</li>
+            <li>Verify your identity with a genuine National Identification Number (NIN) or driver&apos;s licence that belongs to you.</li>
           </ul>
         </section>
 
@@ -37,15 +37,15 @@ export default function TermsPage() {
           <h2 className="font-display text-lg font-semibold text-foreground">3. Account Registration</h2>
           <p className="mt-2">One Reallow account can both list a property and apply for one — what you can do depends on the action you take, not a fixed category you were sorted into at signup. When you register, you agree to:</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>Provide accurate, current, and complete information, including your legal name, contact details, NIN, and BVN;</li>
+            <li>Provide accurate, current, and complete information, including your legal name, contact details, and NIN or driver&apos;s licence number;</li>
             <li>Keep your account information up to date;</li>
             <li>Maintain the security of your login credentials and accept responsibility for activity under your account; and</li>
             <li>Notify Reallow immediately of any unauthorized access to your account.</li>
           </ul>
           <p className="mt-2">
-            The name on your NIN, BVN, bank account, and profile must all match. Reallow will not
+            The name on your verified ID, bank account, and profile must all match. Reallow will not
             release any payment to a name that does not correspond with your verified identity.
-            Each NIN and BVN, and each phone number and email address, may only be linked to one
+            Each NIN, driver&apos;s licence, phone number, and email address may only be linked to one
             Reallow account.
           </p>
         </section>

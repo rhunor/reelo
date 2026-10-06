@@ -185,7 +185,7 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
         <p className="text-sm font-medium">Bank details</p>
         <p className="mt-1 text-xs text-foreground/50">
           Never shown to other users — used only to verify your identity for payouts. The name on
-          your bank account must match your NIN and BVN.
+          your bank account must match your verified ID.
         </p>
         <div className="mt-3 flex flex-col gap-3">
           <input

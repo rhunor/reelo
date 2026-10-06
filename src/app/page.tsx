@@ -233,7 +233,7 @@ export default async function Home() {
             <RevealGroup className="mt-8 grid gap-4 sm:grid-cols-2">
               {[
                 ["Free to list", "No listing fee, no subscription."],
-                ["Verified applicants only", "Every applicant's NIN and BVN is checked."],
+                ["Verified applicants only", "Every applicant's identity is checked against government records."],
                 ["We handle the viewings", "Reallow's agents bring applicants to you."],
                 ["Paid in full, on record", "Your full amount, paid out by Reallow."],
               ].map(([title, body]) => (
@@ -263,7 +263,7 @@ export default async function Home() {
         <RevealGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             [ICON.home, "Inspected in person", "A Reallow agent visits, films and photographs every property before it's published."],
-            [ICON.shield, "Identity-verified users", "Landlords and applicants verify their NIN and BVN — no anonymous accounts."],
+            [ICON.shield, "Identity-verified users", "Landlords and applicants verify their NIN or driver's licence — no anonymous accounts."],
             [ICON.lock, "Your details stay private", "Phone numbers and emails are never shown to other users. Only Reallow contacts you."],
             [ICON.receipt, "Money held by Reallow", "Payments go into Reallow's account, never a stranger's, until the deal is done."],
             [ICON.doc, "Digital tenancy agreement", "A complete agreement, signed online by both sides, with a secure record of who signed."],

@@ -1,11 +1,14 @@
 "use client";
 
-import { Suspense, useRef, useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { TermsScrollAccept } from "@/components/terms-scroll-accept";
 import { PasswordInput } from "@/components/password-input";
 import { INTENTS, type Intent } from "@/lib/intents";
+import { PasswordStrength } from "@/components/password-strength";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import { HEARD_ABOUT_OPTIONS } from "@/lib/acquisition";
 
 function RegisterForm() {
   const router = useRouter();
@@ -20,13 +23,20 @@ function RegisterForm() {
   // Lightweight, no-dependency spam resistance: `mountedAt` catches bots that submit
   // implausibly fast; `website` is a honeypot — hidden from real users via CSS, but a
   // naive bot filling every field will fill it too. Neither needs a third-party API key.
-  const mountedAt = useRef(Date.now());
+  const [mountedAt] = useState(() => Date.now());
   const referralCode = searchParams.get("ref") ?? undefined;
+  const [password, setPassword] = useState("");
+  // Someone who came in through a referral link obviously heard about us that way.
+  const [heardAbout, setHeardAbout] = useState(referralCode ? "referral_code" : "");
+  const preferNotToSay = intents.includes("prefer_not_to_say");
 
+  // "Prefer not to say" is exclusive: choosing it clears and locks the other options.
   function toggleIntent(intent: Intent) {
-    setIntents((current) =>
-      current.includes(intent) ? current.filter((i) => i !== intent) : [...current, intent],
-    );
+    setIntents((current) => {
+      if (intent === "prefer_not_to_say") return current.includes(intent) ? [] : ["prefer_not_to_say"];
+      if (current.includes("prefer_not_to_say")) return current;
+      return current.includes(intent) ? current.filter((i) => i !== intent) : [...current, intent];
+    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -37,8 +47,16 @@ function RegisterForm() {
     const password = formData.get("password");
     const confirmPassword = formData.get("confirmPassword");
 
+    if (!isStrongPassword(String(password))) {
+      setError(PASSWORD_POLICY_MESSAGE);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords don't match");
+      return;
+    }
+    if (!heardAbout) {
+      setError("Tell us how you heard about Reallow");
       return;
     }
     if (!formData.get("termsAccepted")) {
@@ -69,8 +87,10 @@ function RegisterForm() {
       intents,
       termsAccepted: "true",
       newsletterOptIn: formData.get("newsletterOptIn") ? "true" : "false",
-      formRenderedAt: mountedAt.current,
+      formRenderedAt: mountedAt,
       ref: referralCode,
+      heardAbout,
+      heardAboutDetail: (formData.get("heardAboutDetail") as string)?.trim() || undefined,
     };
 
     const res = await fetch("/api/auth/register", {
@@ -116,19 +136,25 @@ function RegisterForm() {
           This helps us personalise your experience — pick as many as apply.
         </p>
         <div className="mt-3 flex flex-col gap-2">
-          {INTENTS.map((intent) => (
-            <label
-              key={intent.value}
-              className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm has-[:checked]:border-clay has-[:checked]:bg-clay/5"
-            >
-              <input
-                type="checkbox"
-                checked={intents.includes(intent.value)}
-                onChange={() => toggleIntent(intent.value)}
-              />
-              {intent.label}
-            </label>
-          ))}
+          {INTENTS.map((intent) => {
+            const locked = preferNotToSay && intent.value !== "prefer_not_to_say";
+            return (
+              <label
+                key={intent.value}
+                className={`flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm has-[:checked]:border-clay has-[:checked]:bg-clay/5 ${
+                  locked ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={intents.includes(intent.value)}
+                  disabled={locked}
+                  onChange={() => toggleIntent(intent.value)}
+                />
+                {intent.label}
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -182,8 +208,44 @@ function RegisterForm() {
           These details are used to contact you for house inspections and to improve your
           experience on Reallow.
         </p>
-        <PasswordInput name="password" placeholder="Password" minLength={8} required />
-        <PasswordInput name="confirmPassword" placeholder="Confirm password" minLength={8} required />
+        <PasswordInput
+          name="password"
+          placeholder="Password"
+          minLength={8}
+          required
+          autoComplete="new-password"
+          onValueChange={setPassword}
+        />
+        <PasswordStrength password={password} />
+        <PasswordInput name="confirmPassword" placeholder="Confirm password" minLength={8} required autoComplete="new-password" />
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">How did you hear about Reallow?</span>
+          <select
+            value={heardAbout}
+            onChange={(event) => setHeardAbout(event.target.value)}
+            required
+            className="rounded-lg border border-line bg-transparent px-3 py-2.5 focus:border-clay focus:outline-none"
+          >
+            <option value="" disabled>
+              Choose one
+            </option>
+            {HEARD_ABOUT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(heardAbout === "other" || heardAbout === "event" || heardAbout === "flyer" || heardAbout === "radio_tv") && (
+          <input
+            name="heardAboutDetail"
+            maxLength={120}
+            placeholder={heardAbout === "other" ? "Where did you hear about us?" : "Which one? (optional)"}
+            required={heardAbout === "other"}
+            className="-mt-2 rounded-lg border border-line bg-transparent px-3 py-2.5 focus:border-clay focus:outline-none"
+          />
+        )}
 
         <TermsScrollAccept />
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canActAsLandlord } from "@/lib/reallow-landlord";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -20,7 +21,7 @@ const schema = z.object({
 // declines, or suggests another time (see ./[id]/respond).
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || isStaffRole(session.user.role)) {
+  if (!session?.user || (isStaffRole(session.user.role) && session.user.role !== "admin")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
   const side =
     ticket.userId.toString() === session.user.id
       ? "tenant"
-      : listing.landlordId.toString() === session.user.id
+      : (await canActAsLandlord(listing.landlordId, session.user))
         ? "landlord"
         : null;
   if (!side) {

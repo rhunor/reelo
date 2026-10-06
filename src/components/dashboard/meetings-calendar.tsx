@@ -70,7 +70,7 @@ function dotClass(event: CalendarEvent) {
   return "bg-verified";
 }
 
-function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; walletBalanceNGN: number }) {
+export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; walletBalanceNGN: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -30,7 +30,7 @@ export default async function NewListingPage() {
           <p className="font-medium">Your identity isn&apos;t verified yet</p>
           <p className="mt-1 text-foreground/70">
             You can still list now, but Reallow won&apos;t schedule the verification inspection
-            until your NIN and BVN are verified — worth doing in parallel.
+            until your identity is verified (NIN or driver's licence) — worth doing in parallel.
           </p>
           <Link href="/dashboard/verify-identity" className="mt-2 inline-block text-clay underline">
             Verify now

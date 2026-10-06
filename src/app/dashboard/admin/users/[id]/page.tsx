@@ -11,6 +11,7 @@ import { VerifiedBadge } from "@/components/verified-badge";
 import { ROLE_LABEL, isCustomerRole } from "@/lib/roles";
 import { formatLagos } from "@/lib/time";
 import { TRANSACTION_TYPE_LABEL } from "@/lib/transaction-labels";
+import { heardAboutLabel } from "@/lib/acquisition";
 
 export const dynamic = "force-dynamic";
 
@@ -168,9 +169,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             )}
           </p>
           <p className="mt-2 text-xs text-foreground/50">
-            Joined {formatLagos(user.createdAt)} · last updated {formatLagos(user.updatedAt)} · NIN {user.nin.status} · BVN{" "}
-            {user.bvn?.status ?? "unverified"}
+            Joined {formatLagos(user.createdAt)} · last updated {formatLagos(user.updatedAt)} · NIN {user.nin.status} · driver&apos;s licence{" "}
+            {user.driversLicence?.status ?? "unverified"}
             {user.referralCode && ` · code ${user.referralCode}`}
+          </p>
+          <p className="mt-1 text-xs text-foreground/60">
+            Heard about Reallow: <span className="font-medium">{heardAboutLabel(user.heardAbout?.source)}</span>
+            {user.heardAbout?.detail ? ` — “${user.heardAbout.detail}”` : ""}
           </p>
           {referrer && (
             <p className="mt-1 text-xs text-foreground/60">

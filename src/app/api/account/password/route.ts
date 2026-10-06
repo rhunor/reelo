@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -8,7 +9,7 @@ import { getCollections } from "@/lib/db";
 const schema = z
   .object({
     currentPassword: z.string().min(1, "Enter your current password"),
-    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+    newPassword: z.string().refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
     confirmPassword: z.string(),
   })
   .refine((d) => d.newPassword === d.confirmPassword, { message: "New passwords don't match" })

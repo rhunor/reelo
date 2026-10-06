@@ -48,7 +48,7 @@ export default async function AdminUsersPage({
 
   const [results, total, tabCounts, nameCounts] = await Promise.all([
     users
-      .find(filter, { projection: { passwordHash: 0, emailVerificationToken: 0, "nin.value": 0, "bvn.value": 0 } })
+      .find(filter, { projection: { passwordHash: 0, emailVerificationToken: 0, "nin.value": 0, "bvn.value": 0, "driversLicence.value": 0 } })
       .sort(sort.sort)
       .skip((page - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)

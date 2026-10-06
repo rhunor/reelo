@@ -56,6 +56,7 @@ export default async function AdminDashboardPage() {
       <QuickLinks
         links={[
           { href: "/dashboard/admin/listings", label: "Manage listings", primary: true },
+          { href: "/dashboard/admin/applications", label: "Applications (Reallow listings)" },
           { href: "/dashboard/admin/listings/new", label: "Post a property directly" },
           { href: "/dashboard/admin/agreements", label: "Tenancy agreements" },
           { href: "/dashboard/support", label: "Support queue" },
@@ -63,6 +64,7 @@ export default async function AdminDashboardPage() {
           { href: "/dashboard/admin/reports", label: openReportCount ? `Reports (${openReportCount})` : "Reports" },
           { href: "/dashboard/admin/referrals", label: "Referrals & withdrawals" },
           { href: "/dashboard/admin/feedback", label: "Meeting feedback" },
+          { href: "/dashboard/admin/insights", label: "How people found us" },
         ]}
       />
       <div className="mt-2">

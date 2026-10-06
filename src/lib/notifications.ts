@@ -3,8 +3,23 @@ import { getCollections } from "@/lib/db";
 import type { InspectionBooking, Meeting, Property, SupportTicket } from "@/types/models";
 import { sendListingReceivedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
 import { formatLagos } from "@/lib/time";
+import { landlordRecipients } from "@/lib/reallow-landlord";
+import type { Notification } from "@/types/models";
 
 export const MEETINGS_HREF = "/dashboard?panel=meetings";
+const ADMIN_APPLICATIONS_HREF = "/dashboard/admin/applications";
+
+// A notification meant for a listing's landlord. For Reallow-owned listings (no real
+// landlord logs in) it goes to every admin instead, pointing at Admin → Applications.
+async function notifyLandlordSide(landlordId: ObjectId, base: Omit<Notification, "userId" | "_id">, adminHref?: string) {
+  const { notifications } = await getCollections();
+  const recipients = await landlordRecipients(landlordId);
+  const forAdmins = !(recipients.length === 1 && recipients[0]!.equals(landlordId));
+  if (recipients.length === 0) return;
+  await notifications.insertMany(
+    recipients.map((userId) => ({ ...base, userId, href: forAdmins ? (adminHref ?? ADMIN_APPLICATIONS_HREF) : base.href })),
+  );
+}
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -318,10 +333,9 @@ export async function notifyWelcome(userId: ObjectId, firstName: string): Promis
 // Someone applied for one of this landlord's listings — tapping it opens the applicant's
 // shared profile with accept/reject.
 export async function notifyNewApplication(ticket: SupportTicket, listing: Property): Promise<void> {
-  const { notifications } = await getCollections();
-
-  await notifications.insertOne({
-    userId: listing.landlordId,
+  await notifyLandlordSide(
+    listing.landlordId,
+    {
     type: "new_application",
     title: "Someone applied for your property",
     body: `New application for ${listing.title}. View their profile to accept or decline.`,
@@ -330,7 +344,10 @@ export async function notifyNewApplication(ticket: SupportTicket, listing: Prope
     href: `/dashboard/applications/${ticket._id}`,
     read: false,
     createdAt: new Date(),
-  });
+    },
+    // Admins open the same review page.
+    `/dashboard/applications/${ticket._id}`,
+  );
 }
 
 const MEETING_NOUN: Record<Meeting["kind"], string> = { inspection: "inspection", meeting: "meeting" };
@@ -338,17 +355,18 @@ const MEETING_NOUN: Record<Meeting["kind"], string> = { inspection: "inspection"
 export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId, isCounter: boolean): Promise<void> {
   const { notifications } = await getCollections();
   const noun = MEETING_NOUN[meeting.kind];
-
-  await notifications.insertOne({
-    userId: toUserId,
-    type: "meeting_proposed",
+  const notice = {
+    type: "meeting_proposed" as const,
     title: isCounter ? `A different ${noun} time was suggested` : `New ${noun} request`,
     body: `Proposed for ${formatLagos(meeting.proposedTime)}. Accept, decline, or suggest another time.`,
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
     read: false,
     createdAt: new Date(),
-  });
+  };
+
+  if (toUserId.equals(meeting.landlordId)) await notifyLandlordSide(meeting.landlordId, notice);
+  else await notifications.insertOne({ ...notice, userId: toUserId });
 }
 
 export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
@@ -357,21 +375,20 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
   const isInspection = meeting.kind === "inspection";
   const now = new Date();
 
-  await notifications.insertMany([
+  await notifications.insertOne({
+    userId: meeting.tenantId,
+    type: "meeting_confirmed",
+    title: isInspection ? "Inspection time agreed" : "Meeting confirmed",
+    body: isInspection
+      ? `Agreed for ${when}. Pay the inspection fee to lock it in — Reallow's agent will then contact you.`
+      : `Your meeting is confirmed for ${when}.`,
+    listingId: meeting.listingId,
+    href: MEETINGS_HREF,
+    read: false,
+    createdAt: now,
+  });
+  await notifyLandlordSide(meeting.landlordId,
     {
-      userId: meeting.tenantId,
-      type: "meeting_confirmed" as const,
-      title: isInspection ? "Inspection time agreed" : "Meeting confirmed",
-      body: isInspection
-        ? `Agreed for ${when}. Pay the inspection fee to lock it in — Reallow's agent will then contact you.`
-        : `Your meeting is confirmed for ${when}.`,
-      listingId: meeting.listingId,
-      href: MEETINGS_HREF,
-      read: false,
-      createdAt: now,
-    },
-    {
-      userId: meeting.landlordId,
       type: "meeting_confirmed" as const,
       title: isInspection ? "Inspection time agreed" : "Meeting confirmed",
       body: isInspection
@@ -381,23 +398,22 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
       href: MEETINGS_HREF,
       read: false,
       createdAt: now,
-    },
-  ]);
+    });
 }
 
 export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId): Promise<void> {
   const { notifications } = await getCollections();
-
-  await notifications.insertOne({
-    userId: toUserId,
-    type: "meeting_declined",
+  const notice = {
+    type: "meeting_declined" as const,
     title: `${meeting.kind === "inspection" ? "Inspection" : "Meeting"} request declined`,
     body: `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. You can book a new time from Meetings.`,
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
     read: false,
     createdAt: new Date(),
-  });
+  };
+  if (toUserId.equals(meeting.landlordId)) await notifyLandlordSide(meeting.landlordId, notice);
+  else await notifications.insertOne({ ...notice, userId: toUserId });
 }
 
 // The applicant paid for an agreed inspection — the landlord hears it's on, and every

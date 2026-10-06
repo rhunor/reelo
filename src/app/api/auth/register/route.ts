@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import { HEARD_ABOUT_OPTIONS, type HeardAboutSource } from "@/lib/acquisition";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { getCollections } from "@/lib/db";
@@ -18,16 +20,22 @@ const registerSchema = z
     otherNames: z.string().optional(),
     email: z.string().email(),
     phone: z.string().min(7),
-    password: z.string().min(8),
+    password: z.string().refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
     confirmPassword: z.string().min(8),
     intents: z
       .array(z.enum(["renting_out", "selling", "renting", "buying", "prefer_not_to_say"]))
-      .min(1),
+      .min(1)
+      // "Prefer not to say" can't be combined with real answers.
+      .refine((list) => !list.includes("prefer_not_to_say") || list.length === 1, "Choose \"Prefer not to say\" on its own"),
     termsAccepted: z.union([z.literal("true"), z.literal(true)]),
     newsletterOptIn: z.union([z.literal("true"), z.literal(true), z.literal("false"), z.literal(false)]).optional(),
     website: z.string().optional(),
     formRenderedAt: z.number().optional(),
     ref: z.string().optional(),
+    heardAbout: z.enum(HEARD_ABOUT_OPTIONS.map((o) => o.value) as [HeardAboutSource, ...HeardAboutSource[]], {
+      message: "Tell us how you heard about Reallow",
+    }),
+    heardAboutDetail: z.string().trim().max(120).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -47,7 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Registration failed" }, { status: 400 });
   }
 
-  const { firstName, lastName, otherNames, email, phone, password, intents, newsletterOptIn, ref } = parsed.data;
+  const { firstName, lastName, otherNames, email, phone, password, intents, newsletterOptIn, ref, heardAbout, heardAboutDetail } = parsed.data;
   // Every new account is a plain "user" — intents are kept for personalisation only.
   const role = "user" as const;
   const name = [firstName, otherNames, lastName].filter(Boolean).join(" ");
@@ -89,6 +97,7 @@ export async function POST(request: Request) {
     emailVerificationToken: token,
     emailVerificationTokenExpiresAt: expiresAt,
     referralCode,
+    heardAbout: { source: heardAbout, ...(heardAboutDetail ? { detail: heardAboutDetail } : {}) },
     ...(referrer ? { referredBy: referrer._id } : {}),
     walletBalanceNGN: 0,
     createdAt: now,

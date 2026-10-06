@@ -28,3 +28,31 @@ export async function getOrCreateReallowLandlordId(): Promise<ObjectId> {
 
   return insertedId;
 }
+
+// Is this the system "Reallow" owner? Listings it owns are managed by Reallow's admins,
+// who act as the landlord for them (applications, accept/decline, meeting requests).
+export async function isReallowOwned(landlordId: ObjectId): Promise<boolean> {
+  const { users } = await getCollections();
+  const owner = await users.findOne({ _id: landlordId }, { projection: { email: 1 } });
+  return owner?.email === REALLOW_LANDLORD_EMAIL;
+}
+
+// May this signed-in user act as the landlord of a listing? Its real owner always can;
+// admins can for Reallow-owned listings.
+export async function canActAsLandlord(
+  landlordId: ObjectId,
+  viewer: { id: string; role?: string } | undefined,
+): Promise<boolean> {
+  if (!viewer) return false;
+  if (landlordId.toString() === viewer.id) return true;
+  return viewer.role === "admin" && (await isReallowOwned(landlordId));
+}
+
+// Who should hear about things addressed to a listing's landlord: the landlord themselves,
+// or — for Reallow-owned listings, whose owner account nobody logs into — every admin.
+export async function landlordRecipients(landlordId: ObjectId): Promise<ObjectId[]> {
+  if (!(await isReallowOwned(landlordId))) return [landlordId];
+  const { users } = await getCollections();
+  const admins = await users.find({ role: "admin" }, { projection: { _id: 1 } }).toArray();
+  return admins.map((a) => a._id!);
+}

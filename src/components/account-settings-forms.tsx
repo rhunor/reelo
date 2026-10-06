@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { PasswordInput } from "@/components/password-input";
+import { PasswordStrength } from "@/components/password-strength";
 
 const inputClass = "w-full rounded-lg border border-line bg-transparent px-3 py-2";
 
@@ -120,6 +121,7 @@ export function ContactSettingsForm({
 
 export function ChangePasswordForm() {
   const { submit, error, message, setMessage, loading } = useJsonSubmit("/api/account/password");
+  const [newPassword, setNewPassword] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,6 +134,7 @@ export function ChangePasswordForm() {
     });
     if (!data) return;
     form.reset();
+    setNewPassword("");
     setMessage("Password changed.");
   }
 
@@ -144,14 +147,21 @@ export function ChangePasswordForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm">New password</label>
-          <PasswordInput name="newPassword" required minLength={8} className={inputClass + " pr-10"} />
+          <PasswordInput
+            name="newPassword"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            onValueChange={setNewPassword}
+            className={inputClass + " pr-10"}
+          />
         </div>
         <div>
           <label className="mb-1 block text-sm">Confirm new password</label>
           <PasswordInput name="confirmPassword" required minLength={8} className={inputClass + " pr-10"} />
         </div>
       </div>
-      <p className="-mt-2 text-xs text-foreground/50">At least 8 characters.</p>
+      <PasswordStrength password={newPassword} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {message && <p className="text-sm text-verified">{message}</p>}
       <button

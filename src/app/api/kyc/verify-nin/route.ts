@@ -2,54 +2,20 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { getCollections } from "@/lib/db";
-import { verifyNin } from "@/lib/youverify";
-import { recomputeVerifiedBadge } from "@/lib/kyc";
+import { verifyGovernmentId } from "@/lib/kyc";
 
-const schema = z.object({ nin: z.string().length(11) });
+const schema = z.object({ nin: z.string().trim().regex(/^\d{11}$/) });
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const body = await request.json();
-  const parsed = schema.safeParse(body);
+  const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "NIN must be 11 digits" }, { status: 400 });
+    return NextResponse.json({ success: false, message: "Your NIN is 11 digits." }, { status: 400 });
   }
 
-  try {
-    const { users } = await getCollections();
-    const userId = new ObjectId(session.user.id);
-
-    if (
-      await users.findOne({ "nin.value": parsed.data.nin, "nin.status": "verified", _id: { $ne: userId } })
-    ) {
-      return NextResponse.json(
-        { error: "This NIN is already linked to another Reallow account" },
-        { status: 409 },
-      );
-    }
-
-    const result = await verifyNin(parsed.data.nin);
-
-    await users.updateOne(
-      { _id: userId },
-      {
-        $set: {
-          "nin.status": result.success ? "verified" : "failed",
-          "nin.provider": "youverify",
-          ...(result.success ? { "nin.verifiedAt": new Date(), "nin.value": parsed.data.nin } : {}),
-          updatedAt: new Date(),
-        },
-      },
-    );
-    const verifiedBadge = await recomputeVerifiedBadge(userId);
-
-    return NextResponse.json({ success: result.success, message: result.message, verifiedBadge });
-  } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
-  }
+  const result = await verifyGovernmentId(new ObjectId(session.user.id), "nin", parsed.data.nin);
+  return NextResponse.json(result, { status: result.status });
 }

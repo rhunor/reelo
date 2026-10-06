@@ -71,7 +71,7 @@ export interface User {
   passwordHash?: string;
   nin: {
     status: VerificationStatus;
-    provider?: "youverify" | "prembly" | "smile_id";
+    provider?: "youverify" | "prembly" | "smile_id" | "dojah";
     verifiedAt?: Date;
     // The actual verified number — never stored before this, needed to enforce "no two
     // accounts share a NIN" (see the uniqueness check in api/kyc/verify-nin/route.ts).
@@ -82,9 +82,17 @@ export interface User {
   // Optional so existing users predating BVN verification don't break — treated as
   // "unverified" wherever read. See src/lib/kyc.ts recomputeVerifiedBadge: verifiedBadge
   // requires NIN and BVN both verified, not NIN alone.
+  // Legacy — BVN is no longer required or collected (see recomputeVerifiedBadge).
   bvn?: {
     status: VerificationStatus;
-    provider?: "youverify" | "prembly" | "smile_id";
+    provider?: "youverify" | "prembly" | "smile_id" | "dojah";
+    verifiedAt?: Date;
+    value?: string;
+  };
+  // Alternative to NIN — one verified government ID is enough for the badge.
+  driversLicence?: {
+    status: VerificationStatus;
+    provider?: "dojah";
     verifiedAt?: Date;
     value?: string;
   };
@@ -102,6 +110,8 @@ export interface User {
   bannedAt?: Date;
   bannedBy?: ObjectId;
   bannedReason?: string;
+  // Answer to "How did you hear about us?" at signup (see src/lib/acquisition.ts).
+  heardAbout?: { source: string; detail?: string };
   // Field staff / support: the city they work from (one of SUPPORTED_STATES' values).
   staffBase?: "Abuja" | "Port Harcourt" | "Warri";
   // Internal remarks Reallow admins leave on an account — never shown to the user.

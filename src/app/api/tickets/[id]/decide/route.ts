@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canActAsLandlord } from "@/lib/reallow-landlord";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -15,7 +16,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const session = await auth();
-  if (!session?.user || isStaffRole(session.user.role)) {
+  // Admins can decide too — for Reallow-owned listings they act as the landlord.
+  if (!session?.user || (isStaffRole(session.user.role) && session.user.role !== "admin")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!ObjectId.isValid(id)) {
@@ -35,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const listing = await properties.findOne({ _id: ticket.listingId });
-  if (!listing || listing.landlordId.toString() !== session.user.id) {
+  if (!listing || !(await canActAsLandlord(listing.landlordId, session.user))) {
     return NextResponse.json({ error: "Not your listing" }, { status: 403 });
   }
 

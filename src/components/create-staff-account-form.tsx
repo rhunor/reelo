@@ -23,7 +23,7 @@ export function CreateStaffAccountForm() {
       <input
         name="password"
         type="password"
-        placeholder="Password (8+ characters)"
+        placeholder="Password (8+, A–Z, a–z, 0–9, symbol)"
         required
         minLength={8}
         disabled={pending}
