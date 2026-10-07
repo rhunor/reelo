@@ -255,7 +255,6 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                     <input type="hidden" name="listingId" value={listing._id!.toString()} />
                     <input type="hidden" name="task" value={task.key} />
                     <SubmitButton
-                     
                       className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ${
                         tasks[task.key] ? "border-verified bg-verified/5 text-verified" : "border-line"
                       }`}
@@ -328,7 +327,6 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                 <input type="hidden" name="bookingId" value={booking._id!.toString()} />
                 <input type="hidden" name="source" value={booking.source} />
                 <SubmitButton
-                 
                   className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white"
                 >
                   Mark inspection completed

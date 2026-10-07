@@ -48,7 +48,6 @@ function ActionButton({
       <input type="hidden" name="listingId" value={listingId} />
       <input type="hidden" name="action" value={action} />
       <SubmitButton
-       
         className={
           tone === "primary"
             ? "h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white"

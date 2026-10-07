@@ -17,13 +17,20 @@ export function MeetingFeedbackForm({
   targetId,
   onCancel,
   audience = "customer",
+  side,
 }: {
   targetType: FeedbackTargetType;
   targetId: string;
   onCancel: () => void;
   audience?: "customer" | "staff";
+  // Which side of the visit the customer was on. The landlord posted the listing
+  // themselves, so "didn't match the listing" is only something a tenant can say.
+  side?: "landlord" | "tenant";
 }) {
-  const tagOptions = audience === "staff" ? STAFF_FEEDBACK_TAGS : FEEDBACK_TAGS;
+  const tagOptions =
+    audience === "staff"
+      ? STAFF_FEEDBACK_TAGS
+      : FEEDBACK_TAGS.filter((tag) => side !== "landlord" || tag !== "Property didn't match the listing");
   const router = useRouter();
   const { t } = useI18n();
   const [rating, setRating] = useState(0);

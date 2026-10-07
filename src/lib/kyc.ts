@@ -1,5 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
+import { forgetAccount } from "@/auth";
 import { isDojahConfigured, lookupDriversLicence, lookupNin, type IdentityRecord } from "@/lib/dojah";
 import { notifyIdAwaitingReview } from "@/lib/notifications";
 import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
@@ -15,6 +16,7 @@ export async function recomputeVerifiedBadge(userId: ObjectId): Promise<boolean>
 
   const verifiedBadge = user.nin.status === "verified" || user.driversLicence?.status === "verified";
   await users.updateOne({ _id: userId }, { $set: { verifiedBadge, updatedAt: new Date() } });
+  forgetAccount(userId.toString()); // so the session picks up the new badge straight away
   return verifiedBadge;
 }
 

@@ -76,7 +76,9 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
     meetingFeedback,
   } = await getCollections();
 
-  const [myMeetings, myBookings, myTransactions, commissions, withdrawals, feedback, myApplications] =
+  // Applications to this user's own listings, for the landlord side of booking.
+  const ownListingIds = ownListings.map((l) => l._id!);
+  const [myMeetings, myBookings, myTransactions, commissions, withdrawals, feedback, myApplications, applicationsToMe, me] =
     await Promise.all([
       meetings.find({ $or: [{ landlordId: userId }, { tenantId: userId }] }).toArray(),
       inspectionBookings.find({ $or: [{ landlordId: userId }, { tenantId: userId }] }).toArray(),
@@ -89,20 +91,28 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       withdrawalRequests.find({ userId }).sort({ createdAt: -1 }).toArray(),
       meetingFeedback.find({ userId }).project({ targetId: 1 }).toArray(),
       tickets.find({ userId, listingId: { $exists: true } }).toArray(),
+      ownListingIds.length
+        ? tickets.find({ listingId: { $in: ownListingIds }, userId: { $ne: userId } }).toArray()
+        : Promise.resolve([]),
+      users.findOne({ _id: userId }, { projection: { verifiedBadge: 1 } }),
     ]);
 
-  // Applications to this user's own listings, for the landlord side of booking.
-  const ownListingIds = ownListings.map((l) => l._id!);
-  const applicationsToMe = ownListingIds.length
-    ? await tickets.find({ listingId: { $in: ownListingIds }, userId: { $ne: userId } }).toArray()
-    : [];
+  const isApproved = (t: { landlordDecision?: string; landlordPreferred?: boolean }) =>
+    (t.landlordDecision ?? (t.landlordPreferred ? "approved" : undefined)) === "approved";
+  const applicantIds = applicationsToMe.filter(isApproved).map((t) => t.userId);
 
   const listingIds = [
     ...myMeetings.map((m) => m.listingId),
     ...myBookings.map((b) => b.listingId),
     ...myApplications.map((t) => t.listingId!),
   ];
-  const otherListings = listingIds.length ? await properties.find({ _id: { $in: listingIds } }).toArray() : [];
+  // Second (and last) round trip: the listings and applicants those point at, together.
+  const [otherListings, applicants] = await Promise.all([
+    listingIds.length ? properties.find({ _id: { $in: listingIds } }).toArray() : Promise.resolve([]),
+    applicantIds.length
+      ? users.find({ _id: { $in: applicantIds } }, { projection: { verifiedBadge: 1 } }).toArray()
+      : Promise.resolve([]),
+  ]);
   const listingById = new Map([...otherListings, ...ownListings].map((l) => [l._id!.toString(), l]));
   const titleOf = (id: ObjectId) => listingById.get(id.toString())?.title ?? "a property";
 
@@ -189,15 +199,7 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
 
   events.sort((a, b) => +new Date(a.at) - +new Date(b.at));
 
-  const isApproved = (t: { landlordDecision?: string; landlordPreferred?: boolean }) =>
-    (t.landlordDecision ?? (t.landlordPreferred ? "approved" : undefined)) === "approved";
-
-  const applicantIds = applicationsToMe.filter(isApproved).map((t) => t.userId);
-  const applicants = applicantIds.length
-    ? await users.find({ _id: { $in: applicantIds } }, { projection: { verifiedBadge: 1 } }).toArray()
-    : [];
   const applicantVerified = new Map(applicants.map((u) => [u._id!.toString(), Boolean(u.verifiedBadge)]));
-  const me = await users.findOne({ _id: userId }, { projection: { verifiedBadge: 1 } });
 
   const bookable: BookableApplication[] = [
     ...myApplications.filter(isApproved).map((t) => ({

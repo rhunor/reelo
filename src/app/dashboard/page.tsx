@@ -58,19 +58,22 @@ export default async function DashboardPage({
   if (!found) redirect("/login");
   const user = await ensureReferralCode(found);
 
-  const data = await loadDashboardData(session.user.id, listings, t);
-  const savedListings = user.savedListingIds?.length
-    ? await properties
-        .find({ _id: { $in: user.savedListingIds }, status: "published" })
-        .project<{ _id: ObjectId; title: string; priceNGN: number; listingType: string; photoUrls: string[]; location: { city: string } }>({
-          title: 1,
-          priceNGN: 1,
-          listingType: 1,
-          photoUrls: 1,
-          location: 1,
-        })
-        .toArray()
-    : [];
+  // The money/meetings data and saved listings don't depend on each other — load together.
+  const [data, savedListings] = await Promise.all([
+    loadDashboardData(session.user.id, listings, t),
+    user.savedListingIds?.length
+      ? properties
+          .find({ _id: { $in: user.savedListingIds }, status: "published" })
+          .project<{ _id: ObjectId; title: string; priceNGN: number; listingType: string; photoUrls: string[]; location: { city: string } }>({
+            title: 1,
+            priceNGN: 1,
+            listingType: 1,
+            photoUrls: 1,
+            location: 1,
+          })
+          .toArray()
+      : Promise.resolve([]),
+  ]);
   const initialPanel = PANELS.find((p) => p === params.panel);
   const profileIncomplete = !user.profile?.profilePictureUrl || !user.profile?.dateOfBirth;
 
@@ -162,7 +165,6 @@ export default async function DashboardPage({
         <DashboardPanels
           initialPanel={initialPanel}
           initialTicketId={params.ticket}
-          initialKind={params.kind === "inspection" ? "inspection" : params.kind === "meeting" ? "meeting" : undefined}
           events={data.events}
           bookable={data.bookable}
           ledger={data.ledger}

@@ -353,7 +353,7 @@ export async function notifyLandlordDecision(ticket: SupportTicket, decision: "a
         : "The landlord has moved on from your application",
     body:
       decision === "approved"
-        ? `${ticket.subject} — you can now book an inspection or a meeting.`
+        ? `${ticket.subject} — you can now book a meeting.`
         : ticket.subject,
     ticketId: ticket._id,
     i18n:

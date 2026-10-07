@@ -142,7 +142,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
         <PreferCandidateButton ticketId={ticket._id!.toString()} decision={decision} />
         {decision === "approved" && onBehalfOfReallow && (
           <p className="mt-4 text-xs text-foreground/60">
-            The applicant can now book an inspection or meeting. Their requests appear in{" "}
+            The applicant can now book a meeting. Their requests appear in{" "}
             <Link href="/dashboard/admin/applications" className="text-clay underline">
               Admin → Applications
             </Link>{" "}
@@ -152,14 +152,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
         {decision === "approved" && !onBehalfOfReallow && (
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href={`/dashboard?panel=meetings&ticket=${ticket._id}&kind=inspection`}
+              href={`/dashboard?panel=meetings&ticket=${ticket._id}`}
               className="flex h-9 items-center rounded-full bg-clay px-4 text-sm font-medium text-white"
-            >
-              {t("meetings.bookInspection")}
-            </Link>
-            <Link
-              href={`/dashboard?panel=meetings&ticket=${ticket._id}&kind=meeting`}
-              className="flex h-9 items-center rounded-full border border-line px-4 text-sm font-medium hover:border-clay hover:text-clay"
             >
               {t("meetings.bookMeeting")}
             </Link>

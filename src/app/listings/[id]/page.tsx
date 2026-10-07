@@ -12,7 +12,7 @@ import { ListingsMap } from "@/components/listings-map";
 import { PropertyPhotoHero, PropertyPhotoThumbnail } from "@/components/property-photo-gallery";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { Reveal } from "@/components/reveal";
-import { computeListingCostBreakdown, formatRate, getInspectionFee } from "@/lib/fees";
+import { computeListingCostBreakdown, formatRate } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { isStaffRole } from "@/lib/roles";
 import { redactContactInfo } from "@/lib/contact-guard";
@@ -59,7 +59,6 @@ export default async function ListingDetailPage({
   const existingBooking = existingTicket
     ? await inspectionBookings.findOne({ ticketId: existingTicket._id })
     : null;
-  const inspectionFeeNGN = getInspectionFee(listing.location.city);
 
   const isRent = listing.listingType === "rent";
   const costBreakdown = computeListingCostBreakdown({
@@ -321,7 +320,7 @@ export default async function ListingDetailPage({
                       {t("listing.accepted")}
                     </p>
                     <p className="mt-1 text-xs text-foreground/60">
-                      {t("listing.bookHint", { fee: `₦${inspectionFeeNGN.toLocaleString()}` })}
+                      {t("listing.bookMeetingHint")}
                     </p>
                     <BookMeetingLinks ticketId={existingTicket._id!.toString()} />
                   </>

@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
+import { auth, forgetAccount } from "@/auth";
 import { getCollections } from "@/lib/db";
 import {
   notifySavedSearchMatches,
@@ -107,6 +107,13 @@ export async function approveListing(formData: FormData) {
   }
 
   const now = new Date();
+  // Optional extra photos/videos Reallow adds at approval, on top of the landlord's and
+  // the field agent's. Only our own Cloudinary uploads are accepted.
+  const cloudinaryPrefix = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`;
+  const extra = (field: string, max: number) =>
+    [...new Set(formData.getAll(field).map(String))].filter((url) => url.startsWith(cloudinaryPrefix)).slice(0, max);
+  const extraPhotoUrls = extra("extraPhotoUrls", 30);
+  const extraVideoUrls = extra("extraVideoUrls", 10);
 
   // Filtered on status so approving twice (double-click) doesn't notify twice.
   const result = await properties.updateOne(
@@ -118,6 +125,7 @@ export async function approveListing(formData: FormData) {
         "verification.reviewedAt": now,
         updatedAt: now,
       },
+      $addToSet: { photoUrls: { $each: extraPhotoUrls }, videoUrls: { $each: extraVideoUrls } },
     },
   );
 
@@ -258,6 +266,7 @@ export async function banUser(formData: FormData) {
     },
   ]);
 
+  forgetAccount(userId.toString());
   revalidateModeration();
 }
 
@@ -276,6 +285,7 @@ export async function unbanUser(formData: FormData) {
     { $unset: "takenDown" },
   ]);
 
+  forgetAccount(userId.toString());
   revalidateModeration();
 }
 
@@ -456,6 +466,7 @@ export async function adminVerifyUser(formData: FormData) {
   );
 
   await recomputeVerifiedBadge(new ObjectId(userId));
+  forgetAccount(userId);
   after(() => notifyIdentityVerified(new ObjectId(userId)));
   revalidatePath(`/dashboard/admin/users/${userId}`);
 
@@ -651,6 +662,7 @@ export async function changeUserRole(_previous: RoleFormState, formData: FormDat
       ? { $set: { role: nextRole, staffBase: staffBase as User["staffBase"], updatedAt: now } }
       : { $set: { role: nextRole, updatedAt: now }, $unset: { staffBase: "" } },
   );
+  forgetAccount(userId.toString());
   after(() => notifyRoleChanged(userId, isCustomerRole(nextRole) ? "customer" : nextRole));
 
   revalidatePath("/dashboard/admin/users");

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useClickOutside } from "@/components/use-click-outside";
 import { useI18n } from "@/components/i18n-provider";
 
@@ -19,14 +20,61 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "short" });
 }
 
+// How often the bell checks for new notifications while the tab is visible.
+const POLL_MS = 10_000;
+
 export function NotificationBell({ initialUnread }: { initialUnread: number }) {
   const { t } = useI18n();
+  const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(initialUnread);
   const [items, setItems] = useState<Item[] | null>(null);
+  const newestRef = useRef<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
   useClickOutside(ref, open, close);
+
+  const loadItems = useCallback(async () => {
+    const res = await fetch("/api/notifications", { cache: "no-store" });
+    if (!res.ok) throw new Error();
+    return res.json();
+  }, []);
+
+  // Live updates: poll the cheap unread count while the tab is visible (and straight away
+  // when the person comes back to the tab). When something new arrives, update the badge,
+  // the open dropdown, and the page itself — so a new application, meeting request or
+  // reply shows up without a refresh.
+  useEffect(() => {
+    let stopped = false;
+    async function check() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/notifications?count=1", { cache: "no-store" });
+        if (!res.ok || stopped) return;
+        const data: { unreadCount: number; newestAt: string | null } = await res.json();
+        const isNew = newestRef.current !== null && data.newestAt !== null && data.newestAt !== newestRef.current;
+        newestRef.current = data.newestAt ?? "";
+        setUnread(data.unreadCount);
+        if (isNew) {
+          router.refresh();
+          if (open) setItems((await loadItems()).notifications);
+        }
+      } catch {
+        // Offline or a blip — try again next tick.
+      }
+    }
+    void check();
+    const timer = setInterval(check, POLL_MS);
+    const onVisible = () => void check();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [open, router, loadItems]);
 
   async function toggle() {
     if (open) {
@@ -35,9 +83,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
     }
     setOpen(true);
     try {
-      const res = await fetch("/api/notifications", { cache: "no-store" });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await loadItems();
       // Keep the unread highlight for this viewing, then mark everything read.
       setItems(data.notifications);
       if (data.unreadCount > 0) {

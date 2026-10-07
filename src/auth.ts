@@ -17,6 +17,40 @@ class AccountBlockedError extends CredentialsSignin {
 // lookup per request until the token is next refreshed by a route handler.)
 const ACCOUNT_RECHECK_MS = 60_000;
 
+// The re-check result, remembered per server instance for the same minute. Without this,
+// once a token is a minute old *every* auth() call — the proxy, the header and the page
+// each make one per navigation — went back to the database, which is what made every page
+// feel slow. Blocking someone still takes effect within a minute.
+type AccountSnapshot = { at: number; banned: boolean; missing: boolean; role?: string; verifiedBadge: boolean };
+const accountCache = new Map<string, AccountSnapshot>();
+
+async function accountSnapshot(userId: string): Promise<AccountSnapshot> {
+  const cached = accountCache.get(userId);
+  if (cached && Date.now() - cached.at < ACCOUNT_RECHECK_MS) return cached;
+
+  const { users } = await getCollections();
+  const current = await users.findOne(
+    { _id: new ObjectId(userId) },
+    { projection: { status: 1, role: 1, verifiedBadge: 1 } },
+  );
+  const snapshot: AccountSnapshot = {
+    at: Date.now(),
+    missing: !current,
+    banned: current?.status === "banned",
+    // Legacy "tenant"/"landlord" accounts are plain users now.
+    role: current ? (current.role === "tenant" || current.role === "landlord" ? "user" : current.role) : undefined,
+    verifiedBadge: current?.verifiedBadge ?? false,
+  };
+  if (accountCache.size > 5000) accountCache.clear();
+  accountCache.set(userId, snapshot);
+  return snapshot;
+}
+
+// Called after an admin changes someone's role/status so it applies on this instance at once.
+export function forgetAccount(userId: string) {
+  accountCache.delete(userId);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
@@ -61,17 +95,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const checkedAt = typeof token.checkedAt === "number" ? token.checkedAt : 0;
       if (token.sub && ObjectId.isValid(token.sub) && Date.now() - checkedAt > ACCOUNT_RECHECK_MS) {
         try {
-          const { users } = await getCollections();
-          const current = await users.findOne(
-            { _id: new ObjectId(token.sub) },
-            { projection: { status: 1, role: 1, verifiedBadge: 1 } },
-          );
+          const current = await accountSnapshot(token.sub);
           // Blocked or deleted: returning null ends the session.
-          if (!current || current.status === "banned") return null;
-          // Legacy "tenant"/"landlord" accounts are plain users now.
-          token.role = current.role === "tenant" || current.role === "landlord" ? "user" : current.role;
+          if (current.missing || current.banned) return null;
+          token.role = current.role as typeof token.role;
           token.verifiedBadge = current.verifiedBadge;
-          token.checkedAt = Date.now();
+          token.checkedAt = current.at;
         } catch {
           // A database hiccup shouldn't log everyone out — try again next request.
         }

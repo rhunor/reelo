@@ -76,7 +76,6 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
           <form action={resolveTicket}>
             <input type="hidden" name="ticketId" value={ticket._id!.toString()} />
             <SubmitButton
-             
               className="h-9 rounded-full border border-line px-4 text-sm font-medium"
             >
               Mark resolved
@@ -86,7 +85,6 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
           <form action={reopenTicket}>
             <input type="hidden" name="ticketId" value={ticket._id!.toString()} />
             <SubmitButton
-             
               className="h-9 rounded-full border border-line px-4 text-sm font-medium"
             >
               Reopen

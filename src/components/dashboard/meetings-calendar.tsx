@@ -203,7 +203,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
 
       {event.canLeaveFeedback &&
         (rating ? (
-          <MeetingFeedbackForm targetType={event.source} targetId={event.id} onCancel={() => setRating(false)} />
+          <MeetingFeedbackForm targetType={event.source} targetId={event.id} side={event.side} onCancel={() => setRating(false)} />
         ) : (
           <button
             type="button"
@@ -225,13 +225,11 @@ export function MeetingsCalendar({
   bookable,
   walletBalanceNGN,
   initialTicketId,
-  initialKind,
 }: {
   events: CalendarEvent[];
   bookable: BookableApplication[];
   walletBalanceNGN: number;
   initialTicketId?: string;
-  initialKind?: "inspection" | "meeting";
 }) {
   const router = useRouter();
   const { t, locale } = useI18n();
@@ -243,7 +241,6 @@ export function MeetingsCalendar({
   const preselected = bookable.find((b) => b.ticketId === initialTicketId);
   const [booking, setBooking] = useState(Boolean(preselected));
   const [ticketId, setTicketId] = useState(preselected?.ticketId ?? bookable[0]?.ticketId ?? "");
-  const [kind, setKind] = useState<"inspection" | "meeting">(initialKind ?? "meeting");
   const [time, setTime] = useState("10:00");
   const [sending, setSending] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
@@ -285,7 +282,6 @@ export function MeetingsCalendar({
   }
 
   const monthLabel = new Date(`${month}-15T12:00:00Z`).toLocaleDateString(dateLocale(locale), { month: "long", year: "numeric" });
-  const selectedApp = bookable.find((b) => b.ticketId === ticketId);
   const dayEvents = eventsByDay.get(selectedDay) ?? [];
 
   async function sendRequest() {
@@ -296,7 +292,9 @@ export function MeetingsCalendar({
     const res = await fetch("/api/meetings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticketId, kind, proposedTime: `${selectedDay}T${time}` }),
+      // Only meetings are booked here: a listing is already inspected by Reallow before it
+      // goes live, so a separate paid inspection would be redundant.
+      body: JSON.stringify({ ticketId, kind: "meeting", proposedTime: `${selectedDay}T${time}` }),
     });
     const data = await res.json().catch(() => null);
     setSending(false);
@@ -401,27 +399,7 @@ export function MeetingsCalendar({
                   ))}
                 </select>
               </label>
-              <div className="flex gap-2">
-                {(["inspection", "meeting"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setKind(option)}
-                    className={`h-9 flex-1 rounded-full border text-sm font-medium ${
-                      kind === option ? "border-transparent bg-clay text-white" : "border-line"
-                    }`}
-                  >
-                    {t(option === "inspection" ? "meetings.bookInspection" : "meetings.bookMeeting")}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-foreground/50">
-                {kind === "inspection"
-                  ? t("meetings.inspectionHint", { fee: `₦${(selectedApp?.inspectionFeeNGN ?? 0).toLocaleString()}` })
-                  : t("meetings.meetingHint")}
-                {kind === "inspection" && selectedApp && !selectedApp.applicantVerified &&
-                  ` ${t(selectedApp.side === "tenant" ? "meetings.youVerifyFirst" : "meetings.applicantVerifyFirst")}`}
-              </p>
+              <p className="text-xs text-foreground/50">{t("meetings.meetingHint")}</p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex flex-col gap-1 text-xs text-foreground/60">
                   {t("meetings.day")}

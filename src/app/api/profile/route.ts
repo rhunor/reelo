@@ -4,6 +4,7 @@ import { z } from "zod";
 import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { isAdultBirthDate, MIN_AGE } from "@/lib/age";
 
 // Role-agnostic — both tenants and landlords fill this in. Deliberately separate from
 // tenantProfile (which is scoped to sharing background info with a specific landlord):
@@ -12,11 +13,7 @@ const schema = z.object({
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date of birth")
-    .refine((value) => {
-      const date = new Date(value);
-      const age = (Date.now() - date.getTime()) / (365.25 * 24 * 3600 * 1000);
-      return !Number.isNaN(date.getTime()) && age >= 16 && age <= 120;
-    }, "Enter a valid date of birth")
+    .refine(isAdultBirthDate, `You must be at least ${MIN_AGE} years old to use Reallow`)
     .optional(),
   occupation: z.string().max(100).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   maritalStatus: z.string().max(50).optional(),

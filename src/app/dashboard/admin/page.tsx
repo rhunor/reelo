@@ -4,7 +4,8 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { IdentityHeader } from "@/components/dashboard/identity-header";
-import { approveListing, rejectListing, scheduleInspection } from "./actions";
+import { rejectListing, scheduleInspection } from "./actions";
+import { ApproveListingForm } from "@/components/approve-listing-form";
 import { CheckInButton } from "@/components/check-in-button";
 import { StatGrid, QuickLinks, AccountSettingsLink } from "@/components/dashboard-shell";
 import { formatLagos, toLagosDateTimeLocal } from "@/lib/time";
@@ -210,7 +211,6 @@ export default async function AdminDashboardPage() {
                 className="h-9 rounded-md border border-line px-3 text-sm bg-transparent"
               />
               <SubmitButton
-               
                 disabled={!landlordVerified}
                 className="h-9 rounded-full border border-line px-4 text-sm font-medium disabled:opacity-40"
               >
@@ -218,17 +218,13 @@ export default async function AdminDashboardPage() {
               </SubmitButton>
             </form>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <form action={approveListing}>
-                <input type="hidden" name="listingId" value={listing._id!.toString()} />
-                <SubmitButton
-                 
-                  disabled={!landlordVerified}
-                  className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white disabled:opacity-40"
-                >
-                  Approve &amp; publish
-                </SubmitButton>
-              </form>
+            <div className="mt-4 flex flex-col gap-3">
+              <ApproveListingForm
+                listingId={listing._id!.toString()}
+                photoUrls={listing.photoUrls}
+                videoUrls={listing.videoUrls ?? []}
+                disabled={!landlordVerified}
+              />
 
               <form action={rejectListing} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="listingId" value={listing._id!.toString()} />
@@ -238,7 +234,6 @@ export default async function AdminDashboardPage() {
                   className="h-9 min-w-0 flex-1 rounded-md border border-line px-3 text-sm bg-transparent"
                 />
                 <SubmitButton
-                 
                   className="h-9 rounded-full border border-line px-4 text-sm font-medium"
                 >
                   Reject

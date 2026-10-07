@@ -98,7 +98,6 @@ const ICONS: Record<Panel, ReactNode> = {
 export function DashboardPanels({
   initialPanel,
   initialTicketId,
-  initialKind,
   events,
   bookable,
   ledger,
@@ -112,7 +111,6 @@ export function DashboardPanels({
   panels?: Panel[];
   initialPanel?: Panel;
   initialTicketId?: string;
-  initialKind?: "inspection" | "meeting";
   events: CalendarEvent[];
   bookable: BookableApplication[];
   ledger: LedgerEntry[];
@@ -208,7 +206,6 @@ export function DashboardPanels({
               bookable={bookable}
               walletBalanceNGN={walletBalanceNGN}
               initialTicketId={initialTicketId}
-              initialKind={initialKind}
             />
           )}
           {panel === "transactions" && <TransactionsPanel entries={ledger} />}

@@ -214,7 +214,6 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
                   <div className="flex flex-wrap gap-2">
                     {report.status === "open" && (
                       <SubmitButton
-                       
                         name="status"
                         value="reviewing"
                         className="h-8 rounded-full border border-line px-3.5 text-xs font-medium hover:border-clay hover:text-clay"
@@ -224,7 +223,6 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
                     )}
                     {report.status === "reviewing" && (
                       <SubmitButton
-                       
                         name="status"
                         value="reviewing"
                         className="h-8 rounded-full border border-line px-3.5 text-xs font-medium hover:border-clay hover:text-clay"

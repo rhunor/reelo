@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ProfilePictureUploader } from "@/components/profile-picture-uploader";
 import type { User } from "@/types/models";
 import { useI18n } from "@/components/i18n-provider";
+import { latestAdultBirthDate } from "@/lib/age";
 
 const inputClass = "rounded-lg border border-line px-3 py-2 bg-transparent";
 
@@ -31,6 +32,8 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Computed once (not during render) — the latest date that is still 18 today.
+  const [maxBirthDate] = useState(() => latestAdultBirthDate());
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,10 +98,12 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
           name="dateOfBirth"
           type="date"
           defaultValue={user?.profile?.dateOfBirth}
-          max={new Date().toISOString().slice(0, 10)}
+          max={maxBirthDate}
           className={inputClass + " w-full"}
         />
-        <p className="mt-1 text-xs text-foreground/50">{t("profile.neverShown")}</p>
+        <p className="mt-1 text-xs text-foreground/50">
+          {t("profile.adultsOnly")} {t("profile.neverShown")}
+        </p>
       </div>
 
       <div>
