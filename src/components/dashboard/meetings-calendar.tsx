@@ -63,6 +63,7 @@ function statusBadge(event: CalendarEvent, t: T): { label: string; className: st
   const green = "bg-verified/10 text-verified";
   const grey = "bg-foreground/5 text-foreground/60";
   const red = "bg-red-500/10 text-red-600";
+  if (event.awaitingPayment) return { label: t("meetings.s.awaitingPayment"), className: amber };
   if (event.status === "pending")
     return { label: t(event.myTurn ? "meetings.s.yourResponse" : "meetings.s.pending"), className: amber };
   if (event.status === "declined") return { label: t("meetings.s.declined"), className: red };
@@ -89,7 +90,22 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
   const [countering, setCountering] = useState(false);
   const [counterTime, setCounterTime] = useState("");
   const [rating, setRating] = useState(false);
+  const [payingToAccept, setPayingToAccept] = useState(false);
   const badge = statusBadge(event, t);
+
+  async function cancel() {
+    if (!window.confirm(t(event.paid && event.side === "tenant" ? "meetings.cancelConfirmRefund" : "meetings.cancelConfirm"))) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/meetings/${event.id}/cancel`, { method: "POST" });
+    const data = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) {
+      setError(data?.error ?? t("meetings.respondFailed"));
+      return;
+    }
+    router.refresh();
+  }
 
   async function respond(body: Record<string, string>) {
     setBusy(true);
@@ -124,8 +140,13 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
         </span>
       </div>
 
-      {event.status === "pending" && !event.myTurn && event.source === "meeting" && (
+      {event.status === "pending" && !event.myTurn && !event.awaitingPayment && event.source === "meeting" && (
         <p className="mt-2 text-xs text-foreground/50">{t("meetings.waitingOtherSide")}</p>
+      )}
+      {event.feeToAcceptNGN !== undefined && event.myTurn && (
+        <p className="mt-2 text-xs text-foreground/60">
+          {t("meetings.feeAcceptHint", { fee: `₦${event.feeToAcceptNGN.toLocaleString()}` })}
+        </p>
       )}
 
       {event.source === "meeting" && event.myTurn && (
@@ -134,10 +155,14 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
             <button
               type="button"
               disabled={busy}
-              onClick={() => respond({ action: "accept" })}
+              onClick={() =>
+                event.feeToAcceptNGN !== undefined ? setPayingToAccept((v) => !v) : respond({ action: "accept" })
+              }
               className="h-8 rounded-full bg-clay px-3.5 text-xs font-medium text-white disabled:opacity-50"
             >
-              {t("meetings.accept")}
+              {event.feeToAcceptNGN !== undefined
+                ? t("meetings.payAndAccept", { fee: `₦${event.feeToAcceptNGN.toLocaleString()}` })
+                : t("meetings.accept")}
             </button>
             <button
               type="button"
@@ -156,6 +181,15 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
               {t("meetings.suggestAnother")}
             </button>
           </div>
+          {payingToAccept && event.feeToAcceptNGN !== undefined && (
+            <PayChoice
+              endpoint={`/api/meetings/${event.id}/pay`}
+              amountNGN={event.feeToAcceptNGN}
+              walletBalanceNGN={walletBalanceNGN}
+              extraBody={{ intent: "accept" }}
+              label={t("meetings.payFee", { amount: `₦${event.feeToAcceptNGN.toLocaleString()}` })}
+            />
+          )}
           {countering && (
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -190,7 +224,7 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
       {event.payAmountNGN !== undefined && (
         <div className="mt-3">
           <p className="mb-2 text-xs text-foreground/60">
-            {t("meetings.payHint")}
+            {t(event.awaitingPayment ? "meetings.payToSend" : "meetings.payHint")}
           </p>
           <PayChoice
             endpoint={`/api/meetings/${event.id}/pay`}
@@ -199,6 +233,17 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
             label={t("meetings.payFee", { amount: `₦${event.payAmountNGN.toLocaleString()}` })}
           />
         </div>
+      )}
+
+      {event.canCancel && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={cancel}
+          className="mt-3 text-xs text-foreground/50 underline hover:text-red-600 disabled:opacity-50"
+        >
+          {t(event.awaitingPayment ? "meetings.discardRequest" : "meetings.cancelMeeting")}
+        </button>
       )}
 
       {event.canLeaveFeedback &&
@@ -245,6 +290,9 @@ export function MeetingsCalendar({
   const [sending, setSending] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
   const [bookSent, setBookSent] = useState(false);
+  // The applicant's request is created but held until they pay the inspection fee.
+  const [payFor, setPayFor] = useState<{ id: string; amountNGN: number } | null>(null);
+  const selectedApp = bookable.find((b) => b.ticketId === ticketId);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -299,6 +347,10 @@ export function MeetingsCalendar({
     const data = await res.json().catch(() => null);
     setSending(false);
     if (!res.ok) return setBookError(data?.error ?? t("meetings.requestFailed"));
+    if (data?.needsPayment) {
+      setPayFor({ id: data.id, amountNGN: data.amountNGN });
+      return;
+    }
     setBookSent(true);
     router.refresh();
   }
@@ -383,6 +435,20 @@ export function MeetingsCalendar({
             <p className="mt-3 text-sm text-verified">
               {t("meetings.requestSent")}
             </p>
+          ) : payFor ? (
+            <div className="mt-3 flex flex-col gap-2">
+              <p className="text-sm">{t("meetings.payToSend")}</p>
+              <PayChoice
+                endpoint={`/api/meetings/${payFor.id}/pay`}
+                amountNGN={payFor.amountNGN}
+                walletBalanceNGN={walletBalanceNGN}
+                label={t("meetings.payFee", { amount: `₦${payFor.amountNGN.toLocaleString()}` })}
+                onPaid={() => {
+                  setPayFor(null);
+                  setBookSent(true);
+                }}
+              />
+            </div>
           ) : (
             <div className="mt-3 flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-xs text-foreground/60">
@@ -399,7 +465,11 @@ export function MeetingsCalendar({
                   ))}
                 </select>
               </label>
-              <p className="text-xs text-foreground/50">{t("meetings.meetingHint")}</p>
+              <p className="text-xs text-foreground/50">
+                {t(selectedApp?.side === "landlord" ? "meetings.feeHintLandlord" : "meetings.feeHintTenant", {
+                  fee: `₦${(selectedApp?.inspectionFeeNGN ?? 0).toLocaleString()}`,
+                })}
+              </p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex flex-col gap-1 text-xs text-foreground/60">
                   {t("meetings.day")}

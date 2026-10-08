@@ -422,14 +422,18 @@ const MEETING_NOUN: Record<Meeting["kind"], string> = { inspection: "inspection"
 export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId, isCounter: boolean): Promise<void> {
   const { notifications } = await getCollections();
   const noun = MEETING_NOUN[meeting.kind];
+  // The applicant has to pay the inspection fee before they can accept a landlord's time.
+  const needsFee = toUserId.equals(meeting.tenantId) && Boolean(meeting.feeNGN) && !meeting.paidAt;
   const notice = {
     type: "meeting_proposed" as const,
     title: isCounter ? `A different ${noun} time was suggested` : `New ${noun} request`,
-    body: `Proposed for ${formatLagos(meeting.proposedTime)}. Accept, decline, or suggest another time.`,
+    body: needsFee
+      ? `Proposed for ${formatLagos(meeting.proposedTime)}. Pay the ₦${meeting.feeNGN!.toLocaleString()} inspection fee to accept, or suggest another time.`
+      : `Proposed for ${formatLagos(meeting.proposedTime)}. Accept, decline, or suggest another time.`,
     i18n: {
       title: `notif.req.${isCounter ? "counter" : "new"}.${meeting.kind}`,
-      body: "notif.req.body",
-      vars: { when: formatLagos(meeting.proposedTime) },
+      body: needsFee ? "notif.req.bodyPay" : "notif.req.body",
+      vars: { when: formatLagos(meeting.proposedTime), fee: `₦${(meeting.feeNGN ?? 0).toLocaleString()}` },
     },
     listingId: meeting.listingId,
     href: MEETINGS_HREF,
@@ -485,13 +489,17 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
 
 export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId): Promise<void> {
   const { notifications } = await getCollections();
+  // A paid applicant doesn't pay again — the fee carries over to the rescheduled meeting.
+  const feeCarries = toUserId.equals(meeting.tenantId) && Boolean(meeting.paidAt);
   const notice = {
     type: "meeting_declined" as const,
     title: `${meeting.kind === "inspection" ? "Inspection" : "Meeting"} request declined`,
-    body: `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. You can book a new time from Meetings.`,
+    body: feeCarries
+      ? `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. Book a new time from Meetings — the inspection fee you paid carries over.`
+      : `The proposed time (${formatLagos(meeting.proposedTime)}) was declined. You can book a new time from Meetings.`,
     i18n: {
       title: `notif.req.declined.${meeting.kind}`,
-      body: "notif.req.declinedBody",
+      body: feeCarries ? "notif.req.declinedBodyPaid" : "notif.req.declinedBody",
       vars: { when: formatLagos(meeting.proposedTime) },
     },
     listingId: meeting.listingId,
@@ -505,29 +513,37 @@ export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId
 
 // The applicant paid for an agreed inspection — the landlord hears it's on, and every
 // field agent/admin sees there's a visit to staff.
-export async function notifyMeetingPaid(meeting: Meeting): Promise<void> {
+// A paid visit is now on the calendar: field staff are told so an agent can attend. For
+// the older inspection flow the landlord hears too; for meetings the landlord already got
+// "Meeting confirmed", so `landlord: false` skips the duplicate.
+export async function notifyMeetingPaid(meeting: Meeting, { landlord = true }: { landlord?: boolean } = {}): Promise<void> {
   const { notifications, users } = await getCollections();
   const when = formatLagos(meeting.scheduledFor ?? meeting.proposedTime);
   const now = new Date();
   const staff = await users.find({ role: { $in: ["admin", "staff"] } }).project({ _id: 1 }).toArray();
+  const toLandlord = landlord
+    ? [
+        {
+          userId: meeting.landlordId,
+          type: "meeting_paid" as const,
+          title: "Inspection is on",
+          body: `The inspection fee is paid — ${when}. Reallow's agent will bring the applicant to you.`,
+          i18n: { title: "notif.paid.title", body: "notif.paid.body", vars: { when } },
+          listingId: meeting.listingId,
+          href: MEETINGS_HREF,
+          read: false,
+          createdAt: now,
+        },
+      ]
+    : [];
 
   await notifications.insertMany([
-    {
-      userId: meeting.landlordId,
-      type: "meeting_paid" as const,
-      title: "Inspection is on",
-      body: `The inspection fee is paid — ${when}. Reallow's agent will bring the applicant to you.`,
-      i18n: { title: "notif.paid.title", body: "notif.paid.body", vars: { when } },
-      listingId: meeting.listingId,
-      href: MEETINGS_HREF,
-      read: false,
-      createdAt: now,
-    },
+    ...toLandlord,
     ...staff.map((member) => ({
       userId: member._id as ObjectId,
       type: "meeting_paid" as const,
-      title: "Paid inspection to staff",
-      body: `Inspection booked for ${when}.`,
+      title: "Paid visit to attend",
+      body: `${meeting.kind === "meeting" ? "Meeting" : "Inspection"} booked for ${when} — the fee is paid, an agent should attend.`,
       listingId: meeting.listingId,
       href: "/dashboard/staff",
       read: false,
@@ -655,4 +671,39 @@ export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
     read: false,
     createdAt: new Date(),
   });
+}
+
+// The meeting was declined after the applicant paid — the fee went back to their wallet.
+export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number): Promise<void> {
+  const { notifications } = await getCollections();
+  const amount = `₦${amountNGN.toLocaleString()}`;
+  await notifications.insertOne({
+    userId: meeting.tenantId,
+    type: "meeting_refunded",
+    title: "Inspection fee refunded",
+    body: `The meeting didn't go ahead, so your ${amount} inspection fee is back in your Reallow wallet.`,
+    i18n: { title: "notif.refund.title", body: "notif.refund.body", vars: { amount } },
+    listingId: meeting.listingId,
+    href: "/dashboard?panel=wallet",
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// One side cancelled a meeting; the other side hears about it.
+export async function notifyMeetingCancelled(meeting: Meeting, toUserId: ObjectId): Promise<void> {
+  const { notifications } = await getCollections();
+  const when = formatLagos(meeting.scheduledFor ?? meeting.proposedTime);
+  const notice = {
+    type: "meeting_declined" as const,
+    title: "Meeting cancelled",
+    body: `The meeting on ${when} was cancelled. You can book a new time from Meetings.`,
+    i18n: { title: "notif.cancelled.title", body: "notif.cancelled.body", vars: { when } },
+    listingId: meeting.listingId,
+    href: MEETINGS_HREF,
+    read: false,
+    createdAt: new Date(),
+  };
+  if (toUserId.equals(meeting.landlordId)) await notifyLandlordSide(meeting.landlordId, notice);
+  else await notifications.insertOne({ ...notice, userId: toUserId });
 }

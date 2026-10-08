@@ -42,6 +42,11 @@ export const INSPECTION_FEE_BY_DISTRICT: Record<string, number> = {
 
 export const DEFAULT_INSPECTION_FEE_NGN = 6_000;
 
+// Every meeting between a landlord and an applicant carries this inspection fee, paid by
+// the applicant (tenant or buyer) before the meeting can go ahead. It covers the Reallow
+// agent who attends.
+export const MEETING_FEE_NGN = 10_000;
+
 export function getInspectionFee(city: string): number {
   return INSPECTION_FEE_BY_DISTRICT[city] ?? DEFAULT_INSPECTION_FEE_NGN;
 }

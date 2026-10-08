@@ -6,11 +6,16 @@ import { getCollections } from "@/lib/db";
 import { initializeTransaction } from "@/lib/paystack";
 import { recordMeetingPayment } from "@/lib/meetings";
 import { creditWallet, debitWallet, walletReference } from "@/lib/wallet";
+import { appBaseUrl } from "@/lib/email";
 
-const schema = z.object({ method: z.enum(["wallet", "card"]) });
+const schema = z.object({ method: z.enum(["wallet", "card"]), intent: z.enum(["accept"]).optional() });
 
-// The applicant pays the inspection fee once an inspection time has been agreed — from
-// their Reallow wallet (instant) or by card (confirmed by the Paystack webhook).
+// The applicant pays the meeting's inspection fee — from their Reallow wallet (instant) or by
+// card (confirmed by the Paystack webhook). What happens once it's paid is in
+// recordMeetingPayment:
+//  - their own proposal (awaiting_payment) is sent to the landlord;
+//  - paying with intent "accept" on the landlord's proposal confirms it;
+//  - an older inspection whose time was already agreed goes ahead.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -30,14 +35,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!meeting || meeting.tenantId.toString() !== session.user.id) {
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
-  if (meeting.kind !== "inspection" || !meeting.feeNGN) {
+  if (!meeting.feeNGN) {
     return NextResponse.json({ error: "Nothing to pay for this meeting" }, { status: 400 });
-  }
-  if (meeting.status !== "confirmed") {
-    return NextResponse.json({ error: "Agree on a time with the landlord first" }, { status: 409 });
   }
   if (meeting.paidAt) {
     return NextResponse.json({ error: "Already paid" }, { status: 409 });
+  }
+  const payable =
+    meeting.kind === "inspection"
+      ? meeting.status === "confirmed"
+      : meeting.status === "awaiting_payment" ||
+        (meeting.status === "pending" && meeting.proposedBy === "landlord" && parsed.data.intent === "accept");
+  if (!payable) {
+    return NextResponse.json({ error: "This meeting can't be paid for right now" }, { status: 409 });
+  }
+  // Remembered on the meeting so a card payment (confirmed later by the webhook) still
+  // knows to accept the landlord's time.
+  if (meeting.status === "pending" && parsed.data.intent === "accept") {
+    await meetings.updateOne({ _id: meeting._id }, { $set: { acceptOnPayment: true } });
+    meeting.acceptOnPayment = true;
   }
 
   if (parsed.data.method === "wallet") {
@@ -68,6 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       email: session.user.email,
       amountKobo: meeting.feeNGN * 100,
       reference: `meeting_${meeting._id}_${Date.now()}`,
+      callbackUrl: `${appBaseUrl()}/dashboard?panel=meetings`,
       metadata: { kind: "meeting_inspection_fee", meetingId: meeting._id!.toString() },
     });
     return NextResponse.json({ authorizationUrl });

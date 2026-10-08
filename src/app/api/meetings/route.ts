@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { getInspectionFee } from "@/lib/fees";
+import { getInspectionFee, MEETING_FEE_NGN } from "@/lib/fees";
 import { notifyMeetingProposed } from "@/lib/notifications";
 import { isStaffRole } from "@/lib/roles";
 import { parseLagosDateTimeLocal } from "@/lib/time";
@@ -16,9 +16,13 @@ const schema = z.object({
   proposedTime: z.string().min(1),
 });
 
-// Either side of an accepted application books a meeting or inspection from the
-// dashboard's Meetings window. Nothing is confirmed here — the other side accepts,
-// declines, or suggests another time (see ./[id]/respond).
+// Either side of an accepted application books a meeting from the dashboard's Meetings
+// window. Nothing is confirmed here — the other side accepts, declines, or suggests another
+// time (see ./[id]/respond).
+//
+// Every meeting carries the applicant's inspection fee (MEETING_FEE_NGN). When the
+// applicant proposes, the request waits as "awaiting_payment" and only reaches the landlord
+// once they've paid (./[id]/pay). When the landlord proposes, the applicant pays to accept.
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user || (isStaffRole(session.user.role) && session.user.role !== "admin")) {
@@ -78,6 +82,17 @@ export async function POST(request: Request) {
     }
   }
 
+  const feeNGN =
+    parsed.data.kind === "inspection" ? getInspectionFee(listing.location.city) : MEETING_FEE_NGN;
+
+  // An unpaid proposal of the applicant's own is reused (new time) rather than duplicated —
+  // they're simply sent back to pay for it.
+  const unpaid = await meetings.findOne({ ticketId: ticket._id, kind: parsed.data.kind, status: "awaiting_payment" });
+  if (unpaid && side === "tenant") {
+    await meetings.updateOne({ _id: unpaid._id }, { $set: { proposedTime, updatedAt: new Date() } });
+    return NextResponse.json({ success: true, id: unpaid._id!.toString(), needsPayment: true, amountNGN: unpaid.feeNGN });
+  }
+
   const open = await meetings.findOne({
     ticketId: ticket._id,
     kind: parsed.data.kind,
@@ -91,20 +106,51 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  const meeting: Omit<Meeting, "_id"> = {
+  const newId = new ObjectId();
+  // Rescheduling after a decline: the fee the applicant already paid carries over, so
+  // they're never charged twice for the same application. Claimed atomically so one paid
+  // fee can only ever cover one new meeting.
+  const carried =
+    parsed.data.kind === "meeting"
+      ? await meetings.findOneAndUpdate(
+          {
+            ticketId: ticket._id,
+            kind: "meeting",
+            status: "declined",
+            paidAt: { $exists: true },
+            refundedAt: { $exists: false },
+            feeCarriedTo: { $exists: false },
+          },
+          { $set: { feeCarriedTo: newId, updatedAt: now } },
+          { sort: { paidAt: -1 } },
+        )
+      : null;
+
+  // The older inspection kind is paid after the time is agreed; meetings are paid up front
+  // when the applicant is the one proposing (unless a fee carried over).
+  const awaitingPayment = parsed.data.kind === "meeting" && side === "tenant" && !carried;
+  const meeting: Meeting = {
+    _id: newId,
     ticketId: ticket._id!,
     listingId: listing._id!,
     landlordId: listing.landlordId,
     tenantId: ticket.userId,
     kind: parsed.data.kind,
-    status: "pending",
+    status: awaitingPayment ? "awaiting_payment" : "pending",
     proposedTime,
     proposedBy: side,
-    feeNGN: parsed.data.kind === "inspection" ? getInspectionFee(listing.location.city) : undefined,
+    feeNGN: carried?.feeNGN ?? feeNGN,
+    ...(carried
+      ? { paidAt: carried.paidAt, paymentMethod: carried.paymentMethod, transactionId: carried.transactionId }
+      : {}),
     createdAt: now,
     updatedAt: now,
   };
   const { insertedId } = await meetings.insertOne(meeting);
+
+  if (awaitingPayment) {
+    return NextResponse.json({ success: true, id: insertedId.toString(), needsPayment: true, amountNGN: feeNGN });
+  }
 
   await notifyMeetingProposed(
     { ...meeting, _id: insertedId },

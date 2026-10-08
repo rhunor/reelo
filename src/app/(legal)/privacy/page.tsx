@@ -4,7 +4,7 @@ export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-foreground/50">Last updated: September 21, 2026</p>
+      <p className="mt-2 text-sm text-foreground/50">Last updated: October 8, 2026</p>
 
       <div className="mt-8 flex flex-col gap-6 text-sm leading-relaxed text-foreground/80">
         <section>
@@ -100,6 +100,18 @@ export default function PrivacyPage() {
             platform, coordinate transactions, and investigate disputes, reports, or suspected
             fraud. Whether an account was brought onto Reallow through a referral, and by whom, is
             visible only to Reallow staff.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-lg font-semibold text-foreground">Cookies and analytics</h2>
+          <p className="mt-2">
+            Reallow uses essential cookies to keep you signed in and remember your language. If you
+            choose &quot;Accept all&quot; on our cookie banner, we also record which pages you
+            visit, how you found us, your device type and approximate location (city and country —
+            never your IP address) to improve Reallow. This stays with Reallow and is deleted
+            after 13 months. See our <a href="/cookies" className="underline">Cookie Policy</a>{" "}
+            for the full list and how to change your choice.
           </p>
         </section>
 

@@ -63,11 +63,11 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
       // Staff earn referral commissions too, so they get the same wallet and history windows.
       loadDashboardData(session.user.id, [], t),
       inspectionBookings.find({ status: "confirmed" }).toArray(),
-      // Inspections booked through the dashboard's Meetings window only need an agent once
+      // Meetings (and older inspections) booked through the dashboard need an agent once
       // the time is agreed and the applicant has paid.
-      meetings.find({ kind: "inspection", status: "confirmed", paidAt: { $exists: true } }).toArray(),
+      meetings.find({ kind: { $in: ["inspection", "meeting"] }, status: "confirmed", paidAt: { $exists: true } }).toArray(),
       // Inspections finished in the last 30 days, for the agent to rate.
-      meetings.find({ kind: "inspection", status: "completed", updatedAt: { $gte: thirtyDaysAgo } }).sort({ updatedAt: -1 }).toArray(),
+      meetings.find({ kind: { $in: ["inspection", "meeting"] }, status: "completed", paidAt: { $exists: true }, updatedAt: { $gte: thirtyDaysAgo } }).sort({ updatedAt: -1 }).toArray(),
       inspectionBookings.find({ status: "completed", scheduledFor: { $gte: thirtyDaysAgo } }).toArray(),
       meetingFeedback.find({ userId: new ObjectId(session.user.id) }).project({ targetId: 1 }).toArray(),
     ]);

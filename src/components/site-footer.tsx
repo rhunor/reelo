@@ -6,6 +6,7 @@ import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-inf
 import { isStaffRole } from "@/lib/roles";
 import { ctaLinks } from "@/lib/cta-links";
 import { getT } from "@/lib/i18n/server";
+import { CookieSettingsLink } from "@/components/cookie-settings-link";
 
 export async function SiteFooter() {
   const session = await auth();
@@ -38,6 +39,7 @@ export async function SiteFooter() {
       links: [
         { href: "/terms", label: t("footer.terms") },
         { href: "/privacy", label: t("footer.privacy") },
+        { href: "/cookies", label: t("footer.cookiePolicy") },
       ],
     },
   ];
@@ -67,6 +69,11 @@ export async function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                {column.title === t("footer.legal") && (
+                  <li>
+                    <CookieSettingsLink label={t("footer.cookieSettings")} />
+                  </li>
+                )}
               </ul>
             </nav>
           ))}

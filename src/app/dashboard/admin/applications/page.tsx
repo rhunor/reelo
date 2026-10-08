@@ -4,7 +4,7 @@ import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 import { EventCard } from "@/components/dashboard/meetings-calendar";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { formatLagos } from "@/lib/time";
-import type { CalendarEvent } from "@/lib/dashboard-data";
+import type { CalendarEvent, CalendarEventStatus } from "@/lib/dashboard-data";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,8 @@ export default async function AdminApplicationsPage() {
   const decided = applications.filter((a) => decisionOf(a));
 
   const now = currentTime();
-  const events: CalendarEvent[] = meetingList.map((m) => {
+  // Unpaid applicant proposals haven't been sent to the landlord side yet.
+  const events: CalendarEvent[] = meetingList.filter((m) => m.status !== "awaiting_payment").map((m) => {
     const at = m.scheduledFor ?? m.proposedTime;
     return {
       id: m._id!.toString(),
@@ -46,7 +47,7 @@ export default async function AdminApplicationsPage() {
       side: "landlord",
       listingTitle: titleOf(m.listingId),
       at: new Date(at).toISOString(),
-      status: m.status,
+      status: m.status as CalendarEventStatus,
       myTurn: m.status === "pending" && m.proposedBy !== "landlord",
       paid: Boolean(m.paidAt),
       canLeaveFeedback: false,

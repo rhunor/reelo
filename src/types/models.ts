@@ -290,7 +290,9 @@ export interface InspectionBooking {
 }
 
 export type MeetingKind = "inspection" | "meeting";
-export type MeetingStatus = "pending" | "confirmed" | "declined" | "cancelled" | "completed";
+// "awaiting_payment": the applicant proposed a time but hasn't paid the inspection fee yet,
+// so the request hasn't been sent to the landlord.
+export type MeetingStatus = "awaiting_payment" | "pending" | "confirmed" | "declined" | "cancelled" | "completed";
 
 // A meeting between a landlord and an applicant they've approved (see
 // SupportTicket.landlordDecision) — booked from the dashboard's Meetings window by either
@@ -314,6 +316,13 @@ export interface Meeting {
   paidAt?: Date;
   paymentMethod?: "wallet" | "card";
   transactionId?: ObjectId;
+  // The applicant is paying to accept the landlord's proposed time — confirm once paid.
+  acceptOnPayment?: boolean;
+  // Fee returned to the applicant's wallet because the meeting was cancelled.
+  refundedAt?: Date;
+  // A declined meeting's paid fee moved on to the rescheduled meeting (no second charge).
+  feeCarriedTo?: ObjectId;
+  cancelledBy?: "landlord" | "tenant" | "reallow";
   respondedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -323,6 +332,38 @@ export interface Meeting {
 // InspectionBooking, or a landlord's listing-verification visit. One per user per entry.
 // Read by Reallow on /dashboard/admin/feedback; never shown to the other party.
 export type FeedbackTargetType = "meeting" | "inspection_booking" | "verification";
+
+// One page view from a visitor who accepted analytics cookies. No IP address is stored —
+// only the coarse location Vercel derives from it.
+export interface AnalyticsEvent {
+  _id?: ObjectId;
+  visitorId: string;
+  sessionId: string;
+  newSession: boolean;
+  userId?: ObjectId;
+  path: string;
+  // utm_source, else the referring site's host, else "Direct".
+  source: string;
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  device: "mobile" | "tablet" | "desktop";
+  browser?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  language?: string;
+  createdAt: Date;
+}
+
+// A visitor's answer to the cookie banner — counted (anonymously) on the analytics page.
+export interface ConsentEvent {
+  _id?: ObjectId;
+  choice: "all" | "essential";
+  device: "mobile" | "tablet" | "desktop";
+  createdAt: Date;
+}
 
 export interface MeetingFeedback {
   _id?: ObjectId;
@@ -428,6 +469,7 @@ export type TransactionType =
   | "listing_verification"
   | "inspection_fee"
   | "caution_fee_refund"
+  | "inspection_fee_refund"
   | "wallet_funding";
 export type TransactionStatus = "pending" | "success" | "failed" | "refunded";
 
@@ -559,6 +601,7 @@ export type NotificationType =
   | "ticket_reply"
   | "landlord_decision"
   | "listing_received"
+  | "meeting_refunded"
   | "listing_approved"
   | "listing_rejected"
   | "verification_inspection_scheduled"

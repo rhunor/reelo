@@ -14,12 +14,15 @@ export function PayChoice({
   walletBalanceNGN,
   label,
   onPaid,
+  extraBody,
 }: {
   endpoint: string;
   amountNGN: number;
   walletBalanceNGN: number;
   label?: string;
   onPaid?: () => void;
+  // Sent along with { method } — e.g. { intent: "accept" } to accept a meeting once paid.
+  extraBody?: Record<string, string>;
 }) {
   const router = useRouter();
   const { t } = useI18n();
@@ -35,7 +38,7 @@ export function PayChoice({
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method }),
+      body: JSON.stringify({ ...extraBody, method }),
     });
     const data = await res.json().catch(() => null);
 

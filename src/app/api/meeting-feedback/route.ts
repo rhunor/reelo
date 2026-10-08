@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const isParty =
       meeting &&
       ([meeting.landlordId, meeting.tenantId].some((id) => id.toString() === userId) ||
-        (isFieldStaff && meeting.kind === "inspection"));
+        (isFieldStaff && Boolean(meeting.paidAt)));
     if (!meeting || !isParty || (meeting.status !== "confirmed" && meeting.status !== "completed")) {
       return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
     }

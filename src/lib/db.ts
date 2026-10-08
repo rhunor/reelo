@@ -1,5 +1,8 @@
 import { getMongoClientPromise } from "@/lib/mongodb";
+import { ANALYTICS_RETENTION_S } from "@/lib/consent";
 import type {
+  AnalyticsEvent,
+  ConsentEvent,
   Agreement,
   InspectionBooking,
   ListingReview,
@@ -31,7 +34,10 @@ let indexesRequested = false;
 function ensureIndexes(db: Awaited<ReturnType<typeof getDb>>) {
   if (indexesRequested) return;
   indexesRequested = true;
-  const specs: Array<[string, Record<string, 1 | -1>]> = [
+  const specs: Array<[string, Record<string, 1 | -1>, { expireAfterSeconds?: number }?]> = [
+    ["analyticsEvents", { createdAt: 1 }, { expireAfterSeconds: ANALYTICS_RETENTION_S }],
+    ["analyticsEvents", { path: 1, createdAt: -1 }],
+    ["consentEvents", { createdAt: -1 }],
     ["users", { email: 1 }],
     ["users", { phone: 1 }],
     ["users", { referralCode: 1 }],
@@ -55,7 +61,7 @@ function ensureIndexes(db: Awaited<ReturnType<typeof getDb>>) {
     ["withdrawalRequests", { status: 1 }],
     ["referralCommissions", { status: 1 }],
   ];
-  void Promise.all(specs.map(([name, keys]) => db.collection(name).createIndex(keys))).catch((error) => {
+  void Promise.all(specs.map(([name, keys, options]) => db.collection(name).createIndex(keys, options ?? {}))).catch((error) => {
     indexesRequested = false; // try again on a later request
     console.error("[db] creating indexes failed:", error);
   });
@@ -79,5 +85,7 @@ export async function getCollections() {
     withdrawalRequests: db.collection<WithdrawalRequest>("withdrawalRequests"),
     meetings: db.collection<Meeting>("meetings"),
     meetingFeedback: db.collection<MeetingFeedback>("meetingFeedback"),
+    analyticsEvents: db.collection<AnalyticsEvent>("analyticsEvents"),
+    consentEvents: db.collection<ConsentEvent>("consentEvents"),
   };
 }

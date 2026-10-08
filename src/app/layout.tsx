@@ -13,6 +13,9 @@ import { I18nProvider } from "@/components/i18n-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { getLocale } from "@/lib/i18n/server";
 import { LOCALES, clientMessages } from "@/lib/i18n/dictionaries";
+import { cookies } from "next/headers";
+import { CookieConsent } from "@/components/cookie-consent";
+import { CONSENT_COOKIE, isConsentChoice } from "@/lib/consent";
 
 export const metadata: Metadata = {
   title: "Reallow",
@@ -31,6 +34,7 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const htmlLang = LOCALES.find((l) => l.code === locale)?.htmlLang ?? "en";
+  const consent = (await cookies()).get(CONSENT_COOKIE)?.value;
 
   return (
     <html lang={htmlLang} className="h-full antialiased">
@@ -47,6 +51,7 @@ export default async function RootLayout({
             <PageTransition>{children}</PageTransition>
           </main>
           <SiteFooter />
+          <CookieConsent initialChoice={isConsentChoice(consent) ? consent : null} />
         </I18nProvider>
       </body>
     </html>

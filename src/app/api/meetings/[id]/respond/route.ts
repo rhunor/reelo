@@ -4,8 +4,8 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { meetingSide } from "@/lib/meetings";
-import { notifyMeetingConfirmed, notifyMeetingDeclined, notifyMeetingProposed } from "@/lib/notifications";
+import { meetingNeedsFee, meetingSide } from "@/lib/meetings";
+import { notifyMeetingConfirmed, notifyMeetingDeclined, notifyMeetingPaid, notifyMeetingProposed } from "@/lib/notifications";
 import { parseLagosDateTimeLocal } from "@/lib/time";
 
 const schema = z.union([
@@ -51,15 +51,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const now = new Date();
   const otherSideId = side === "tenant" ? meeting.landlordId : meeting.tenantId;
+  // The applicant pays the inspection fee before accepting (see ../pay with intent "accept").
+  const applicantMustPay = side === "tenant" && meetingNeedsFee(meeting);
 
   if (parsed.data.action === "accept") {
+    if (applicantMustPay) {
+      return NextResponse.json(
+        { error: "Pay the inspection fee to accept this meeting", needsPayment: true, amountNGN: meeting.feeNGN },
+        { status: 402 },
+      );
+    }
     // Conditional on still being pending, so a double-click can't confirm twice.
     const result = await meetings.updateOne(
       { _id: meeting._id, status: "pending", proposedBy: meeting.proposedBy },
       { $set: { status: "confirmed", scheduledFor: meeting.proposedTime, respondedAt: now, updatedAt: now } },
     );
     if (result.modifiedCount === 1) {
-      await notifyMeetingConfirmed({ ...meeting, status: "confirmed", scheduledFor: meeting.proposedTime });
+      const confirmed = { ...meeting, status: "confirmed" as const, scheduledFor: meeting.proposedTime };
+      await notifyMeetingConfirmed(confirmed);
+      // A paid meeting is now on — field staff need to send an agent.
+      if (meeting.kind === "meeting" && meeting.paidAt) await notifyMeetingPaid(confirmed, { landlord: false });
     }
     return NextResponse.json({ success: true });
   }
@@ -70,12 +81,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { $set: { status: "declined", respondedAt: now, updatedAt: now } },
     );
     await notifyMeetingDeclined(meeting, otherSideId);
+    // No refund on a decline: the two sides reschedule, and a paid fee carries over to the
+    // next meeting booked for this application (see POST /api/meetings).
     return NextResponse.json({ success: true });
   }
 
   const proposedTime = parseLagosDateTimeLocal(parsed.data.proposedTime);
   if (Number.isNaN(proposedTime.getTime()) || proposedTime.getTime() < Date.now()) {
     return NextResponse.json({ error: "Pick a time in the future" }, { status: 400 });
+  }
+  if (applicantMustPay) {
+    // The applicant's counter-proposal is held until they pay — then it's sent.
+    await meetings.updateOne(
+      { _id: meeting._id },
+      { $set: { proposedTime, proposedBy: side, status: "awaiting_payment", respondedAt: now, updatedAt: now } },
+    );
+    return NextResponse.json({ success: true, needsPayment: true, amountNGN: meeting.feeNGN });
   }
   await meetings.updateOne(
     { _id: meeting._id },

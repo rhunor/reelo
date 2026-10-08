@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
-import { getInspectionFee } from "@/lib/fees";
+import { MEETING_FEE_NGN } from "@/lib/fees";
 import type { Property } from "@/types/models";
 
 // Everything the dashboard's Meetings / Transaction history / Wallet windows show, shaped
@@ -19,8 +19,14 @@ export interface CalendarEvent {
   status: CalendarEventStatus;
   // Whose move it is on a pending request — only the side that didn't propose can answer.
   myTurn: boolean;
-  // Applicant's view of an agreed inspection that still needs its fee.
+  // Applicant's view of something they need to pay before it can go ahead: their own
+  // meeting request that hasn't been sent yet (awaitingPayment), or an agreed inspection.
   payAmountNGN?: number;
+  awaitingPayment?: boolean;
+  // Applicant's view of the landlord's proposed time: pay this much to accept it.
+  feeToAcceptNGN?: number;
+  // An upcoming meeting either side can cancel (a paid fee is refunded to the applicant).
+  canCancel?: boolean;
   paid?: boolean;
   // Landlord still needs to confirm/decline Reallow's proposed verification time.
   verificationHref?: string;
@@ -124,6 +130,9 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
 
   for (const m of myMeetings) {
     const side = m.tenantId.equals(userId) ? "tenant" : "landlord";
+    // The applicant's unpaid request hasn't been sent — the landlord doesn't see it yet.
+    if (m.status === "awaiting_payment" && side === "landlord") continue;
+    const awaitingPayment = m.status === "awaiting_payment";
     const at = m.scheduledFor ?? m.proposedTime;
     const held = (m.status === "confirmed" || m.status === "completed") && isPast(at);
     events.push({
@@ -133,12 +142,23 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       side,
       listingTitle: titleOf(m.listingId),
       at: new Date(at).toISOString(),
-      status: m.status,
+      // An unsent request shows as pending for the applicant, with the pay step on it.
+      status: awaitingPayment ? "pending" : (m.status as CalendarEventStatus),
       myTurn: m.status === "pending" && m.proposedBy !== side,
+      awaitingPayment,
       payAmountNGN:
-        side === "tenant" && m.kind === "inspection" && m.status === "confirmed" && !m.paidAt && !isPast(at)
+        (awaitingPayment && !isPast(at)) ||
+        (side === "tenant" && m.kind === "inspection" && m.status === "confirmed" && !m.paidAt && !isPast(at))
           ? m.feeNGN
           : undefined,
+      feeToAcceptNGN:
+        side === "tenant" && m.status === "pending" && m.proposedBy === "landlord" && m.feeNGN && !m.paidAt
+          ? m.feeNGN
+          : undefined,
+      // A request waiting on *my* answer is declined, not cancelled.
+      canCancel:
+        !isPast(at) &&
+        (m.status === "confirmed" || m.status === "awaiting_payment" || (m.status === "pending" && m.proposedBy === side)),
       paid: Boolean(m.paidAt),
       canLeaveFeedback: held && !feedbackIds.has(m._id!.toString()),
       feedbackGiven: feedbackIds.has(m._id!.toString()),
@@ -207,28 +227,36 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       listingTitle: titleOf(t.listingId!),
       side: "tenant" as const,
       applicantVerified: Boolean(me?.verifiedBadge),
-      inspectionFeeNGN: getInspectionFee(listingById.get(t.listingId!.toString())?.location.city ?? ""),
+      inspectionFeeNGN: MEETING_FEE_NGN,
     })),
     ...applicationsToMe.filter(isApproved).map((t) => ({
       ticketId: t._id!.toString(),
       listingTitle: titleOf(t.listingId!),
       side: "landlord" as const,
       applicantVerified: applicantVerified.get(t.userId.toString()) ?? false,
-      inspectionFeeNGN: getInspectionFee(listingById.get(t.listingId!.toString())?.location.city ?? ""),
+      inspectionFeeNGN: MEETING_FEE_NGN,
     })),
   ];
 
   // Money: payments made/received, referral earnings Reallow credited, and withdrawals.
   const ledger: LedgerEntry[] = [
-    ...myTransactions.map((t) => {
-      const isTopUp = t.type === "wallet_funding";
+    // The inspection fee is Reallow's (it pays for the agent), not the landlord's — only the
+    // applicant who paid it sees it.
+    ...myTransactions.filter((t) => t.type !== "inspection_fee" || t.payerId.equals(userId)).map((t) => {
+      const isTopUp = t.type === "wallet_funding" || t.type === "inspection_fee_refund";
       const incoming = isTopUp || (t.payeeId?.equals(userId) && !t.payerId.equals(userId));
       return {
         id: t._id!.toString(),
         label: tr(`txType.${t.type}` as MessageKey),
         detail: [
           t.listingId ? titleOf(t.listingId) : undefined,
-          t.provider === "wallet" ? tr("tx.paidFromWallet") : isTopUp ? tr("tx.cardTopUp") : undefined,
+          t.type === "inspection_fee_refund"
+            ? tr("tx.creditedToWallet")
+            : t.provider === "wallet"
+              ? tr("tx.paidFromWallet")
+              : isTopUp
+                ? tr("tx.cardTopUp")
+                : undefined,
         ]
           .filter(Boolean)
           .join(" · ") || undefined,

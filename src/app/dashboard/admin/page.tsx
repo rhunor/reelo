@@ -67,6 +67,7 @@ export default async function AdminDashboardPage() {
           { href: "/dashboard/admin/referrals", label: "Referrals & withdrawals" },
           { href: "/dashboard/admin/feedback", label: "Meeting feedback" },
           { href: "/dashboard/admin/insights", label: "How people found us" },
+          { href: "/dashboard/admin/analytics", label: "Site analytics" },
         ]}
       />
       <div className="mt-2">
