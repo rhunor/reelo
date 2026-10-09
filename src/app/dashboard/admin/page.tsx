@@ -22,14 +22,15 @@ const AGENT_CONDITION_LABEL = {
 export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { properties, users, tickets, agreements, withdrawalRequests, reports } = await getCollections();
-  const [found, pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount] = await Promise.all([
+  const { properties, users, tickets, agreements, withdrawalRequests, reports, propertyRequests } = await getCollections();
+  const [found, pending, openTicketCount, payoutPendingCount, withdrawalPendingCount, openReportCount, newRequestCount] = await Promise.all([
     users.findOne({ _id: new ObjectId(session.user.id) }),
     properties.find({ status: "pending_verification" }).sort({ createdAt: 1 }).toArray(),
     tickets.countDocuments({ status: { $in: ["open", "in_progress"] } }),
     agreements.countDocuments({ "payment.status": "paid_to_reallow" }),
     withdrawalRequests.countDocuments({ status: "pending" }),
     reports.countDocuments({ status: { $in: ["open", "reviewing"] } }),
+    propertyRequests.countDocuments({ status: "new" }),
   ]);
   if (!found) redirect("/login");
   // Older accounts predate referral codes — give them one now.
@@ -58,6 +59,7 @@ export default async function AdminDashboardPage() {
       <QuickLinks
         links={[
           { href: "/dashboard/admin/listings", label: "Manage listings", primary: true },
+          { href: "/dashboard/admin/requests", label: newRequestCount ? `Property requests (${newRequestCount})` : "Property requests" },
           { href: "/dashboard/admin/applications", label: "Applications (Reallow listings)" },
           { href: "/dashboard/admin/listings/new", label: "Post a property directly" },
           { href: "/dashboard/admin/agreements", label: "Tenancy agreements" },

@@ -696,3 +696,24 @@ export async function addUserNote(formData: FormData) {
   );
   revalidatePath(`/dashboard/admin/users/${userId}`);
 }
+
+const REQUEST_STATUSES = ["new", "in_progress", "matched", "closed"] as const;
+
+// Move a "find me a property" request along and keep a note of what was done.
+export async function updatePropertyRequest(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = formData.get("requestId") as string;
+  const status = formData.get("status") as (typeof REQUEST_STATUSES)[number];
+  const note = ((formData.get("note") as string) ?? "").trim().slice(0, 1000);
+  if (!ObjectId.isValid(id) || !REQUEST_STATUSES.includes(status)) throw new Error("Invalid request");
+
+  const { propertyRequests } = await getCollections();
+  await propertyRequests.updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: { status, adminNote: note || undefined, handledBy: new ObjectId(admin.id), updatedAt: new Date() },
+    },
+  );
+  revalidatePath("/dashboard/admin/requests");
+  revalidatePath("/dashboard/admin");
+}

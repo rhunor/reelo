@@ -10,6 +10,7 @@ import { PROPERTY_TYPES, propertyTypeKey } from "@/lib/property-types";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { LocationFilterSelects } from "@/components/location-filter-selects";
+import { PropertyRequestButton } from "@/components/property-request-button";
 import { isStaffRole } from "@/lib/roles";
 import type { Property } from "@/types/models";
 
@@ -54,8 +55,8 @@ export default async function ListingsPage({
   // Zero-result searches are both the signal for "we should notify this user later" and,
   // in aggregate, the record of demand for locations/types Reallow has no supply in yet.
   // Only logged for signed-in, non-staff accounts — there's no one to notify otherwise.
+  const session = await auth();
   if (hasActiveSearch && listings.length === 0) {
-    const session = await auth();
     if (session?.user && !isStaffRole(session.user.role)) {
       const now = new Date();
       await savedSearches.updateOne(
@@ -201,6 +202,13 @@ export default async function ListingsPage({
           <ListingsMap listings={mapListings} />
         </div>
       </div>
+
+      {!(session?.user && isStaffRole(session.user.role)) && (
+        <PropertyRequestButton
+          signedIn={Boolean(session?.user)}
+          initial={{ listingType, propertyType, state, city, maxPrice: params.maxPrice }}
+        />
+      )}
     </div>
   );
 }

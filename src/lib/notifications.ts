@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import type { InspectionBooking, Meeting, Property, SupportTicket } from "@/types/models";
+import type { InspectionBooking, Meeting, Property, PropertyRequest, SupportTicket } from "@/types/models";
 import { sendListingReceivedEmail, sendListingReviewedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
 import { formatLagos } from "@/lib/time";
 import { landlordRecipients } from "@/lib/reallow-landlord";
@@ -706,4 +706,40 @@ export async function notifyMeetingCancelled(meeting: Meeting, toUserId: ObjectI
   };
   if (toUserId.equals(meeting.landlordId)) await notifyLandlordSide(meeting.landlordId, notice);
   else await notifications.insertOne({ ...notice, userId: toUserId });
+}
+
+// Someone asked Reallow's agents to find them a property — every admin hears about it, and a
+// signed-in requester gets a confirmation.
+export async function notifyPropertyRequest(request: PropertyRequest): Promise<void> {
+  const { notifications, users } = await getCollections();
+  const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
+  const what = `${request.propertyType} for ${request.listingType === "rent" ? "rent" : "sale"}`;
+  const where = [request.city, request.state].filter(Boolean).join(", ");
+  const now = new Date();
+  const notices: Omit<Notification, "_id">[] = admins.map((admin) => ({
+    userId: admin._id as ObjectId,
+    type: "property_request" as const,
+    title: "New property request",
+    body: `${request.name} is looking for a ${what} in ${where}.`,
+    href: "/dashboard/admin/requests",
+    read: false,
+    createdAt: now,
+  }));
+  if (request.userId) {
+    notices.push({
+      userId: request.userId,
+      type: "property_request",
+      title: "We've got your property request",
+      body: `Reallow's agents are looking for a ${what} in ${where} and will contact you.`,
+      i18n: {
+        title: "notif.propRequest.title",
+        body: "notif.propRequest.body",
+        vars: { type: request.propertyType, where },
+      },
+      href: "/listings",
+      read: false,
+      createdAt: now,
+    });
+  }
+  if (notices.length) await notifications.insertMany(notices);
 }

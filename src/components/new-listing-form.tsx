@@ -8,7 +8,7 @@ import { PROPERTY_TYPES } from "@/lib/property-types";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
 import { CAUTION_FEE_CAP_RATE, computeListingCostBreakdown, formatRate } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
-import { propertyTypeKey } from "@/lib/property-types";
+import { COMPLETION_STATUSES, propertyTypeFields, propertyTypeKey, type CompletionStatus } from "@/lib/property-types";
 import { useI18n } from "@/components/i18n-provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
 
@@ -29,7 +29,8 @@ type ListingPayload = {
   fullAddress: string;
   bedrooms?: number;
   bathrooms?: number;
-  furnishing: "furnished" | "semi_furnished" | "unfurnished";
+  furnishing?: "furnished" | "semi_furnished" | "unfurnished";
+  completionStatus?: CompletionStatus;
   amenities?: string;
   tenantPreferences?: string;
   photoUrls: string[];
@@ -55,6 +56,10 @@ export function NewListingForm() {
   const [furnishing, setFurnishing] = useState<"furnished" | "semi_furnished" | "unfurnished">(
     "unfurnished",
   );
+  const [propertyType, setPropertyType] = useState("");
+  const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
+  // Which details apply to the chosen type (no furnishing or bedrooms for land, etc.).
+  const fields = propertyTypeFields(propertyType);
   const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
   const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -65,6 +70,7 @@ export function NewListingForm() {
   // "Confirm listing" posts exactly what the landlord reviewed.
   const [review, setReview] = useState<ListingPayload | null>(null);
   const isRent = listingType === "rent";
+  const needsCompletion = !isRent && fields.completion;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,6 +78,11 @@ export function NewListingForm() {
 
     if (photoUrls.length === 0) {
       setError(t("form.needPhoto"));
+      return;
+    }
+
+    if (needsCompletion && !completionStatus) {
+      setError(t("form.completionRequired"));
       return;
     }
 
@@ -88,7 +99,7 @@ export function NewListingForm() {
       title: text(formData, "title") ?? "",
       description: text(formData, "description"),
       listingType,
-      propertyType: text(formData, "propertyType") ?? "",
+      propertyType,
       priceNGN,
       // Sale listings carry no caution fee, estate charge, or minimum tenancy.
       depositNGN,
@@ -98,9 +109,10 @@ export function NewListingForm() {
       city: text(formData, "city") ?? "",
       area: text(formData, "area"),
       fullAddress: text(formData, "fullAddress") ?? "",
-      bedrooms: num(formData, "bedrooms"),
-      bathrooms: num(formData, "bathrooms"),
-      furnishing,
+      bedrooms: fields.bedrooms ? num(formData, "bedrooms") : undefined,
+      bathrooms: fields.bathrooms ? num(formData, "bathrooms") : undefined,
+      furnishing: fields.furnishing ? furnishing : undefined,
+      completionStatus: needsCompletion ? completionStatus ?? undefined : undefined,
       amenities: text(formData, "amenities"),
       tenantPreferences: text(formData, "tenantPreferences"),
       photoUrls,
@@ -179,7 +191,13 @@ export function NewListingForm() {
         </button>
       </div>
 
-      <select name="propertyType" required defaultValue="" className={inputClass}>
+      <select
+        name="propertyType"
+        required
+        value={propertyType}
+        onChange={(event) => setPropertyType(event.target.value)}
+        className={inputClass}
+      >
         <option value="" disabled>
           {t("form.propertyType")}
         </option>
@@ -284,25 +302,60 @@ export function NewListingForm() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <input name="bedrooms" type="number" min={0} placeholder={t("form.bedrooms")} className={inputClass} />
-        <input name="bathrooms" type="number" min={0} placeholder={t("form.bathrooms")} className={inputClass} />
-      </div>
+      {needsCompletion && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium">{t("form.completion")}</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {COMPLETION_STATUSES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setCompletionStatus(option)}
+                className={`flex flex-col rounded-xl border px-3 py-2 text-left text-sm ${
+                  completionStatus === option ? "border-clay bg-clay/5" : "border-line"
+                }`}
+              >
+                <span className="font-medium">{t(`completion.${option}` as MessageKey)}</span>
+                <span className="text-xs text-foreground/50">{t(`completion.${option}.hint` as MessageKey)}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
-      <div className="flex gap-2">
-        {(["unfurnished", "semi_furnished", "furnished"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setFurnishing(option)}
-            className={`flex-1 rounded-full border px-3 py-2 text-xs font-medium capitalize ${
-              furnishing === option ? "border-transparent bg-clay text-white" : "border-line"
-            }`}
-          >
-            {t(`furnishing.${option}` as MessageKey)}
-          </button>
-        ))}
-      </div>
+      {(fields.bedrooms || fields.bathrooms) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {fields.bedrooms && (
+            <input name="bedrooms" type="number" min={0} placeholder={t("form.bedrooms")} className={inputClass} />
+          )}
+          {fields.bathrooms && (
+            <input
+              name="bathrooms"
+              type="number"
+              min={0}
+              placeholder={t(fields.bedrooms ? "form.bathrooms" : "form.toilets")}
+              className={inputClass}
+            />
+          )}
+        </div>
+      )}
+
+      {fields.furnishing && (
+        <div className="flex gap-2">
+          {(["unfurnished", "semi_furnished", "furnished"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setFurnishing(option)}
+              className={`flex-1 rounded-full border px-3 py-2 text-xs font-medium capitalize ${
+                furnishing === option ? "border-transparent bg-clay text-white" : "border-line"
+              }`}
+            >
+              {t(`furnishing.${option}` as MessageKey)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <input name="amenities" placeholder={t("form.amenities")} className={inputClass} />
 
@@ -376,9 +429,10 @@ function ListingReview({
     ["form.propertyType", t(propertyTypeKey(review.propertyType) as MessageKey)],
     ["form.location", [review.area, district, stateLabel].filter(Boolean).join(", ")],
     ["form.fullAddress", review.fullAddress],
+    ["form.completion", review.completionStatus ? t(`completion.${review.completionStatus}` as MessageKey) : undefined],
     ["form.bedrooms", review.bedrooms?.toString()],
-    ["form.bathrooms", review.bathrooms?.toString()],
-    ["form.furnishing", t(`furnishing.${review.furnishing}` as MessageKey)],
+    [propertyTypeFields(review.propertyType).bedrooms ? "form.bathrooms" : "form.toilets", review.bathrooms?.toString()],
+    ["form.furnishing", review.furnishing ? t(`furnishing.${review.furnishing}` as MessageKey) : undefined],
     [
       "form.minimumTenancy",
       isRent

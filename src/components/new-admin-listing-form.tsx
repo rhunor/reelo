@@ -4,12 +4,18 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { VideoUploader } from "@/components/video-uploader";
-import { PROPERTY_TYPES } from "@/lib/property-types";
+import { COMPLETION_STATUSES, PROPERTY_TYPES, propertyTypeFields, type CompletionStatus } from "@/lib/property-types";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
 import { CAUTION_FEE_CAP_RATE } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
+
+const COMPLETION_LABEL: Record<CompletionStatus, string> = {
+  completed: "Completed",
+  carcass: "Carcass (shell)",
+  under_construction: "Under construction / off-plan",
+};
 
 export function NewAdminListingForm() {
   const router = useRouter();
@@ -17,6 +23,10 @@ export function NewAdminListingForm() {
   const [furnishing, setFurnishing] = useState<"furnished" | "semi_furnished" | "unfurnished">(
     "unfurnished",
   );
+  const [propertyType, setPropertyType] = useState("");
+  const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
+  const fields = propertyTypeFields(propertyType);
+  const needsCompletion = listingType === "sale" && fields.completion;
   const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
   const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -32,6 +42,10 @@ export function NewAdminListingForm() {
       setError("Upload at least one photo");
       return;
     }
+    if (needsCompletion && !completionStatus) {
+      setError("Say whether the building is completed, a carcass, or under construction");
+      return;
+    }
 
     setLoading(true);
 
@@ -41,7 +55,7 @@ export function NewAdminListingForm() {
       title: formData.get("title"),
       description: formData.get("description"),
       listingType,
-      propertyType: formData.get("propertyType"),
+      propertyType,
       priceNGN: formData.get("priceNGN"),
       depositNGN: Number(formData.get("depositNGN")) || undefined,
       estateChargeNGN: Number(formData.get("estateChargeNGN")) || undefined,
@@ -49,9 +63,10 @@ export function NewAdminListingForm() {
       state: formData.get("state"),
       city: formData.get("city"),
       area: formData.get("area") || undefined,
-      bedrooms: formData.get("bedrooms") || undefined,
-      bathrooms: formData.get("bathrooms") || undefined,
-      furnishing,
+      bedrooms: fields.bedrooms ? formData.get("bedrooms") || undefined : undefined,
+      bathrooms: fields.bathrooms ? formData.get("bathrooms") || undefined : undefined,
+      furnishing: fields.furnishing ? furnishing : undefined,
+      completionStatus: needsCompletion ? completionStatus ?? undefined : undefined,
       amenities: formData.get("amenities") || undefined,
       tenantPreferences: formData.get("tenantPreferences") || undefined,
       photoUrls,
@@ -118,7 +133,13 @@ export function NewAdminListingForm() {
         </button>
       </div>
 
-      <select name="propertyType" required defaultValue="" className={inputClass}>
+      <select
+        name="propertyType"
+        required
+        value={propertyType}
+        onChange={(event) => setPropertyType(event.target.value)}
+        className={inputClass}
+      >
         <option value="" disabled>
           Property type
         </option>
@@ -182,25 +203,54 @@ export function NewAdminListingForm() {
         <input name="area" placeholder="Estate / street (optional)" className={inputClass} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <input name="bedrooms" type="number" min={0} placeholder="Bedrooms" className={inputClass} />
-        <input name="bathrooms" type="number" min={0} placeholder="Bathrooms" className={inputClass} />
-      </div>
+      {needsCompletion && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {COMPLETION_STATUSES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setCompletionStatus(option)}
+              className={`rounded-full border px-3 py-2 text-xs font-medium ${
+                completionStatus === option ? "border-transparent bg-clay text-white" : "border-line"
+              }`}
+            >
+              {COMPLETION_LABEL[option]}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="flex gap-2">
-        {(["unfurnished", "semi_furnished", "furnished"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setFurnishing(option)}
-            className={`flex-1 rounded-full border px-3 py-2 text-xs font-medium capitalize ${
-              furnishing === option ? "border-transparent bg-clay text-white" : "border-line"
-            }`}
-          >
-            {option.replace("_", "-")}
-          </button>
-        ))}
-      </div>
+      {(fields.bedrooms || fields.bathrooms) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {fields.bedrooms && <input name="bedrooms" type="number" min={0} placeholder="Bedrooms" className={inputClass} />}
+          {fields.bathrooms && (
+            <input
+              name="bathrooms"
+              type="number"
+              min={0}
+              placeholder={fields.bedrooms ? "Bathrooms" : "Toilets"}
+              className={inputClass}
+            />
+          )}
+        </div>
+      )}
+
+      {fields.furnishing && (
+        <div className="flex gap-2">
+          {(["unfurnished", "semi_furnished", "furnished"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setFurnishing(option)}
+              className={`flex-1 rounded-full border px-3 py-2 text-xs font-medium capitalize ${
+                furnishing === option ? "border-transparent bg-clay text-white" : "border-line"
+              }`}
+            >
+              {option.replace("_", "-")}
+            </button>
+          ))}
+        </div>
+      )}
 
       <input name="amenities" placeholder="Amenities, comma separated (optional)" className={inputClass} />
 

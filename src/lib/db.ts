@@ -3,6 +3,7 @@ import { ANALYTICS_RETENTION_S } from "@/lib/consent";
 import type {
   AnalyticsEvent,
   ConsentEvent,
+  PropertyRequest,
   Agreement,
   InspectionBooking,
   ListingReview,
@@ -38,6 +39,7 @@ function ensureIndexes(db: Awaited<ReturnType<typeof getDb>>) {
     ["analyticsEvents", { createdAt: 1 }, { expireAfterSeconds: ANALYTICS_RETENTION_S }],
     ["analyticsEvents", { path: 1, createdAt: -1 }],
     ["consentEvents", { createdAt: -1 }],
+    ["propertyRequests", { status: 1, createdAt: -1 }],
     ["users", { email: 1 }],
     ["users", { phone: 1 }],
     ["users", { referralCode: 1 }],
@@ -87,5 +89,6 @@ export async function getCollections() {
     meetingFeedback: db.collection<MeetingFeedback>("meetingFeedback"),
     analyticsEvents: db.collection<AnalyticsEvent>("analyticsEvents"),
     consentEvents: db.collection<ConsentEvent>("consentEvents"),
+    propertyRequests: db.collection<PropertyRequest>("propertyRequests"),
   };
 }

@@ -237,6 +237,8 @@ export interface Property {
   bedrooms?: number;
   bathrooms?: number;
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
+  // Sale listings of buildings only — see COMPLETION_STATUSES in src/lib/property-types.ts.
+  completionStatus?: "completed" | "carcass" | "under_construction";
   amenities: string[];
   photoUrls: string[];
   videoUrls: string[];
@@ -363,6 +365,30 @@ export interface ConsentEvent {
   choice: "all" | "essential";
   device: "mobile" | "tablet" | "desktop";
   createdAt: Date;
+}
+
+// "Not finding what you want?" — someone asks Reallow's agents to find them a property.
+// Worked through on /dashboard/admin/requests.
+export type PropertyRequestStatus = "new" | "in_progress" | "matched" | "closed";
+
+export interface PropertyRequest {
+  _id?: ObjectId;
+  userId?: ObjectId; // signed-in requester; guests leave name/phone instead
+  name: string;
+  phone?: string;
+  email?: string;
+  listingType: "rent" | "sale";
+  propertyType: string;
+  state: string;
+  city?: string; // district; empty = anywhere in the state
+  maxBudgetNGN?: number;
+  bedrooms?: number;
+  details?: string;
+  status: PropertyRequestStatus;
+  adminNote?: string;
+  handledBy?: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface MeetingFeedback {
@@ -602,6 +628,7 @@ export type NotificationType =
   | "landlord_decision"
   | "listing_received"
   | "meeting_refunded"
+  | "property_request"
   | "listing_approved"
   | "listing_rejected"
   | "verification_inspection_scheduled"

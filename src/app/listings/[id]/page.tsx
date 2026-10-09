@@ -17,6 +17,8 @@ import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { isStaffRole } from "@/lib/roles";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { getT } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n/dictionaries";
+import { propertyTypeFields, propertyTypeKey } from "@/lib/property-types";
 
 export default async function ListingDetailPage({
   params,
@@ -61,6 +63,7 @@ export default async function ListingDetailPage({
     : null;
 
   const isRent = listing.listingType === "rent";
+  const fields = propertyTypeFields(listing.propertyType);
   const costBreakdown = computeListingCostBreakdown({
     listingType: listing.listingType,
     priceNGN: listing.priceNGN,
@@ -116,6 +119,34 @@ export default async function ListingDetailPage({
             ₦{listing.priceNGN.toLocaleString()}
             {listing.listingType === "rent" ? <span className="text-base text-foreground/50">{t("listing.perYear")}</span> : null}
           </p>
+
+          {/* Key facts — only the ones that apply to this kind of property. */}
+          <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+            {[
+              t(propertyTypeKey(listing.propertyType) as MessageKey),
+              !isRent && fields.completion && listing.completionStatus
+                ? t(`completion.${listing.completionStatus}` as MessageKey)
+                : null,
+              fields.bedrooms && listing.bedrooms !== undefined
+                ? t(listing.bedrooms === 1 ? "listing.bedroomOne" : "listing.bedrooms", { count: listing.bedrooms })
+                : null,
+              fields.bathrooms && listing.bathrooms !== undefined
+                ? t(
+                    fields.bedrooms
+                      ? listing.bathrooms === 1 ? "listing.bathroomOne" : "listing.bathrooms"
+                      : listing.bathrooms === 1 ? "listing.toiletOne" : "listing.toilets",
+                    { count: listing.bathrooms },
+                  )
+                : null,
+              fields.furnishing && listing.furnishing ? t(`furnishing.${listing.furnishing}` as MessageKey) : null,
+            ]
+              .filter(Boolean)
+              .map((fact) => (
+                <li key={fact} className="rounded-full border border-line px-3 py-1 text-foreground/70">
+                  {fact}
+                </li>
+              ))}
+          </ul>
 
           {(
             <div className="mt-4 rounded-2xl border border-line p-4">

@@ -9,6 +9,7 @@ import { capCautionFee } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { isStaffRole } from "@/lib/roles";
 import { notifyListingReceived } from "@/lib/notifications";
+import { applyPropertyTypeRules, COMPLETION_STATUSES } from "@/lib/property-types";
 
 const listingSchema = z.object({
   title: z.string().min(5).refine(noContactInfo, CONTACT_INFO_ERROR),
@@ -26,6 +27,7 @@ const listingSchema = z.object({
   bedrooms: z.coerce.number().int().nonnegative().optional(),
   bathrooms: z.coerce.number().int().nonnegative().optional(),
   furnishing: z.enum(["furnished", "semi_furnished", "unfurnished"]).optional(),
+  completionStatus: z.enum(COMPLETION_STATUSES).optional(),
   amenities: z.string().optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   tenantPreferences: z.string().max(500).optional().refine(noContactInfo, CONTACT_INFO_ERROR),
   photoUrls: z.array(z.string().url()).min(1),
@@ -68,6 +70,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const details = applyPropertyTypeRules(data);
+  if (!details.ok) {
+    return NextResponse.json({ error: details.error }, { status: 400 });
+  }
+
   const { insertedId } = await properties.insertOne({
     landlordId: new ObjectId(session.user.id),
     title: data.title,
@@ -86,9 +93,11 @@ export async function POST(request: Request) {
       area: data.area,
       coordinates: district.coordinates,
     },
-    bedrooms: data.bedrooms,
-    bathrooms: data.bathrooms,
-    furnishing: data.furnishing,
+    // Only the details that apply to this property type (no "furnished" land).
+    bedrooms: details.bedrooms,
+    bathrooms: details.bathrooms,
+    furnishing: details.furnishing,
+    completionStatus: details.completionStatus,
     amenities: data.amenities
       ? data.amenities.split(",").map((item) => item.trim()).filter(Boolean)
       : [],
