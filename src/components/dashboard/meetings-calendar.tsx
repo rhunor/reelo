@@ -82,6 +82,11 @@ function dotClass(event: CalendarEvent) {
   return "bg-verified";
 }
 
+// Shown wherever the meeting fee is asked for: what the money actually pays for.
+function FeeDisclaimer({ t }: { t: T }) {
+  return <p className="mt-1 text-[11px] leading-relaxed text-foreground/50">{t("meetings.feeDisclaimer")}</p>;
+}
+
 export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; walletBalanceNGN: number }) {
   const router = useRouter();
   const { t, locale } = useI18n();
@@ -147,6 +152,9 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
         <p className="mt-2 text-xs text-foreground/60">
           {t("meetings.feeAcceptHint", { fee: `₦${event.feeToAcceptNGN.toLocaleString()}` })}
         </p>
+      )}
+      {event.feeToAcceptNGN !== undefined && event.myTurn && (
+        <FeeDisclaimer t={t} />
       )}
 
       {event.source === "meeting" && event.myTurn && (
@@ -223,9 +231,12 @@ export function EventCard({ event, walletBalanceNGN }: { event: CalendarEvent; w
 
       {event.payAmountNGN !== undefined && (
         <div className="mt-3">
-          <p className="mb-2 text-xs text-foreground/60">
+          <p className="text-xs text-foreground/60">
             {t(event.awaitingPayment ? "meetings.payToSend" : "meetings.payHint")}
           </p>
+          <div className="mb-2">
+            <FeeDisclaimer t={t} />
+          </div>
           <PayChoice
             endpoint={`/api/meetings/${event.id}/pay`}
             amountNGN={event.payAmountNGN}
@@ -437,7 +448,10 @@ export function MeetingsCalendar({
             </p>
           ) : payFor ? (
             <div className="mt-3 flex flex-col gap-2">
-              <p className="text-sm">{t("meetings.payToSend")}</p>
+              <div>
+                <p className="text-sm">{t("meetings.payToSend")}</p>
+                <FeeDisclaimer t={t} />
+              </div>
               <PayChoice
                 endpoint={`/api/meetings/${payFor.id}/pay`}
                 amountNGN={payFor.amountNGN}
@@ -452,16 +466,31 @@ export function MeetingsCalendar({
           ) : (
             <div className="mt-3 flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-xs text-foreground/60">
-                {t("meetings.application")}
+                {t(bookable.some((b) => b.side === "landlord") ? "meetings.whoWith" : "meetings.application")}
                 <select
                   value={ticketId}
                   onChange={(e) => setTicketId(e.target.value)}
                   className="h-10 rounded-md border border-line bg-transparent px-2 text-sm text-foreground"
                 >
-                  {bookable.map((b) => (
-                    <option key={b.ticketId} value={b.ticketId}>
-                      {b.listingTitle} — {t(b.side === "landlord" ? "meetings.applicantYouAccepted" : "meetings.yourAcceptedApplication")}
-                    </option>
+                  {/* Your own applications first, then — grouped by property — every applicant
+                      you've accepted, by name, so you choose who the meeting is with. */}
+                  {bookable
+                    .filter((b) => b.side === "tenant")
+                    .map((b) => (
+                      <option key={b.ticketId} value={b.ticketId}>
+                        {b.listingTitle} — {t("meetings.yourAcceptedApplication")}
+                      </option>
+                    ))}
+                  {[...new Set(bookable.filter((b) => b.side === "landlord").map((b) => b.listingTitle))].map((title) => (
+                    <optgroup key={title} label={title}>
+                      {bookable
+                        .filter((b) => b.side === "landlord" && b.listingTitle === title)
+                        .map((b) => (
+                          <option key={b.ticketId} value={b.ticketId}>
+                            {t("meetings.withApplicant", { name: b.applicantName ?? t("meetings.applicantYouAccepted") })}
+                          </option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
               </label>
@@ -470,6 +499,7 @@ export function MeetingsCalendar({
                   fee: `₦${(selectedApp?.inspectionFeeNGN ?? 0).toLocaleString()}`,
                 })}
               </p>
+              <FeeDisclaimer t={t} />
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex flex-col gap-1 text-xs text-foreground/60">
                   {t("meetings.day")}

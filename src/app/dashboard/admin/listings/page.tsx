@@ -5,6 +5,7 @@ import { setListingVisibility } from "@/app/dashboard/admin/actions";
 import { formatLagos } from "@/lib/time";
 import type { ListingStatus, Property } from "@/types/models";
 import { SubmitButton } from "@/components/submit-button";
+import { AgreementDocumentUploader } from "@/components/agreement-document-uploader";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,19 @@ export default async function AdminListingsPage({
                     {listing.takenDown.note ? ` — “${listing.takenDown.note}”` : ""}
                   </p>
                 )}
+
+                <AgreementDocumentUploader
+                  listingId={id}
+                  current={
+                    listing.agreementDocument
+                      ? {
+                          url: listing.agreementDocument.url,
+                          name: listing.agreementDocument.name,
+                          uploadedAt: formatLagos(listing.agreementDocument.uploadedAt),
+                        }
+                      : undefined
+                  }
+                />
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {canShow && <ActionButton listingId={id} action="show" label="Make visible" tone="primary" />}

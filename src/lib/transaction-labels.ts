@@ -10,5 +10,7 @@ export const TRANSACTION_TYPE_LABEL: Record<TransactionType, string> = {
   inspection_fee: "Inspection fee",
   caution_fee_refund: "Caution fee refund",
   inspection_fee_refund: "Inspection fee refund",
+  sale_price: "Sale price",
+  payment_refund: "Payment refund",
   wallet_funding: "Wallet top-up",
 };

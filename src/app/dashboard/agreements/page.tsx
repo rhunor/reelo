@@ -14,6 +14,8 @@ const STATUS_LABEL: Record<string, MessageKey> = {
   signed_by_landlord: "agreement.status.signed_by_landlord",
   signed_by_tenant: "agreement.status.signed_by_tenant",
   fully_signed: "agreement.status.fully_signed",
+  superseded: "agreement.status.superseded",
+  cancelled: "agreement.status.cancelled",
 };
 
 export default async function AgreementsPage() {

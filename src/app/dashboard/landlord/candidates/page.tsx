@@ -9,6 +9,7 @@ import { PreferCandidateButton } from "@/components/prefer-candidate-button";
 import { InspectionNegotiation } from "@/components/inspection-negotiation";
 import { ReportButton } from "@/components/report-button";
 import { redactContactInfo } from "@/lib/contact-guard";
+import { formatLagos } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function LandlordCandidatesPage() {
   if (!session?.user) redirect("/login");
   const t = await getT();
 
-  const { properties, tickets, users, inspectionBookings } = await getCollections();
+  const { properties, tickets, users, inspectionBookings, meetings, agreements } = await getCollections();
 
   const listings = await properties.find({ landlordId: new ObjectId(session.user.id) }).toArray();
   const listingIds = listings.map((listing) => listing._id!);
@@ -45,6 +46,28 @@ export default async function LandlordCandidatesPage() {
       ? []
       : await inspectionBookings.find({ ticketId: { $in: approvedTicketIds } }).toArray();
   const bookingByTicketId = new Map(bookings.map((booking) => [booking.ticketId!.toString(), booking]));
+
+  // Who you've already met, and where each payment request stands — so you can scroll
+  // the list and pick who to ask for payment.
+  const [heldMeetings, requests] = approvedTicketIds.length
+    ? await Promise.all([
+        meetings
+          .find({ ticketId: { $in: approvedTicketIds }, status: { $in: ["confirmed", "completed"] }, scheduledFor: { $lte: new Date() } })
+          .sort({ scheduledFor: -1 })
+          .toArray(),
+        agreements.find({ listingId: { $in: listingIds }, ticketId: { $in: approvedTicketIds } }).sort({ createdAt: -1 }).toArray(),
+      ])
+    : [[], []];
+  const metAt = new Map<string, Date>();
+  for (const m of heldMeetings) if (!metAt.has(m.ticketId.toString())) metAt.set(m.ticketId.toString(), m.scheduledFor!);
+  const requestByTicket = new Map<string, (typeof requests)[number]>();
+  for (const r of requests) if (r.ticketId && !requestByTicket.has(r.ticketId.toString())) requestByTicket.set(r.ticketId.toString(), r);
+  const requestLabel = (r: (typeof requests)[number]) =>
+    r.payment.status === "paid_to_reallow" || r.payment.status === "paid_out_to_landlord"
+      ? { text: t("payReq.badgePaid"), className: "bg-verified/10 text-verified" }
+      : r.status === "superseded" || r.status === "cancelled"
+        ? null
+        : { text: t("payReq.badgeWaiting"), className: "bg-amber-500/10 text-amber-700 dark:text-amber-400" };
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
@@ -81,6 +104,30 @@ export default async function LandlordCandidatesPage() {
                   </div>
                 </div>
               </div>
+
+              {(metAt.has(ticket._id!.toString()) || requestByTicket.has(ticket._id!.toString())) && (
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-medium">
+                  {metAt.has(ticket._id!.toString()) && (
+                    <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-foreground/70">
+                      {t("payReq.metOn", { date: formatLagos(metAt.get(ticket._id!.toString())!) })}
+                    </span>
+                  )}
+                  {(() => {
+                    const r = requestByTicket.get(ticket._id!.toString());
+                    const label = r && requestLabel(r);
+                    return label ? <span className={`rounded-full px-2 py-0.5 ${label.className}`}>{label.text}</span> : null;
+                  })()}
+                </div>
+              )}
+              {(ticket.landlordDecision ?? (ticket.landlordPreferred ? "approved" : undefined)) === "approved" &&
+                listing?.status === "published" && (
+                  <Link
+                    href={`/dashboard/applications/${ticket._id}`}
+                    className="mt-3 inline-flex h-8 items-center rounded-full border border-clay/40 px-3.5 text-xs font-medium text-clay hover:bg-clay/5"
+                  >
+                    {t(requestByTicket.has(ticket._id!.toString()) ? "payReq.viewRequest" : "payReq.title")} →
+                  </Link>
+                )}
 
               {tenant && (
                 <div className="mt-1">

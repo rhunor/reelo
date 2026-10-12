@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
@@ -8,6 +9,7 @@ import { AgreementPayButton } from "@/components/agreement-pay-button";
 import { TerminateAgreementButton } from "@/components/terminate-agreement-button";
 import { PaymentBreakdown } from "@/components/payment-breakdown";
 import { TenancyAgreementDocument } from "@/components/tenancy-agreement-document";
+import { SaleAgreementDocument } from "@/components/sale-agreement-document";
 import { PrintButton } from "@/components/print-button";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { markAgreementPaidOut } from "@/app/dashboard/admin/actions";
@@ -68,37 +70,125 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
   const party: "landlord" | "tenant" | null = isLandlordParty ? "landlord" : isTenantParty ? "tenant" : null;
   const hasSignedAsParty = party ? agreement.signatures.some((s) => s.party === party) : false;
 
-  const termMonths =
-    typeof agreement.terms.leaseEndOrTermMonths === "number"
+  const isSale = agreement.kind === "sale";
+  const closed = agreement.status === "superseded" || agreement.status === "cancelled";
+  const termMonths = isSale
+    ? null
+    : typeof agreement.terms.leaseEndOrTermMonths === "number"
       ? t(agreement.terms.leaseEndOrTermMonths === 1 ? "form.monthOne" : "form.months", {
           count: agreement.terms.leaseEndOrTermMonths,
         })
       : date(agreement.terms.leaseEndOrTermMonths);
 
   const paymentBreakdown = computeAgreementTotal(agreement.terms);
+  const breakdownLines = [
+    { label: t(isSale ? "listing.salePrice" : "txType.rent"), amountNGN: paymentBreakdown.priceNGN },
+    ...(paymentBreakdown.cautionFeeNGN > 0 ? [{ label: t("listing.cautionFee"), amountNGN: paymentBreakdown.cautionFeeNGN }] : []),
+    ...(paymentBreakdown.estateChargeNGN > 0 ? [{ label: t("listing.estateCharge"), amountNGN: paymentBreakdown.estateChargeNGN }] : []),
+    {
+      label: t("listing.serviceCharge", { rate: formatRate(paymentBreakdown.serviceChargeRate) }),
+      amountNGN: paymentBreakdown.serviceChargeNGN,
+    },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 print:max-w-none print:p-0">
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-          <h1 className="text-2xl font-semibold">{t("agreement.heading")}</h1>
+          <h1 className="text-2xl font-semibold">{t(isSale ? "agreement.headingSale" : "agreement.heading")}</h1>
           {listing && <p className="mt-1 text-foreground/70">{listing.title}</p>}
           <p className="mt-1 text-sm font-medium">
-            {t(`agreement.page.${agreement.status}` as MessageKey)} · {termMonths}
+            {t(`agreement.page.${agreement.status}` as MessageKey)}
+            {termMonths ? ` · ${termMonths}` : ""}
           </p>
         </div>
         <PrintButton label={t("agreement.print")} />
       </div>
 
+      {closed && (
+        <div className="mt-6 rounded-xl border border-line bg-foreground/5 p-4 text-sm print:hidden">
+          <p className="font-medium">
+            {t(agreement.status === "superseded" ? "agreement.supersededTitle" : "agreement.cancelledTitle")}
+          </p>
+          <p className="mt-1 text-foreground/70">
+            {agreement.payment.status === "refunded_to_wallet"
+              ? t("agreement.refundedBody", { amount: `₦${agreement.payment.amountNGN?.toLocaleString() ?? 0}` })
+              : t("agreement.closedBody")}{" "}
+            <Link href="/listings" className="text-clay underline">
+              {t("agreement.browseOthers")}
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {/* What the tenant/buyer will pay — shown up front, next to the agreement, so they
+          see the full picture before signing. Paying unlocks once they've signed. */}
+      {isTenantParty && agreement.payment.status === "unpaid" && !closed && agreement.status !== "fully_signed" && (
+        <div className="mt-6 rounded-xl border border-clay/30 bg-clay/[0.04] p-4 print:hidden">
+          <p className="text-sm font-semibold">{t("agreement.youWillPay")}</p>
+          <p className="mt-1 mb-3 text-xs text-foreground/60">{t("agreement.signToUnlock")}</p>
+          <PaymentBreakdown lines={breakdownLines} totalNGN={paymentBreakdown.totalNGN} totalLabel={t("agreement.total")} />
+        </div>
+      )}
+
       <div className="mt-6 print:mt-0">
-        <TenancyAgreementDocument
-          agreement={agreement}
-          landlordName={documentLandlordName}
-          tenantName={documentTenantName}
-          propertyAddress={documentAddress}
-          propertyDescription={agreement.terms.propertyDescription}
-          houseRules={documentHouseRules}
-        />
+        {agreement.document ? (
+          <div className="rounded-lg border border-line p-4 sm:p-6">
+            <p className="text-sm font-semibold">{t("agreement.uploadedTitle")}</p>
+            <p className="mt-1 text-xs text-foreground/60">{t("agreement.uploadedHint")}</p>
+            {/\.pdf($|\?)/i.test(agreement.document.url) && (
+              <iframe
+                src={agreement.document.url}
+                title={agreement.document.name}
+                className="mt-3 h-[70vh] w-full rounded-md border border-line bg-white print:hidden"
+              />
+            )}
+            <a
+              href={agreement.document.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex h-9 items-center rounded-full border border-line px-4 text-sm font-medium hover:border-clay hover:text-clay"
+            >
+              {t("agreement.openDocument", { name: agreement.document.name })}
+            </a>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {(["landlord", "tenant"] as const).map((side) => {
+                const signature = agreement.signatures.find((s) => s.party === side);
+                return (
+                  <div key={side} className="rounded-md border border-line p-4 text-sm">
+                    <p className="text-xs tracking-widest text-foreground/50 uppercase">
+                      {t(side === "landlord" ? (isSale ? "agreement.seller" : "agreement.landlordLabel") : isSale ? "agreement.buyer" : "agreement.tenantLabel")}
+                    </p>
+                    <p className="mt-1 font-medium">{side === "landlord" ? documentLandlordName : documentTenantName}</p>
+                    {signature ? (
+                      <p className="mt-2 font-display text-lg italic">{signature.fullName}</p>
+                    ) : (
+                      <p className="mt-2 text-xs text-foreground/50">{t("agreement.notSigned")}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : isSale ? (
+          <SaleAgreementDocument
+            agreement={agreement}
+            sellerName={documentLandlordName}
+            buyerName={documentTenantName}
+            propertyAddress={documentAddress}
+            propertyDescription={agreement.terms.propertyDescription}
+            completionStatus={listing?.completionStatus}
+          />
+        ) : (
+          <TenancyAgreementDocument
+            agreement={agreement}
+            landlordName={documentLandlordName}
+            tenantName={documentTenantName}
+            propertyAddress={documentAddress}
+            propertyDescription={agreement.terms.propertyDescription}
+            houseRules={documentHouseRules}
+          />
+        )}
       </div>
 
       <div className="print:hidden">
@@ -140,7 +230,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         </div>
       )}
 
-      {party && !hasSignedAsParty && agreement.status !== "fully_signed" && (
+      {party && !hasSignedAsParty && agreement.status !== "fully_signed" && !closed && (
         <SignAgreementForm agreementId={agreement._id!.toString()} />
       )}
 
@@ -151,7 +241,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           </p>
 
           <div className="mt-6 rounded-lg border border-line p-4">
-            <p className="text-sm font-medium">{t("agreement.rentDeposit")}</p>
+            <p className="text-sm font-medium">{t(isSale ? "agreement.payment" : "agreement.rentDeposit")}</p>
             <p className="mt-1 text-xs text-foreground/50">
               {t("agreement.paidToReallow")}
             </p>
@@ -159,19 +249,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
             {agreement.payment.status === "unpaid" && isTenantParty && (
               <div className="mt-3 flex flex-col gap-3">
                 <PaymentBreakdown
-                  lines={[
-                    { label: t("txType.rent"), amountNGN: paymentBreakdown.priceNGN },
-                    ...(paymentBreakdown.cautionFeeNGN > 0
-                      ? [{ label: t("listing.cautionFee"), amountNGN: paymentBreakdown.cautionFeeNGN }]
-                      : []),
-                    ...(paymentBreakdown.estateChargeNGN > 0
-                      ? [{ label: t("listing.estateCharge"), amountNGN: paymentBreakdown.estateChargeNGN }]
-                      : []),
-                    {
-                      label: t("listing.serviceCharge", { rate: formatRate(paymentBreakdown.serviceChargeRate) }),
-                      amountNGN: paymentBreakdown.serviceChargeNGN,
-                    },
-                  ]}
+                  lines={breakdownLines}
                   totalNGN={paymentBreakdown.totalNGN}
                   totalLabel={t("agreement.total")}
                 />

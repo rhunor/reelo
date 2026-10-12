@@ -44,6 +44,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!party) {
     return NextResponse.json({ error: "You are not a party to this agreement" }, { status: 403 });
   }
+  if (agreement.status === "superseded" || agreement.status === "cancelled") {
+    return NextResponse.json({ error: "This agreement is no longer open" }, { status: 409 });
+  }
   if (agreement.signatures.some((signature) => signature.party === party)) {
     return NextResponse.json({ error: "You have already signed this agreement" }, { status: 409 });
   }

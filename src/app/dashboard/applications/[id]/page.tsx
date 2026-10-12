@@ -12,6 +12,9 @@ import { formatLagos } from "@/lib/time";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
+import { RequestPaymentPanel } from "@/components/request-payment-panel";
+import { computeListingCostBreakdown } from "@/lib/fees";
+import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +33,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   if (!session?.user) redirect("/login");
   if (!ObjectId.isValid(id)) notFound();
 
-  const { tickets, properties, users } = await getCollections();
+  const { tickets, properties, users, meetings, agreements } = await getCollections();
   const ticket = await tickets.findOne({ _id: new ObjectId(id) });
   if (!ticket?.listingId) notFound();
   const listing = await properties.findOne({ _id: ticket.listingId });
@@ -38,7 +41,16 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   // An admin reviewing on behalf of Reallow (the listing's owner), not the landlord themselves.
   const onBehalfOfReallow = listing.landlordId.toString() !== session.user.id;
 
-  const applicant = await users.findOne({ _id: ticket.userId });
+  const [applicant, pastMeetings, latestRequest] = await Promise.all([
+    users.findOne({ _id: ticket.userId }),
+    // Meetings with this applicant that have happened — so the landlord sees who they've met.
+    meetings
+      .find({ ticketId: ticket._id, status: { $in: ["confirmed", "completed"] }, scheduledFor: { $lte: new Date() } })
+      .sort({ scheduledFor: -1 })
+      .limit(1)
+      .toArray(),
+    agreements.find({ listingId: listing._id, tenantId: ticket.userId }).sort({ createdAt: -1 }).limit(1).next(),
+  ]);
   if (!applicant) notFound();
 
   const p = applicant.profile ?? {};
@@ -160,6 +172,35 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           </div>
         )}
       </section>
+
+      {decision === "approved" && (
+        <RequestPaymentPanel
+          ticketId={ticket._id!.toString()}
+          applicantName={displayName}
+          isSale={listing.listingType === "sale"}
+          minimumMonths={listing.minimumTermMonths ?? MINIMUM_LEASE_TERM_MONTHS}
+          totalNGN={
+            computeListingCostBreakdown({
+              listingType: listing.listingType,
+              priceNGN: listing.priceNGN,
+              cautionFeeNGN: listing.depositNGN,
+              estateChargeNGN: listing.estateChargeNGN,
+            }).totalNGN
+          }
+          lastMetAt={pastMeetings[0]?.scheduledFor ? formatLagos(pastMeetings[0].scheduledFor) : null}
+          available={listing.status === "published"}
+          existing={
+            latestRequest
+              ? {
+                  id: latestRequest._id!.toString(),
+                  status: latestRequest.status,
+                  paid: latestRequest.payment.status === "paid_to_reallow" || latestRequest.payment.status === "paid_out_to_landlord",
+                  requestedAt: formatLagos(latestRequest.paymentRequestedAt ?? latestRequest.createdAt),
+                }
+              : null
+          }
+        />
+      )}
 
       <div className="mt-4">
         <ReportButton targetType="user" targetId={applicant._id!.toString()} label={t("report.applicant")} />

@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
-import type { InspectionBooking, Meeting, Property, PropertyRequest, SupportTicket } from "@/types/models";
+import type { Agreement, InspectionBooking, Meeting, Property, PropertyRequest, SupportTicket } from "@/types/models";
 import { sendListingReceivedEmail, sendListingReviewedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
 import { formatLagos } from "@/lib/time";
 import { landlordRecipients } from "@/lib/reallow-landlord";
@@ -742,4 +742,89 @@ export async function notifyPropertyRequest(request: PropertyRequest): Promise<v
     });
   }
   if (notices.length) await notifications.insertMany(notices);
+}
+
+const agreementHref = (agreement: Agreement) => `/agreements/${agreement._id}`;
+
+async function listingTitle(agreement: Agreement): Promise<string> {
+  const { properties } = await getCollections();
+  return (await properties.findOne({ _id: agreement.listingId }, { projection: { title: 1 } }))?.title ?? "the property";
+}
+
+// The landlord accepted an applicant and asked them to pay: the applicant reviews and signs
+// the agreement, then pays — all from one page.
+export async function notifyPaymentRequested(agreement: Agreement): Promise<void> {
+  const { notifications } = await getCollections();
+  const title = await listingTitle(agreement);
+  await notifications.insertOne({
+    userId: agreement.tenantId,
+    type: "payment_requested",
+    title: "You can now pay for your new home",
+    body: `The landlord of ${title} is ready to go ahead with you. Review and sign the agreement, then complete payment through Reallow.`,
+    i18n: { title: "notif.payReq.title", body: "notif.payReq.body", vars: { title } },
+    listingId: agreement.listingId,
+    href: agreementHref(agreement),
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// Another applicant completed payment first. If this applicant had also just paid, their
+// money was returned to their wallet (refundedNGN).
+export async function notifyPaymentSuperseded(agreement: Agreement, refundedNGN?: number): Promise<void> {
+  const { notifications } = await getCollections();
+  const title = await listingTitle(agreement);
+  const amount = refundedNGN ? `₦${refundedNGN.toLocaleString()}` : "";
+  await notifications.insertOne({
+    userId: agreement.tenantId,
+    type: "payment_superseded",
+    title: "Someone completed payment before you",
+    body: refundedNGN
+      ? `Another applicant completed payment for ${title} just before you, so your ${amount} has been returned to your Reallow wallet. Why not try other properties?`
+      : `Another applicant completed payment for ${title} before you. Why not try other properties?`,
+    i18n: {
+      title: "notif.superseded.title",
+      body: refundedNGN ? "notif.superseded.bodyRefund" : "notif.superseded.body",
+      vars: { title, amount },
+    },
+    listingId: agreement.listingId,
+    href: "/listings",
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
+// Payment completed: the payer gets a confirmation and the landlord side hears the property
+// is now rented/sold (Reallow holds the money until payout).
+export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number): Promise<void> {
+  const { notifications } = await getCollections();
+  const title = await listingTitle(agreement);
+  const amount = `₦${amountNGN.toLocaleString()}`;
+  const isSale = agreement.kind === "sale";
+  const now = new Date();
+  await notifications.insertOne({
+    userId: agreement.tenantId,
+    type: "property_paid",
+    title: "Payment complete",
+    body: `Your ${amount} payment for ${title} is complete. Reallow will be in touch about handover.`,
+    i18n: { title: "notif.paidDone.title", body: "notif.paidDone.body", vars: { title, amount } },
+    listingId: agreement.listingId,
+    href: agreementHref(agreement),
+    read: false,
+    createdAt: now,
+  });
+  await notifyLandlordSide(agreement.landlordId, {
+    type: "property_paid" as const,
+    title: isSale ? "Your property has been paid for" : "Your tenant has paid",
+    body: `Payment for ${title} is complete and the listing is now marked ${isSale ? "sold" : "rented"}. Reallow holds the funds until payout.`,
+    i18n: {
+      title: isSale ? "notif.ownerPaid.titleSale" : "notif.ownerPaid.title",
+      body: isSale ? "notif.ownerPaid.bodySale" : "notif.ownerPaid.body",
+      vars: { title },
+    },
+    listingId: agreement.listingId,
+    href: agreementHref(agreement),
+    read: false,
+    createdAt: now,
+  });
 }

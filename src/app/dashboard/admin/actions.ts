@@ -717,3 +717,33 @@ export async function updatePropertyRequest(formData: FormData) {
   revalidatePath("/dashboard/admin/requests");
   revalidatePath("/dashboard/admin");
 }
+
+// Attach (or replace / remove) the agreement document Reallow uses for a property. Every
+// payment requested on the property afterwards shows this document for the tenant or buyer
+// to read and sign; requests already sent keep the version they were sent with.
+export async function setListingAgreementDocument(listingId: string, document: { url: string; name: string } | null) {
+  const admin = await requireAdmin();
+  if (!ObjectId.isValid(listingId)) throw new Error("Invalid listing");
+  const { properties } = await getCollections();
+  if (document) {
+    const prefix = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/`;
+    if (!document.url.startsWith(prefix)) throw new Error("Upload the document through Reallow");
+    await properties.updateOne(
+      { _id: new ObjectId(listingId) },
+      {
+        $set: {
+          agreementDocument: {
+            url: document.url,
+            name: document.name.slice(0, 120) || "Agreement",
+            uploadedAt: new Date(),
+            uploadedBy: new ObjectId(admin.id),
+          },
+          updatedAt: new Date(),
+        },
+      },
+    );
+  } else {
+    await properties.updateOne({ _id: new ObjectId(listingId) }, { $unset: { agreementDocument: "" }, $set: { updatedAt: new Date() } });
+  }
+  revalidatePath("/dashboard/admin/listings");
+}

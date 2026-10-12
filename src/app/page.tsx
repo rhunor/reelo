@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { HomeHero } from "@/components/home-hero";
+import { SellingHero } from "@/components/home/selling-hero";
 import { PeopleSlideshow } from "@/components/home/people-slideshow";
 import { FaqList } from "@/components/faq-list";
 import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
@@ -58,29 +59,10 @@ export default async function Home() {
 
   return (
     <div className="flex-1">
-      <HomeHero listPropertyHref={links.listProperty} />
+      {/* 1. Selling point — someone getting good news on their phone */}
+      <SellingHero listPropertyHref={links.listProperty} />
 
-      {/* Reallow is for everybody */}
-      <section className="border-t border-line bg-foreground/[0.02]">
-        <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
-          <SectionHeading
-            eyebrow={t("home.everyoneEyebrow")}
-            title={t("home.everyoneTitle")}
-            intro={t("home.everyoneIntro")}
-          />
-          <div className="mt-8 sm:mt-10">
-            <PeopleSlideshow
-              photos={PEOPLE_PHOTOS.map((photo) => ({
-                ...photo,
-                caption: t(`people.${photo.id}.caption` as MessageKey),
-                detail: t(`people.${photo.id}.detail` as MessageKey),
-              }))}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
+      {/* 2. Why Reallow: old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
       <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
           eyebrow={t("home.whyEyebrow")}
@@ -124,6 +106,11 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
+
+      {/* 3. The original hero: write-up and photo */}
+      <div className="border-t border-line">
+        <HomeHero listPropertyHref={links.listProperty} />
+      </div>
 
       {/* How it works */}
       <section className="border-y border-line bg-foreground/[0.02]">
@@ -216,8 +203,8 @@ export default async function Home() {
         <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-2 lg:items-center">
           <Reveal direction="left" className="relative order-last aspect-[4/3] overflow-hidden rounded-3xl lg:order-first">
             <Image
-              src="https://images.unsplash.com/photo-1757970326337-95d7cca56fa1?q=80&w=1200&auto=format&fit=crop"
-              alt="A modern apartment building — the kind of property landlords list on Reallow"
+              src="/home/landlord-building.jpg"
+              alt="A modern two-storey block of flats in Akure, Nigeria — the kind of property landlords list on Reallow"
               fill
               sizes="(min-width: 1024px) 560px, 100vw"
               className="object-cover"
@@ -418,7 +405,27 @@ export default async function Home() {
               </Link>
             </div>
           </Reveal>
-          <p className="mt-16 max-w-3xl text-[11px] leading-relaxed text-foreground/40">
+        </div>
+      </section>
+
+      {/* Last: Reallow is for everybody */}
+      <section className="border-t border-line bg-foreground/[0.02]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
+          <SectionHeading
+            eyebrow={t("home.everyoneEyebrow")}
+            title={t("home.everyoneTitle")}
+            intro={t("home.everyoneIntro")}
+          />
+          <div className="mt-8 sm:mt-10">
+            <PeopleSlideshow
+              photos={PEOPLE_PHOTOS.map((photo) => ({
+                ...photo,
+                caption: t(`people.${photo.id}.caption` as MessageKey),
+                detail: t(`people.${photo.id}.detail` as MessageKey),
+              }))}
+            />
+          </div>
+          <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-foreground/40">
             {t("home.photoCredits")}{" "}
             {PEOPLE_PHOTOS.map((photo, i) => (
               <span key={photo.src}>

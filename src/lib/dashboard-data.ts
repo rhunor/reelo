@@ -40,6 +40,10 @@ export interface BookableApplication {
   side: "landlord" | "tenant";
   applicantVerified: boolean;
   inspectionFeeNGN: number;
+  // Landlord's view: who this accepted applicant is, so several people interested in the
+  // same property can be told apart. First name once they've shared anything on their
+  // profile (same rule as the application page), otherwise "Applicant 2" etc.
+  applicantName?: string;
 }
 
 export interface LedgerEntry {
@@ -116,7 +120,12 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
   const [otherListings, applicants] = await Promise.all([
     listingIds.length ? properties.find({ _id: { $in: listingIds } }).toArray() : Promise.resolve([]),
     applicantIds.length
-      ? users.find({ _id: { $in: applicantIds } }, { projection: { verifiedBadge: 1 } }).toArray()
+      ? users
+          .find(
+            { _id: { $in: applicantIds } },
+            { projection: { verifiedBadge: 1, name: 1, firstName: 1, profile: 1, "tenantProfile.visibleToLandlords": 1 } },
+          )
+          .toArray()
       : Promise.resolve([]),
   ]);
   const listingById = new Map([...otherListings, ...ownListings].map((l) => [l._id!.toString(), l]));
@@ -220,6 +229,30 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
   events.sort((a, b) => +new Date(a.at) - +new Date(b.at));
 
   const applicantVerified = new Map(applicants.map((u) => [u._id!.toString(), Boolean(u.verifiedBadge)]));
+  const sharedFirstName = new Map(
+    applicants.map((u) => {
+      const p = u.profile ?? {};
+      const shares = Boolean(
+        (p.profilePictureVisible && p.profilePictureUrl) ||
+          (p.occupationVisible && p.occupation) ||
+          (p.employmentStatusVisible && p.employmentStatus) ||
+          (p.genderVisible && p.gender) ||
+          (p.stateOfOriginVisible && p.stateOfOrigin) ||
+          (p.maritalStatusVisible && p.maritalStatus) ||
+          (p.religionVisible && p.religion) ||
+          u.tenantProfile?.visibleToLandlords,
+      );
+      return [u._id!.toString(), shares ? (u.firstName ?? u.name?.split(" ")[0]) : undefined] as const;
+    }),
+  );
+  // Numbering for applicants who haven't shared a name, per listing.
+  const applicantNumber = new Map<string, number>();
+  const perListing = new Map<string, number>();
+  for (const t of applicationsToMe.filter(isApproved)) {
+    const key = t.listingId!.toString();
+    perListing.set(key, (perListing.get(key) ?? 0) + 1);
+    applicantNumber.set(t._id!.toString(), perListing.get(key)!);
+  }
 
   const bookable: BookableApplication[] = [
     ...myApplications.filter(isApproved).map((t) => ({
@@ -235,6 +268,9 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       side: "landlord" as const,
       applicantVerified: applicantVerified.get(t.userId.toString()) ?? false,
       inspectionFeeNGN: MEETING_FEE_NGN,
+      applicantName:
+        sharedFirstName.get(t.userId.toString()) ??
+        tr("meetings.applicantNumber", { n: applicantNumber.get(t._id!.toString()) ?? 1 }),
     })),
   ];
 

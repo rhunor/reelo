@@ -95,21 +95,34 @@ export default async function AboutPage() {
           </h2>
         </Reveal>
 
-        <RevealGroup className="mt-12 grid gap-6 sm:grid-cols-2">
-          {steps.map((step) => (
-            <RevealItem key={step}>
-              <HoverLift className="h-full rounded-2xl border border-line bg-background p-6">
-                <span className="font-mono text-sm text-clay">{step}</span>
-                <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
-                  {t(`about.step${Number(step)}.title` as MessageKey)}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-foreground/70">
-                  {t(`about.step${Number(step)}.body` as MessageKey)}
-                </p>
-              </HoverLift>
-            </RevealItem>
+        {/* Two tracks — the same platform from the tenant's and the owner's side. */}
+        <div className="mt-12 grid gap-8 lg:grid-cols-2">
+          {(
+            [
+              ["home.trackRentTitle", "about.step"],
+              ["home.trackLetTitle", "about.ownerStep"],
+            ] as const
+          ).map(([trackTitle, prefix]) => (
+            <div key={prefix}>
+              <h3 className="text-sm font-semibold tracking-wide text-foreground/60 uppercase">{t(trackTitle)}</h3>
+              <RevealGroup className="mt-4 grid gap-4">
+                {steps.map((step) => (
+                  <RevealItem key={step}>
+                    <HoverLift className="h-full rounded-2xl border border-line bg-background p-5">
+                      <span className="font-mono text-sm text-clay">{step}</span>
+                      <h4 className="mt-1 font-display text-lg font-semibold text-foreground">
+                        {t(`${prefix}${Number(step)}.title` as MessageKey)}
+                      </h4>
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">
+                        {t(`${prefix}${Number(step)}.body` as MessageKey)}
+                      </p>
+                    </HoverLift>
+                  </RevealItem>
+                ))}
+              </RevealGroup>
+            </div>
           ))}
-        </RevealGroup>
+        </div>
       </section>
 
       <section className="border-t border-line bg-foreground/[0.02]">

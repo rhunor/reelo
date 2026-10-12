@@ -65,11 +65,13 @@ export async function POST(request: Request) {
         }
       }
     } else if (metadata?.kind === "agreement_payment" && metadata?.agreementId) {
-      const agreement = await agreements.findOne({ _id: new ObjectId(metadata.agreementId) });
-
-      // Guard against double-processing (Paystack can redeliver a webhook) — once an
-      // agreement's payment has landed with Reallow, a repeat delivery is a no-op.
-      if (agreement && agreement.payment.status === "unpaid") {
+      // Claimed atomically so a redelivered webhook (or a wallet payment racing this one)
+      // can't record the payment twice — once it's landed, a repeat delivery is a no-op.
+      const agreement = await agreements.findOneAndUpdate(
+        { _id: new ObjectId(metadata.agreementId), "payment.status": "unpaid" },
+        { $set: { "payment.status": "paid_to_reallow" } },
+      );
+      if (agreement) {
         await recordAgreementPayment(agreement, { reference, amountNGN: amount / 100, provider: "paystack" });
       }
     } else if (metadata?.kind === "meeting_inspection_fee" && metadata?.meetingId) {

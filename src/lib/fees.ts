@@ -116,9 +116,10 @@ export function computeAgreementTotal(terms: {
   depositNGN?: number;
   estateChargeNGN?: number;
   serviceChargeRate?: number;
+  listingType?: "rent" | "sale";
 }): ListingCostBreakdown {
   return computeListingCostBreakdown({
-    listingType: "rent",
+    listingType: terms.listingType ?? "rent",
     priceNGN: terms.rentNGN,
     cautionFeeNGN: terms.depositNGN,
     estateChargeNGN: terms.estateChargeNGN,

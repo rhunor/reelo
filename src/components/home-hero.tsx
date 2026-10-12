@@ -8,8 +8,8 @@ import { useI18n } from "@/components/i18n-provider";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-// Every element below plays on mount — not scroll-triggered — so it replays in full on
-// every page load/refresh, exactly like a splash entrance rather than a scroll effect.
+// Now the third section of the home page, so it plays as it scrolls into view (once) rather
+// than on page load.
 const container: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.14, delayChildren: 0.05 } },
@@ -43,21 +43,26 @@ export function HomeHero({ listPropertyHref = "/register?role=landlord" }: { lis
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-12 pb-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:pt-20 lg:pb-24">
-      <motion.div initial="hidden" animate="show" variants={reduceMotion ? undefined : container}>
+      <motion.div
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={reduceMotion ? undefined : container}
+      >
         <motion.p
           variants={reduceMotion ? undefined : dropIn}
           className="font-mono text-xs tracking-widest text-clay uppercase"
         >
           Abuja · Port Harcourt · Warri
         </motion.p>
-        <motion.h1
+        <motion.h2
           variants={reduceMotion ? undefined : hop}
           className="mt-4 text-5xl leading-[1.05] font-semibold tracking-tight sm:text-6xl"
         >
           {t("home.heroTitle1")}
           <br />
           <span className="text-clay">{t("home.heroTitle2")}</span>
-        </motion.h1>
+        </motion.h2>
         <motion.p
           variants={reduceMotion ? undefined : fadeUp}
           className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70"
@@ -97,7 +102,8 @@ export function HomeHero({ listPropertyHref = "/register?role=landlord" }: { lis
         <motion.div
           className="relative"
           initial={reduceMotion ? undefined : { opacity: 0, x: 260, rotate: 2 }}
-          animate={reduceMotion ? undefined : { opacity: 1, x: 0, rotate: 0 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, x: 0, rotate: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
           transition={{ type: "spring", stiffness: 70, damping: 15, delay: 0.15 }}
         >
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl sm:aspect-4/5">
@@ -105,7 +111,7 @@ export function HomeHero({ listPropertyHref = "/register?role=landlord" }: { lis
               src="https://images.unsplash.com/photo-1757970326337-95d7cca56fa1?q=80&w=1400&auto=format&fit=crop"
               alt="Modern apartment building with balconies, the kind of verified listing found on Reallow"
               fill
-              priority
+              sizes="(min-width: 1024px) 560px, 100vw"
               className="object-cover"
             />
           </div>

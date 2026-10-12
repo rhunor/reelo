@@ -237,6 +237,9 @@ export interface Property {
   bedrooms?: number;
   bathrooms?: number;
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
+  // A tenancy/sale agreement document Reallow uploaded for this property (admin → listings).
+  // Used as the agreement for every payment requested on it from then on.
+  agreementDocument?: { url: string; name: string; uploadedAt: Date; uploadedBy: ObjectId };
   // Sale listings of buildings only — see COMPLETION_STATUSES in src/lib/property-types.ts.
   completionStatus?: "completed" | "carcass" | "under_construction";
   amenities: string[];
@@ -408,14 +411,20 @@ export type AgreementStatus =
   | "sent"
   | "signed_by_landlord"
   | "signed_by_tenant"
-  | "fully_signed";
+  | "fully_signed"
+  // Payment requests: another applicant for the same property paid first, or the
+  // landlord withdrew the request.
+  | "superseded"
+  | "cancelled";
 
 // Rent + deposit only ever move Reallow -> nobody until Reallow pays the landlord out
 // out-of-band (bank transfer, not Paystack) — see the guardrail comment in lib/paystack.ts.
 // "paid_to_reallow" is the escrow state: money has landed in Reallow's account but not yet
 // reached the landlord. Only Reallow staff can move a payment to "paid_out_to_landlord",
 // and only manually, once the transfer has actually happened.
-export type AgreementPaymentStatus = "unpaid" | "paid_to_reallow" | "paid_out_to_landlord";
+// "refunded_to_wallet": paid at the same moment another applicant's payment completed —
+// the money went straight back to their Reallow wallet.
+export type AgreementPaymentStatus = "unpaid" | "paid_to_reallow" | "paid_out_to_landlord" | "refunded_to_wallet";
 
 export interface AgreementPayment {
   status: AgreementPaymentStatus;
@@ -435,13 +444,23 @@ export interface AgreementPayment {
 
 export interface Agreement {
   _id?: ObjectId;
+  // "sale" agreements (a property for sale) carry the price in terms.rentNGN and no
+  // caution fee/lease; missing = "tenancy" (every agreement before sales existed).
+  kind?: "tenancy" | "sale";
+  // Set when the landlord created this by requesting payment from an applicant.
+  ticketId?: ObjectId;
+  // An agreement document Reallow uploaded for this property (snapshotted from the listing
+  // when payment was requested) — shown to the tenant in place of the generated text.
+  document?: { url: string; name: string };
+  paymentRequestedAt?: Date;
   listingId: ObjectId;
   landlordId: ObjectId;
   tenantId: ObjectId;
   templateVersion: string;
   terms: {
-    rentNGN: number;
+    rentNGN: number; // annual rent — or the sale price on a sale agreement
     depositNGN: number;
+    listingType?: "rent" | "sale";
     estateChargeNGN?: number;
     // Captured from the source listing at creation. (Once used to pick a per-city fee rate;
     // the service charge is now flat, so this is informational.)
@@ -496,6 +515,8 @@ export type TransactionType =
   | "inspection_fee"
   | "caution_fee_refund"
   | "inspection_fee_refund"
+  | "sale_price"
+  | "payment_refund"
   | "wallet_funding";
 export type TransactionStatus = "pending" | "success" | "failed" | "refunded";
 
@@ -628,6 +649,9 @@ export type NotificationType =
   | "landlord_decision"
   | "listing_received"
   | "meeting_refunded"
+  | "payment_requested"
+  | "payment_superseded"
+  | "property_paid"
   | "property_request"
   | "listing_approved"
   | "listing_rejected"

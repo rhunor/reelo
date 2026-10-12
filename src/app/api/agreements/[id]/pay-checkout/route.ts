@@ -7,6 +7,7 @@ import { computeAgreementTotal } from "@/lib/fees";
 import { isStaffRole } from "@/lib/roles";
 import { recordAgreementPayment } from "@/lib/agreement-payment";
 import { creditWallet, debitWallet, walletReference } from "@/lib/wallet";
+import { appBaseUrl } from "@/lib/email";
 
 // The tenant pays the full total — rent, caution fee, estate charge, and Reallow's service
 // charge — together in one Paystack transaction, straight into Reallow's
@@ -31,6 +32,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (agreement.tenantId.toString() !== session.user.id) {
     return NextResponse.json({ error: "You are not a party to this agreement" }, { status: 403 });
+  }
+  if (agreement.status === "superseded" || agreement.status === "cancelled") {
+    return NextResponse.json({ error: "This payment request is no longer open" }, { status: 409 });
+  }
+  // Once someone else's payment for this property has completed, nobody else can pay.
+  const { properties } = await getCollections();
+  const listing = await properties.findOne({ _id: agreement.listingId }, { projection: { status: 1 } });
+  if (agreement.ticketId && listing?.status !== "published") {
+    return NextResponse.json({ error: "Someone completed payment for this property before you" }, { status: 409 });
   }
   if (agreement.status !== "fully_signed") {
     return NextResponse.json(
@@ -74,6 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       email: session.user.email,
       amountKobo: breakdown.totalNGN * 100,
       reference,
+      callbackUrl: `${appBaseUrl()}/agreements/${agreement._id}`,
       metadata: {
         kind: "agreement_payment",
         agreementId: agreement._id!.toString(),
