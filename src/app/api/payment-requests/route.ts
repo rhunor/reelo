@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { canActAsLandlord } from "@/lib/reallow-landlord";
 import { getServiceChargeRate } from "@/lib/fees";
+import { formatDimensions } from "@/lib/property-types";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { notifyPaymentRequested } from "@/lib/notifications";
 import type { Agreement } from "@/types/models";
@@ -101,7 +102,12 @@ export async function POST(request: Request) {
       responsibilities: "",
       houseRules: listing.dealBreakers ?? [],
       propertyAddress: listing.fullAddress?.trim() || district,
-      propertyDescription: [listing.bedrooms ? `${listing.bedrooms}-bedroom` : null, listing.propertyType].filter(Boolean).join(" "),
+      propertyDescription: [
+        [listing.bedrooms ? `${listing.bedrooms}-bedroom` : null, listing.propertyType].filter(Boolean).join(" "),
+        listing.dimensions ? formatDimensions(listing.dimensions) : null,
+      ]
+        .filter(Boolean)
+        .join(", "),
       landlordName: landlord?.name,
       tenantName: tenant?.name,
     },

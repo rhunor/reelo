@@ -25,7 +25,7 @@ const CARD_MS = 3200;
 // drifts slowly (a "Ken Burns" pan/zoom) and phone notifications float up beside it in turn,
 // so the picture feels alive without being a video. Everything stays still for visitors who
 // ask their device for reduced motion.
-export function SellingHero({ listPropertyHref }: { listPropertyHref: string }) {
+export function SellingHero() {
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
   const cards = [
@@ -52,9 +52,7 @@ export function SellingHero({ listPropertyHref }: { listPropertyHref: string }) 
             variants={reduceMotion ? undefined : rise}
             className="mt-4 text-5xl leading-[1.05] font-semibold tracking-tight sm:text-6xl"
           >
-            {t("home.sellTitle1")}
-            <br />
-            <span className="text-clay">{t("home.sellTitle2")}</span>
+            {t("home.sellTitle1")} <span className="text-clay">{t("home.sellTitle2")}</span>
           </motion.h1>
           <motion.p variants={reduceMotion ? undefined : rise} className="mt-6 max-w-lg text-lg leading-relaxed text-foreground/70">
             {t("home.sellBody")}
@@ -65,12 +63,6 @@ export function SellingHero({ listPropertyHref }: { listPropertyHref: string }) 
               className="flex h-12 items-center justify-center rounded-full bg-clay px-6 font-medium text-white transition-all hover:-translate-y-0.5 hover:opacity-90 hover:shadow-lg"
             >
               {t("home.ctaFind")}
-            </Link>
-            <Link
-              href={listPropertyHref}
-              className="flex h-12 items-center justify-center rounded-full border border-line px-6 font-medium transition-colors hover:border-clay hover:text-clay"
-            >
-              {t("home.ctaList")}
             </Link>
           </motion.div>
         </motion.div>

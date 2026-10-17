@@ -1,17 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { HomeHero } from "@/components/home-hero";
 import { SellingHero } from "@/components/home/selling-hero";
 import { PeopleSlideshow } from "@/components/home/people-slideshow";
 import { FaqList } from "@/components/faq-list";
 import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
 import { formatRate, getServiceChargeRate } from "@/lib/fees";
 import { translatedTopics } from "@/lib/faqs";
-import { PEOPLE_PHOTOS } from "@/lib/home-photos";
+import { PEOPLE_PHOTOS, UNSPLASH } from "@/lib/home-photos";
+
+// Only the Creative Commons photos need a named credit (Unsplash photos don't).
+const CC_PHOTOS = PEOPLE_PHOTOS.filter((photo) => photo.credit.license !== UNSPLASH);
 import { APP_LINKS } from "@/lib/app-links";
 import { getT } from "@/lib/i18n/server";
-import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { auth } from "@/auth";
 import { ctaLinks } from "@/lib/cta-links";
 
@@ -60,9 +61,36 @@ export default async function Home() {
   return (
     <div className="flex-1">
       {/* 1. Selling point — someone getting good news on their phone */}
-      <SellingHero listPropertyHref={links.listProperty} />
+      <SellingHero />
 
-      {/* 2. Why Reallow: old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
+      {/* 2. For property owners — the ideal match for your property */}
+      <section className="border-y border-line bg-foreground/[0.02]">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16">
+          <Reveal direction="left" className="relative order-last mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl shadow-xl lg:order-first">
+            <Image
+              src="/home/owner-phone.jpg"
+              alt="A property owner sitting comfortably in his office, browsing on his phone"
+              fill
+              sizes="(min-width: 1024px) 448px, 100vw"
+              className="object-cover"
+              style={{ objectPosition: "45% 40%" }}
+            />
+          </Reveal>
+          <Reveal>
+            <p className="font-mono text-xs tracking-widest text-clay uppercase">{t("home.ownerEyebrow")}</p>
+            <h2 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{t("home.ownerTitle")}</h2>
+            <p className="mt-4 text-lg leading-relaxed text-foreground/70">{t("home.ownerBody")}</p>
+            <Link
+              href={links.listProperty}
+              className="mt-8 inline-flex h-12 items-center rounded-full bg-clay px-6 font-medium text-white transition-all hover:-translate-y-0.5 hover:opacity-90 hover:shadow-lg"
+            >
+              {t("home.ctaList")}
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 3. Why Reallow: old way vs Reallow — desktop/tablet only, to keep the phone scroll short */}
       <section className="mx-auto hidden w-full max-w-6xl px-4 py-20 sm:px-6 md:block">
         <SectionHeading
           eyebrow={t("home.whyEyebrow")}
@@ -78,7 +106,6 @@ export default async function Home() {
                 t("home.old2"),
                 t("home.old3"),
                 t("home.old4"),
-                t("home.old5"),
               ].map((item) => (
                 <li key={item} className="flex gap-3 text-foreground/70">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-xs text-red-600">✕</span>
@@ -95,7 +122,6 @@ export default async function Home() {
                 t("home.new2"),
                 t("home.new3"),
                 t("home.new4"),
-                t("home.new5"),
               ].map((item) => (
                 <li key={item} className="flex gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-verified/15 text-xs text-verified">✓</span>
@@ -106,11 +132,6 @@ export default async function Home() {
           </Reveal>
         </div>
       </section>
-
-      {/* 3. The original hero: write-up and photo */}
-      <div className="border-t border-line">
-        <HomeHero listPropertyHref={links.listProperty} />
-      </div>
 
       {/* How it works */}
       <section className="border-y border-line bg-foreground/[0.02]">
@@ -329,6 +350,9 @@ export default async function Home() {
             </RevealItem>
           ))}
         </RevealGroup>
+        <Reveal className="mt-10 text-center">
+          <p className="font-display text-2xl font-semibold tracking-tight text-clay sm:text-3xl">{t("home.convenience")}</p>
+        </Reveal>
       </section>
 
       {/* FAQs */}
@@ -417,22 +441,16 @@ export default async function Home() {
             intro={t("home.everyoneIntro")}
           />
           <div className="mt-8 sm:mt-10">
-            <PeopleSlideshow
-              photos={PEOPLE_PHOTOS.map((photo) => ({
-                ...photo,
-                caption: t(`people.${photo.id}.caption` as MessageKey),
-                detail: t(`people.${photo.id}.detail` as MessageKey),
-              }))}
-            />
+            <PeopleSlideshow photos={PEOPLE_PHOTOS} />
           </div>
           <p className="mt-10 max-w-3xl text-[11px] leading-relaxed text-foreground/40">
             {t("home.photoCredits")}{" "}
-            {PEOPLE_PHOTOS.map((photo, i) => (
+            {CC_PHOTOS.map((photo, i) => (
               <span key={photo.src}>
                 <a href={photo.credit.source} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground/70">
                   {photo.credit.author}
                 </a>
-                {i < PEOPLE_PHOTOS.length - 1 ? ", " : ""}
+                {i < CC_PHOTOS.length - 1 ? ", " : ""}
               </span>
             ))}{" "}
             —{" "}

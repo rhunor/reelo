@@ -188,7 +188,7 @@ export function TenancyAgreementDocument({
           Reallow arranged this agreement and collected the payments above. Once rent has been
           paid and the Tenant has taken possession, day-to-day matters
           under this tenancy are between the Landlord and the Tenant, in line with Reallow&apos;s
-          Terms of Service.
+          Terms of Use.
         </p>
       </Clause>
 

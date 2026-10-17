@@ -30,6 +30,13 @@ const listingSchema = z.object({
   bathrooms: z.coerce.number().int().nonnegative().optional(),
   furnishing: z.enum(["furnished", "semi_furnished", "unfurnished"]).optional(),
   completionStatus: z.enum(COMPLETION_STATUSES).optional(),
+  dimensions: z
+    .object({
+      length: z.coerce.number().positive().max(100000),
+      width: z.coerce.number().positive().max(100000),
+      unit: z.enum(["ft", "m"]),
+    })
+    .optional(),
   amenities: z.string().optional(),
   tenantPreferences: z.string().max(500).optional(),
   photoUrls: z.array(z.string().url()).min(1),
@@ -109,6 +116,7 @@ export async function POST(request: Request) {
     bathrooms: details.bathrooms,
     furnishing: details.furnishing,
     completionStatus: details.completionStatus,
+    dimensions: details.dimensions,
     amenities: data.amenities
       ? data.amenities.split(",").map((item) => item.trim()).filter(Boolean)
       : [],

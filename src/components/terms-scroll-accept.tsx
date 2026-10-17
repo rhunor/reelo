@@ -13,7 +13,7 @@ Reallow collects your identity and bank details for verification and payout purp
 
 Reallow can suspend any account or remove any listing for misconduct or suspected misconduct, and you can report a user or a listing directly from their page.
 
-By creating an account you agree to the full Terms of Service and Privacy Policy, linked below.`;
+By creating an account you agree to the full Terms of Use and Privacy Policy, linked below.`;
 
 export function TermsScrollAccept() {
   const { t, locale } = useI18n();

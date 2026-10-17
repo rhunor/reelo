@@ -4,7 +4,14 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { VideoUploader } from "@/components/video-uploader";
-import { COMPLETION_STATUSES, PROPERTY_TYPES, propertyTypeFields, type CompletionStatus } from "@/lib/property-types";
+import {
+  COMPLETION_STATUSES,
+  PROPERTY_TYPES,
+  dimensionsRequired,
+  propertyTypeFields,
+  type CompletionStatus,
+  type DimensionUnit,
+} from "@/lib/property-types";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
 import { CAUTION_FEE_CAP_RATE } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
@@ -27,6 +34,8 @@ export function NewAdminListingForm() {
   const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
   const fields = propertyTypeFields(propertyType);
   const needsCompletion = listingType === "sale" && fields.completion;
+  const needsDimensions = dimensionsRequired(propertyType, listingType);
+  const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>("ft");
   const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
   const districts = DISTRICTS_BY_STATE[state] ?? [];
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -47,9 +56,16 @@ export function NewAdminListingForm() {
       return;
     }
 
+    const formData = new FormData(event.currentTarget);
+    const dimLength = Number(formData.get("dimLength")) || 0;
+    const dimWidth = Number(formData.get("dimWidth")) || 0;
+    if ((dimLength && !dimWidth) || (!dimLength && dimWidth) || (needsDimensions && !(dimLength && dimWidth))) {
+      setError("Enter both length and width");
+      return;
+    }
+
     setLoading(true);
 
-    const formData = new FormData(event.currentTarget);
     const payload = {
       landlordEmail: formData.get("landlordEmail"),
       title: formData.get("title"),
@@ -67,6 +83,7 @@ export function NewAdminListingForm() {
       bathrooms: fields.bathrooms ? formData.get("bathrooms") || undefined : undefined,
       furnishing: fields.furnishing ? furnishing : undefined,
       completionStatus: needsCompletion ? completionStatus ?? undefined : undefined,
+      dimensions: dimLength && dimWidth ? { length: dimLength, width: dimWidth, unit: dimensionUnit } : undefined,
       amenities: formData.get("amenities") || undefined,
       tenantPreferences: formData.get("tenantPreferences") || undefined,
       photoUrls,
@@ -219,6 +236,20 @@ export function NewAdminListingForm() {
           ))}
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm">
+          {propertyType === "Land" ? "Plot size" : "Dimensions"}
+          {!needsDimensions && <span className="text-foreground/50"> (optional)</span>}
+        </span>
+        <input name="dimLength" type="number" min={0.1} step="any" required={needsDimensions} placeholder="Length" className={inputClass + " w-28"} />
+        <span className="text-foreground/50">×</span>
+        <input name="dimWidth" type="number" min={0.1} step="any" required={needsDimensions} placeholder="Width" className={inputClass + " w-28"} />
+        <select value={dimensionUnit} onChange={(e) => setDimensionUnit(e.target.value as DimensionUnit)} className={inputClass}>
+          <option value="ft">feet</option>
+          <option value="m">metres</option>
+        </select>
+      </div>
 
       {(fields.bedrooms || fields.bathrooms) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

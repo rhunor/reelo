@@ -61,6 +61,22 @@ export function propertyTypeFields(type: string | undefined): PropertyTypeFields
 export const COMPLETION_STATUSES = ["completed", "carcass", "under_construction"] as const;
 export type CompletionStatus = (typeof COMPLETION_STATUSES)[number];
 
+// Dimensions (length × width) are compulsory for land and for anything for sale — buyers need
+// the plot or floor size — and optional for other rentals.
+export function dimensionsRequired(propertyType: string | undefined, listingType: "rent" | "sale"): boolean {
+  return propertyType === "Land" || listingType === "sale";
+}
+
+export type DimensionUnit = "ft" | "m";
+
+// "50 × 100 ft (5,000 sq ft)"
+export function formatDimensions(d: { length: number; width: number; unit: DimensionUnit }): string {
+  const area = Math.round(d.length * d.width);
+  const unit = d.unit === "m" ? "m" : "ft";
+  const areaUnit = d.unit === "m" ? "m²" : "sq ft";
+  return `${d.length.toLocaleString()} × ${d.width.toLocaleString()} ${unit} (${area.toLocaleString()} ${areaUnit})`;
+}
+
 // Server-side: keep only the details that apply to this property type and listing type.
 // Returns an error when a building for sale is missing its completion status.
 export function applyPropertyTypeRules(input: {
@@ -70,13 +86,24 @@ export function applyPropertyTypeRules(input: {
   bathrooms?: number;
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
   completionStatus?: CompletionStatus;
+  dimensions?: { length: number; width: number; unit: DimensionUnit };
 }):
-  | { ok: true; bedrooms?: number; bathrooms?: number; furnishing?: PropertyFurnishing; completionStatus?: CompletionStatus }
+  | {
+      ok: true;
+      bedrooms?: number;
+      bathrooms?: number;
+      furnishing?: PropertyFurnishing;
+      completionStatus?: CompletionStatus;
+      dimensions?: { length: number; width: number; unit: DimensionUnit };
+    }
   | { ok: false; error: string } {
   const fields = propertyTypeFields(input.propertyType);
   const needsCompletion = input.listingType === "sale" && fields.completion;
   if (needsCompletion && !input.completionStatus) {
     return { ok: false, error: "Say whether the building is completed, a carcass, or under construction" };
+  }
+  if (dimensionsRequired(input.propertyType, input.listingType) && !input.dimensions) {
+    return { ok: false, error: "Enter the property's dimensions (length × width)" };
   }
   return {
     ok: true,
@@ -84,6 +111,7 @@ export function applyPropertyTypeRules(input: {
     bathrooms: fields.bathrooms ? input.bathrooms : undefined,
     furnishing: fields.furnishing ? input.furnishing : undefined,
     completionStatus: needsCompletion ? input.completionStatus : undefined,
+    dimensions: input.dimensions,
   };
 }
 

@@ -203,6 +203,12 @@ export interface VisitReport {
   submittedByName?: string;
 }
 
+export interface PropertyDimensions {
+  length: number;
+  width: number;
+  unit: "ft" | "m";
+}
+
 export interface Property {
   _id?: ObjectId;
   landlordId: ObjectId;
@@ -240,6 +246,9 @@ export interface Property {
   // A tenancy/sale agreement document Reallow uploaded for this property (admin → listings).
   // Used as the agreement for every payment requested on it from then on.
   agreementDocument?: { url: string; name: string; uploadedAt: Date; uploadedBy: ObjectId };
+  // Plot/floor size. Required for land and for anything for sale; optional for rentals
+  // (see dimensionsRequired in src/lib/property-types.ts).
+  dimensions?: PropertyDimensions;
   // Sale listings of buildings only — see COMPLETION_STATUSES in src/lib/property-types.ts.
   completionStatus?: "completed" | "carcass" | "under_construction";
   amenities: string[];

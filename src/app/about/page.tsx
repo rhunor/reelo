@@ -194,22 +194,8 @@ export default async function AboutPage() {
             <h2 className="mt-3 text-3xl font-semibold tracking-tight">
               {t("about.whereTitle")}
             </h2>
-            <p className="mt-5 max-w-lg text-sm leading-relaxed text-foreground/80">
-              {t("about.whereBody")}
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="border-t border-line">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 py-20 text-center lg:py-28">
-          <Reveal>
-            <p className="text-3xl font-semibold tracking-tight sm:text-5xl">
-              {t("about.notYet")}
-            </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight text-clay sm:text-5xl">
-              {t("about.expanding")}
-            </p>
+            <p className="mt-6 text-2xl font-semibold tracking-tight sm:text-3xl">{t("about.notYet")}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-clay sm:text-3xl">{t("about.expanding")}</p>
           </Reveal>
         </div>
       </section>

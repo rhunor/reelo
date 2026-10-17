@@ -18,7 +18,7 @@ import { isStaffRole } from "@/lib/roles";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
-import { propertyTypeFields, propertyTypeKey } from "@/lib/property-types";
+import { formatDimensions, propertyTypeFields, propertyTypeKey } from "@/lib/property-types";
 
 export default async function ListingDetailPage({
   params,
@@ -139,6 +139,7 @@ export default async function ListingDetailPage({
                   )
                 : null,
               fields.furnishing && listing.furnishing ? t(`furnishing.${listing.furnishing}` as MessageKey) : null,
+              listing.dimensions ? formatDimensions(listing.dimensions) : null,
             ]
               .filter(Boolean)
               .map((fact) => (

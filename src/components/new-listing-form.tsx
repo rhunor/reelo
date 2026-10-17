@@ -8,7 +8,15 @@ import { PROPERTY_TYPES } from "@/lib/property-types";
 import { SUPPORTED_STATES, DISTRICTS_BY_STATE, type SupportedState } from "@/lib/locations";
 import { CAUTION_FEE_CAP_RATE, computeListingCostBreakdown, formatRate } from "@/lib/fees";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
-import { COMPLETION_STATUSES, propertyTypeFields, propertyTypeKey, type CompletionStatus } from "@/lib/property-types";
+import {
+  COMPLETION_STATUSES,
+  dimensionsRequired,
+  formatDimensions,
+  propertyTypeFields,
+  propertyTypeKey,
+  type CompletionStatus,
+  type DimensionUnit,
+} from "@/lib/property-types";
 import { useI18n } from "@/components/i18n-provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
 
@@ -31,6 +39,7 @@ type ListingPayload = {
   bathrooms?: number;
   furnishing?: "furnished" | "semi_furnished" | "unfurnished";
   completionStatus?: CompletionStatus;
+  dimensions?: { length: number; width: number; unit: DimensionUnit };
   amenities?: string;
   tenantPreferences?: string;
   photoUrls: string[];
@@ -58,6 +67,7 @@ export function NewListingForm() {
   );
   const [propertyType, setPropertyType] = useState("");
   const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
+  const [dimensionUnit, setDimensionUnit] = useState<DimensionUnit>("ft");
   // Which details apply to the chosen type (no furnishing or bedrooms for land, etc.).
   const fields = propertyTypeFields(propertyType);
   const [state, setState] = useState<SupportedState>(SUPPORTED_STATES[0].value);
@@ -71,6 +81,7 @@ export function NewListingForm() {
   const [review, setReview] = useState<ListingPayload | null>(null);
   const isRent = listingType === "rent";
   const needsCompletion = !isRent && fields.completion;
+  const needsDimensions = dimensionsRequired(propertyType, listingType);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,6 +99,12 @@ export function NewListingForm() {
 
     const formData = new FormData(event.currentTarget);
     const priceNGN = num(formData, "priceNGN") ?? 0;
+    const dimLength = num(formData, "dimLength");
+    const dimWidth = num(formData, "dimWidth");
+    if ((dimLength && !dimWidth) || (!dimLength && dimWidth) || (needsDimensions && !(dimLength && dimWidth))) {
+      setError(t("form.dimensionsRequired"));
+      return;
+    }
     // 0 means "none" — the API only accepts positive optional amounts.
     const depositNGN = isRent ? num(formData, "depositNGN") || undefined : undefined;
     if (depositNGN && depositNGN > priceNGN * CAUTION_FEE_CAP_RATE) {
@@ -113,6 +130,7 @@ export function NewListingForm() {
       bathrooms: fields.bathrooms ? num(formData, "bathrooms") : undefined,
       furnishing: fields.furnishing ? furnishing : undefined,
       completionStatus: needsCompletion ? completionStatus ?? undefined : undefined,
+      dimensions: dimLength && dimWidth ? { length: dimLength, width: dimWidth, unit: dimensionUnit } : undefined,
       amenities: text(formData, "amenities"),
       tenantPreferences: text(formData, "tenantPreferences"),
       photoUrls,
@@ -323,6 +341,44 @@ export function NewListingForm() {
         </fieldset>
       )}
 
+      <fieldset>
+        <legend className="mb-1 text-sm font-medium">
+          {t(propertyType === "Land" ? "form.plotSize" : "form.dimensions")}{" "}
+          {!needsDimensions && <span className="font-normal text-foreground/50">({t("request.optional")})</span>}
+        </legend>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            name="dimLength"
+            type="number"
+            min={0.1}
+            step="any"
+            required={needsDimensions}
+            placeholder={t("form.length")}
+            className={inputClass + " w-28"}
+          />
+          <span className="text-foreground/50">×</span>
+          <input
+            name="dimWidth"
+            type="number"
+            min={0.1}
+            step="any"
+            required={needsDimensions}
+            placeholder={t("form.width")}
+            className={inputClass + " w-28"}
+          />
+          <select
+            value={dimensionUnit}
+            onChange={(event) => setDimensionUnit(event.target.value as DimensionUnit)}
+            className={inputClass}
+            aria-label={t("form.unit")}
+          >
+            <option value="ft">{t("form.feet")}</option>
+            <option value="m">{t("form.metres")}</option>
+          </select>
+        </div>
+        <p className="mt-1 text-xs text-foreground/50">{t(needsDimensions ? "form.dimensionsHintRequired" : "form.dimensionsHint")}</p>
+      </fieldset>
+
       {(fields.bedrooms || fields.bathrooms) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fields.bedrooms && (
@@ -430,6 +486,7 @@ function ListingReview({
     ["form.location", [review.area, district, stateLabel].filter(Boolean).join(", ")],
     ["form.fullAddress", review.fullAddress],
     ["form.completion", review.completionStatus ? t(`completion.${review.completionStatus}` as MessageKey) : undefined],
+    ["form.dimensions", review.dimensions ? formatDimensions(review.dimensions) : undefined],
     ["form.bedrooms", review.bedrooms?.toString()],
     [propertyTypeFields(review.propertyType).bedrooms ? "form.bathrooms" : "form.toilets", review.bathrooms?.toString()],
     ["form.furnishing", review.furnishing ? t(`furnishing.${review.furnishing}` as MessageKey) : undefined],
