@@ -5,10 +5,16 @@ import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { getCollections } from "@/lib/db";
+import { consumeSignupLogin, verifyLoginCode } from "@/lib/login-codes";
 
 // Lets the login page tell a blocked account apart from a wrong password.
 class AccountBlockedError extends CredentialsSignin {
   code = "account_blocked";
+}
+
+// Right password, wrong / expired one-time code.
+class InvalidCodeError extends CredentialsSignin {
+  code = "invalid_code";
 }
 
 // How often a signed-in session re-checks the account in the database, so blocking someone
@@ -58,11 +64,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: {},
         password: {},
+        // The emailed one-time code (see /api/auth/login-code) — required at every sign-in…
+        code: {},
+        // …except straight after registering, which hands back a one-use token instead.
+        signupToken: {},
       },
       authorize: async (credentials) => {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
-        if (!email || !password) return null;
+        const code = credentials?.code as string | undefined;
+        const signupToken = credentials?.signupToken as string | undefined;
+        if (!email || !password || (!code && !signupToken)) return null;
 
         const { users } = await getCollections();
         const user = await users.findOne({ email: email.toLowerCase() });
@@ -71,6 +83,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
         if (user.status === "banned") throw new AccountBlockedError();
+
+        // Second factor: the code we emailed, or the new account's one-time signup token.
+        const secondFactorOk = signupToken
+          ? await consumeSignupLogin(user._id!, signupToken)
+          : await verifyLoginCode(user._id!, code!.trim());
+        if (!secondFactorOk) throw new InvalidCodeError();
 
         return {
           id: user._id!.toString(),

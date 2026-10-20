@@ -48,12 +48,11 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const t = await getT();
-  const { users, properties, tickets } = await getCollections();
+  const { users, properties } = await getCollections();
   const userId = new ObjectId(session.user.id);
-  const [found, listings, unreadReplies] = await Promise.all([
+  const [found, listings] = await Promise.all([
     users.findOne({ _id: userId }),
     properties.find({ landlordId: userId }).sort({ createdAt: -1 }).toArray(),
-    tickets.countDocuments({ userId, unreadReplyForUser: true }),
   ]);
   if (!found) redirect("/login");
   const user = await ensureReferralCode(found);
@@ -93,13 +92,13 @@ export default async function DashboardPage({
       icon: "M7 3h7l5 5v13H7V3Zm7 0v5h5M10 13h6M10 17h6",
     },
     {
-      href: "/dashboard/tenant/tickets",
+      // Goes straight to the Contact page — signed-in messages sent there still come back
+      // as notifications when Reallow replies.
+      href: "/contact",
       label: t("dash.messages"),
-      caption: unreadReplies
-        ? t(unreadReplies === 1 ? "dash.newReplyOne" : "dash.newReplies", { count: unreadReplies })
-        : t("dash.messagesCaption"),
+      caption: t("dash.messagesCaption"),
       icon: "M4 5h16v11H8l-4 4V5Zm4 5h8M8 8h5",
-      badge: unreadReplies,
+      badge: 0,
     },
   ];
 

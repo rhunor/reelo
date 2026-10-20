@@ -69,6 +69,12 @@ export interface User {
   // Optional second number Reallow can try if `phone` doesn't connect. Not unique.
   alternatePhone?: string;
   passwordHash?: string;
+  // Sign-in one-time code (only its hash), emailed after the password is checked.
+  loginCode?: { hash: string; expiresAt: Date; attempts: number; sentAt: Date };
+  // Lets the brand-new account sign straight in after registering, without a code.
+  signupLogin?: { hash: string; expiresAt: Date };
+  // "Forgot password" link (only its hash).
+  passwordReset?: { hash: string; expiresAt: Date; sentAt: Date };
   nin: {
     status: VerificationStatus;
     provider?: "youverify" | "prembly" | "smile_id" | "dojah";
@@ -376,6 +382,25 @@ export interface ConsentEvent {
   _id?: ObjectId;
   choice: "all" | "essential";
   device: "mobile" | "tablet" | "desktop";
+  createdAt: Date;
+}
+
+// A mass email sent from Admin → Email users.
+export type EmailAudience = "newsletter" | "all" | "owners" | "applicants" | "staff";
+
+export interface EmailCampaign {
+  _id?: ObjectId;
+  subject: string;
+  message: string;
+  buttonLabel?: string;
+  buttonUrl?: string;
+  audience: EmailAudience;
+  verifiedOnly: boolean;
+  recipients: number;
+  sent: number;
+  failed: number;
+  sentBy: ObjectId;
+  sentByName?: string;
   createdAt: Date;
 }
 

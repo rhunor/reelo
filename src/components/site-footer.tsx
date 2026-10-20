@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { ReallowFullLogo } from "@/components/reallow-logo";
 import { SocialIcons } from "@/components/social-icons";
 import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-info";
-import { isStaffRole } from "@/lib/roles";
 import { ctaLinks } from "@/lib/cta-links";
 import { getT } from "@/lib/i18n/server";
 import { CookieSettingsLink } from "@/components/cookie-settings-link";
@@ -11,10 +10,9 @@ import { CookieSettingsLink } from "@/components/cookie-settings-link";
 export async function SiteFooter() {
   const session = await auth();
   const t = await getT();
-  // Signed-in customers message Reallow from their account so replies show up in their
-  // notifications; everyone else uses the public contact form.
-  const messageHref =
-    session?.user && !isStaffRole(session.user.role) ? "/dashboard/tenant/tickets/new" : "/contact";
+  // Everyone messages Reallow through the Contact page (signed-in users still get replies as
+  // notifications).
+  const messageHref = "/contact";
 
   const columns = [
     {

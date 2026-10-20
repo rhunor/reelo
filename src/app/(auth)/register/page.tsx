@@ -103,8 +103,8 @@ function RegisterForm() {
       body: JSON.stringify(payload),
     });
 
+    const data = await res.json().catch(() => null);
     if (!res.ok) {
-      const data = await res.json().catch(() => null);
       setError(data?.code === "invalid_ref" ? t("auth.refInvalid") : (data?.error ?? t("auth.regFailed")));
       setLoading(false);
       return;
@@ -113,6 +113,7 @@ function RegisterForm() {
     const signInResult = await signIn("credentials", {
       email: payload.email,
       password: payload.password,
+      signupToken: data?.signupToken,
       redirect: false,
     });
 

@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { after } from "next/server";
+import { sendPasswordChangedEmail } from "@/lib/email";
 
 const schema = z
   .object({
@@ -37,5 +39,7 @@ export async function POST(request: Request) {
     { _id: user._id },
     { $set: { passwordHash: await bcrypt.hash(parsed.data.newPassword, 12), updatedAt: new Date() } },
   );
+  // Security notice, sent after the response so it doesn't slow the page down.
+  after(() => sendPasswordChangedEmail(user.email, user.firstName ?? user.name));
   return NextResponse.json({ success: true });
 }

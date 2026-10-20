@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { formatLagos } from "@/lib/time";
+import { EMAIL_LOGO_PNG_BASE64 } from "@/lib/email-logo";
 
 export function generateEmailVerificationToken(): { token: string; expiresAt: Date } {
   const token = crypto.randomBytes(32).toString("hex");
@@ -13,19 +14,31 @@ export function appBaseUrl(): string {
   return "http://localhost:3000";
 }
 
-// Wraps email body content with the Reallow icon at the top. PNG, not SVG — Outlook
-// desktop doesn't render SVG images in HTML email at all. This is public/reallow-icon.png
-// (a stand-in for the full wordmark logo, which hasn't been supplied yet) — swap the
-// src/alt here once the real logo asset exists.
-function emailShell(bodyHtml: string): string {
-  const logoUrl = `${appBaseUrl()}/reallow-icon.png`;
+// Every email goes out from the verified reallow.co domain. EMAIL_FROM can override it.
+const EMAIL_FROM = process.env.EMAIL_FROM || "Reallow <no-reply@reallow.co>";
+
+// Wraps email body content with the official Reallow logo at the top. It's attached to every
+// email as an inline image (cid:reallow-logo — see sendEmail), not linked from the website, so
+// it shows even before a deploy and in clients that block remote images. PNG, not SVG —
+// Outlook and Gmail don't render SVG in email.
+const LOGO_CID = "reallow-logo";
+
+// `logo`: "inline" attaches the logo to the email (single sends); "hosted" links the copy on
+// the website, for Resend's batch API, which doesn't take attachments (campaigns).
+function emailShell(bodyHtml: string, logo: "inline" | "hosted" = "inline", footerExtra = ""): string {
+  const logoUrl = logo === "inline" ? `cid:${LOGO_CID}` : `${appBaseUrl()}/reallow-logo-email.png`;
   return `
-    <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#1c1712;">
-      <div style="text-align:center;padding:24px 0;">
-        <img src="${logoUrl}" alt="Reallow" width="48" height="51" style="display:inline-block;" />
+    <div style="background:#f7f3ec;padding:24px 12px;">
+      <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:8px 28px 28px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c1712;">
+        <div style="text-align:center;padding:20px 0 12px;">
+          <img src="${logoUrl}" alt="Reallow" width="220" height="68" style="display:inline-block;width:220px;height:auto;border:0;" />
+        </div>
+        ${bodyHtml}
       </div>
-      ${bodyHtml}
-      <p style="margin-top:32px;font-size:12px;color:#888;text-align:center;">Reallow</p>
+      <p style="max-width:520px;margin:16px auto 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#8a8178;text-align:center;">
+        Reallow · 83 Effurun-Sapele Road, Effurun, Warri, Delta State · 09020253413<br />
+        This is an automated message — please don&#39;t reply to this email.${footerExtra}
+      </p>
     </div>
   `;
 }
@@ -44,24 +57,19 @@ function escapeHtml(value: string): string {
 // Raw REST call rather than the `resend` SDK, matching how src/lib/paystack.ts talks to
 // Paystack elsewhere in this codebase — one fetch call doesn't justify a new dependency.
 // Never throws: an email failing must never break the action that triggered it (signup,
-// listing, scheduling) — the in-app notification is always the primary channel.
-//
-// No verified domain yet: Resend restricts unverified accounts to sending FROM
-// onboarding@resend.dev and TO only the email address on the Resend account itself. So
-// this will deliver fine for testing against your own inbox, but won't reach real users
-// until a domain is verified in the Resend dashboard — swap the `from` address below to a
-// real Reallow address (e.g. noreply@reallow.ng) once that's done.
+// listing, scheduling) — the in-app notification is always the primary channel. Returns
+// whether Resend accepted it, for the few emails a flow depends on (login codes, resets).
 async function sendEmail(
   to: string,
   subject: string,
   bodyHtml: string,
   tag: string,
   replyTo?: string,
-): Promise<void> {
+): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log(`[email:${tag}] RESEND_API_KEY not set — would send "${subject}" to ${to}`);
-    return;
+    return false;
   }
 
   try {
@@ -69,19 +77,70 @@ async function sendEmail(
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "Reallow <onboarding@resend.dev>",
+        from: EMAIL_FROM,
         to: [to],
         subject,
         html: emailShell(bodyHtml),
+        attachments: [{ filename: "reallow-logo.png", content: EMAIL_LOGO_PNG_BASE64, content_id: LOGO_CID }],
         ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
     if (!response.ok) {
       console.error(`[email:${tag}] Resend send failed:`, await response.json().catch(() => null));
+      return false;
     }
+    return true;
   } catch (error) {
     console.error(`[email:${tag}] Resend request failed:`, error);
+    return false;
   }
+}
+
+// The one-time code asked for at every sign-in, after the password.
+export async function sendLoginCodeEmail(to: string, name: string, code: string, minutes: number): Promise<boolean> {
+  return sendEmail(
+    to,
+    `${code} is your Reallow sign-in code`,
+    `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>Here's your code to finish signing in to Reallow:</p>
+    <p style="text-align:center;margin:24px 0;">
+      <span style="display:inline-block;font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#1a314f;background:#f7f3ec;border-radius:12px;padding:14px 22px;">${code}</span>
+    </p>
+    <p style="font-size:13px;color:#666;">It expires in ${minutes} minutes. Reallow will never ask you for this code — if you didn't just try to sign in, change your password straight away.</p>
+    `,
+    "login-code",
+  );
+}
+
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string, minutes: number): Promise<boolean> {
+  return sendEmail(
+    to,
+    "Reset your Reallow password",
+    `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>We got a request to reset the password on your Reallow account. Choose a new one here:</p>
+    <p style="text-align:center;margin:24px 0;">${button(resetUrl, "Reset password")}</p>
+    <p style="font-size:13px;color:#666;">Or paste this link into your browser: ${resetUrl}</p>
+    <p style="font-size:13px;color:#666;">The link expires in ${minutes} minutes and can only be used once. If you didn't ask for this, you can ignore this email — your password won't change.</p>
+    `,
+    "password-reset",
+  );
+}
+
+// Security notice after any password change (reset or from Settings).
+export async function sendPasswordChangedEmail(to: string, name: string): Promise<boolean> {
+  return sendEmail(
+    to,
+    "Your Reallow password was changed",
+    `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>The password on your Reallow account was just changed.</p>
+    <p style="font-size:13px;color:#666;">If this was you, there's nothing else to do. If it wasn't, reset your password now from the sign-in page and contact Reallow on 09020253413.</p>
+    <p style="text-align:center;margin:24px 0;">${button(`${appBaseUrl()}/forgot-password`, "Reset password")}</p>
+    `,
+    "password-changed",
+  );
 }
 
 export async function sendListingReceivedEmail(to: string, name: string, listingTitle: string): Promise<void> {
@@ -238,4 +297,134 @@ export async function sendSupportReplyEmail(to: string, name: string, subject: s
     `,
     "support-reply",
   );
+}
+
+// The email copy of an in-app notification (meeting requests, applications, payments…):
+// same title and message, with a button back to the right page.
+export async function sendNotificationEmail(
+  to: string,
+  name: string,
+  notice: { title: string; body: string; href?: string },
+): Promise<boolean> {
+  const url = notice.href ? (notice.href.startsWith("http") ? notice.href : `${appBaseUrl()}${notice.href}`) : `${appBaseUrl()}/dashboard`;
+  return sendEmail(
+    to,
+    `${notice.title} — Reallow`,
+    `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p style="font-size:17px;font-weight:600;margin:16px 0 4px;">${escapeHtml(notice.title)}</p>
+    <p>${escapeHtml(notice.body)}</p>
+    <p style="text-align:center;margin:24px 0;">${button(url, "Open in Reallow")}</p>
+    <p style="font-size:12px;color:#888;">You're getting this because it's an update on your Reallow account. You'll also find it under the bell icon when you sign in.</p>
+    `,
+    "notification",
+  );
+}
+
+// Admin campaigns (Admin → Email users). Sent through Resend's batch endpoint, up to 100 per
+// request. Each recipient gets their own copy (personal greeting + unsubscribe link).
+export interface CampaignEmail {
+  to: string;
+  name: string;
+  unsubscribeUrl?: string;
+}
+
+export function renderCampaignHtml(
+  { subject, message, buttonLabel, buttonUrl }: { subject: string; message: string; buttonLabel?: string; buttonUrl?: string },
+  recipient: { name: string; unsubscribeUrl?: string },
+  logo: "inline" | "hosted" = "hosted",
+): string {
+  const paragraphs = message
+    .trim()
+    .split(/\n\s*\n/)
+    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br />")}</p>`)
+    .join("");
+  const cta = buttonLabel && buttonUrl ? `<p style="text-align:center;margin:24px 0;">${button(buttonUrl, escapeHtml(buttonLabel))}</p>` : "";
+  const unsubscribe = recipient.unsubscribeUrl
+    ? `<br /><a href="${recipient.unsubscribeUrl}" style="color:#8a8178;">Unsubscribe from Reallow updates</a>`
+    : "";
+  return emailShell(
+    `<p>Hi ${escapeHtml(recipient.name)},</p>
+     <p style="font-size:17px;font-weight:600;margin:16px 0 4px;">${escapeHtml(subject)}</p>
+     ${paragraphs}${cta}`,
+    logo,
+    unsubscribe,
+  );
+}
+
+// Returns how many were accepted by Resend and how many failed.
+export async function sendCampaignBatch(
+  content: { subject: string; message: string; buttonLabel?: string; buttonUrl?: string },
+  recipients: CampaignEmail[],
+): Promise<{ sent: number; failed: number }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log(`[email:campaign] RESEND_API_KEY not set — would send "${content.subject}" to ${recipients.length}`);
+    return { sent: 0, failed: recipients.length };
+  }
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100);
+    try {
+      const response = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          chunk.map((r) => ({
+            from: EMAIL_FROM,
+            to: [r.to],
+            subject: content.subject,
+            html: renderCampaignHtml(content, r),
+            ...(r.unsubscribeUrl
+              ? {
+                  // Email apps' one-click "Unsubscribe" POSTs straight to the API route.
+                  headers: {
+                    "List-Unsubscribe": `<${r.unsubscribeUrl.replace("/unsubscribe?", "/api/unsubscribe?")}>`,
+                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                  },
+                }
+              : {}),
+          })),
+        ),
+      });
+      if (response.ok) sent += chunk.length;
+      else {
+        failed += chunk.length;
+        console.error("[email:campaign] batch failed:", await response.json().catch(() => null));
+      }
+    } catch (error) {
+      failed += chunk.length;
+      console.error("[email:campaign] batch request failed:", error);
+    }
+    // Stay under Resend's default 2 requests/second.
+    if (i + 100 < recipients.length) await new Promise((r) => setTimeout(r, 600));
+  }
+  return { sent, failed };
+}
+
+// A single campaign email (the "send test to me" button), with the logo attached inline.
+export async function sendCampaignTest(
+  to: string,
+  name: string,
+  content: { subject: string; message: string; buttonLabel?: string; buttonUrl?: string },
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: EMAIL_FROM,
+        to: [to],
+        subject: `[Test] ${content.subject}`,
+        html: renderCampaignHtml(content, { name }, "inline"),
+        attachments: [{ filename: "reallow-logo.png", content: EMAIL_LOGO_PNG_BASE64, content_id: LOGO_CID }],
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }

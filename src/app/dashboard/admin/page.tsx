@@ -70,6 +70,7 @@ export default async function AdminDashboardPage() {
           { href: "/dashboard/admin/feedback", label: "Meeting feedback" },
           { href: "/dashboard/admin/insights", label: "How people found us" },
           { href: "/dashboard/admin/analytics", label: "Site analytics" },
+          { href: "/dashboard/admin/emails", label: "Email users" },
         ]}
       />
       <div className="mt-2">

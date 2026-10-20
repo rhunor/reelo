@@ -36,20 +36,6 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
     credit: { author: "Francis Odeyemi", source: "https://unsplash.com/photos/a-woman-sitting-at-a-table-with-a-laptop-Xq-RY9z8VY4", license: UNSPLASH },
   },
   {
-    src: "/home/land.jpg",
-    alt: "A woman standing on an open plot of land",
-    id: "land",
-    position: "70% 45%",
-    credit: { author: "Tomiwa Ogunmodede", source: "https://unsplash.com/photos/woman-in-white-and-teal-polo-shirt-standing-near-open-field-jcKbKG8P_6U", license: UNSPLASH },
-  },
-  {
-    src: "/home/construction.jpg",
-    alt: "Two builders in work uniforms on a construction site",
-    id: "construction",
-    position: "50% 30%",
-    credit: { author: "Divaris Shirichena", source: "https://unsplash.com/photos/men-in-blue-work-uniforms-ndR5lv2aK10", license: UNSPLASH },
-  },
-  {
     src: "/home/church.jpg",
     alt: "Clergy in robes during a church service",
     id: "church",
@@ -83,20 +69,6 @@ export const PEOPLE_PHOTOS: HomePhoto[] = [
     id: "mechanic",
     position: "50% 60%",
     credit: { author: "Sodiq Jimoh", source: "https://commons.wikimedia.org/wiki/File:Local_mechanic_workshop_in_Epe_Nigeria.jpg", license: CC },
-  },
-  {
-    src: "/home/students.jpg",
-    alt: "Smiling university students together on campus",
-    id: "student",
-    position: "50% 25%",
-    credit: { author: "ObetaBuzor", source: "https://commons.wikimedia.org/wiki/File:Student_of_the_University_of_Nigeria,_Enugu_Campus_after_Sunday_Mass.jpg", license: CC },
-  },
-  {
-    src: "/home/tailor.jpg",
-    alt: "A tailor cutting fabric at his sewing machine with ankara prints behind him",
-    id: "artisan",
-    position: "50% 45%",
-    credit: { author: "Okunola Femi", source: "https://commons.wikimedia.org/wiki/File:A_Nigerian_tailor_at_work.jpg", license: CC },
   },
   {
     src: "/home/market-stall.jpg",

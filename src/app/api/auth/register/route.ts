@@ -7,6 +7,7 @@ import { getCollections } from "@/lib/db";
 import { generateEmailVerificationToken, sendVerificationEmail } from "@/lib/email";
 import { generateReferralCode } from "@/lib/referrals";
 import { notifyWelcome } from "@/lib/notifications";
+import { issueSignupLogin } from "@/lib/login-codes";
 
 // No human fills out this form in under 3 seconds — a submission that fast is almost
 // certainly a bot that never actually rendered the page. Paired with the `website`
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
     nin: { status: "unverified" },
     verifiedBadge: false,
     termsAcceptedAt: now,
-    termsVersion: "2026-09-21",
+    termsVersion: "2026-10-17",
     newsletterOptIn: newsletterOptIn === "false" || newsletterOptIn === false ? false : true,
     emailVerified: false,
     emailVerificationToken: token,
@@ -112,5 +113,7 @@ export async function POST(request: Request) {
   await notifyWelcome(insertedId, firstName);
   await sendVerificationEmail(email.toLowerCase(), token);
 
-  return NextResponse.json({ success: true });
+  // Lets the page sign the new account straight in, once, without an emailed code.
+  const signupToken = await issueSignupLogin(insertedId);
+  return NextResponse.json({ success: true, signupToken });
 }

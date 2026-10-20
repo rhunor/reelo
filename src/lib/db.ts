@@ -1,8 +1,11 @@
+import type { Collection } from "mongodb";
+import { after } from "next/server";
 import { getMongoClientPromise } from "@/lib/mongodb";
 import { ANALYTICS_RETENTION_S } from "@/lib/consent";
 import type {
   AnalyticsEvent,
   ConsentEvent,
+  EmailCampaign,
   PropertyRequest,
   Agreement,
   InspectionBooking,
@@ -69,6 +72,33 @@ function ensureIndexes(db: Awaited<ReturnType<typeof getDb>>) {
   });
 }
 
+// Every notification saved anywhere in the app is also emailed to its recipient (see
+// lib/notification-email.ts for the few that already have their own email). Sent after the
+// response so it never slows a page down; outside a request (scripts) it just runs.
+function withNotificationEmails(collection: Collection<Notification>): Collection<Notification> {
+  const insertOne = collection.insertOne.bind(collection);
+  const insertMany = collection.insertMany.bind(collection);
+  const queue = (docs: Notification[]) => {
+    const send = () => import("@/lib/notification-email").then((m) => m.emailNotifications(docs));
+    try {
+      after(send);
+    } catch {
+      void send().catch(() => {});
+    }
+  };
+  collection.insertOne = (async (doc: Notification, options?: Parameters<typeof insertOne>[1]) => {
+    const result = await insertOne(doc, options);
+    queue([doc]);
+    return result;
+  }) as typeof collection.insertOne;
+  collection.insertMany = (async (docs: Notification[], options?: Parameters<typeof insertMany>[1]) => {
+    const result = await insertMany(docs, options);
+    queue(docs);
+    return result;
+  }) as typeof collection.insertMany;
+  return collection;
+}
+
 export async function getCollections() {
   const db = await getDb();
   ensureIndexes(db);
@@ -81,7 +111,7 @@ export async function getCollections() {
     reviews: db.collection<ListingReview>("reviews"),
     tickets: db.collection<SupportTicket>("tickets"),
     savedSearches: db.collection<SavedSearch>("savedSearches"),
-    notifications: db.collection<Notification>("notifications"),
+    notifications: withNotificationEmails(db.collection<Notification>("notifications")),
     reports: db.collection<Report>("reports"),
     referralCommissions: db.collection<ReferralCommission>("referralCommissions"),
     withdrawalRequests: db.collection<WithdrawalRequest>("withdrawalRequests"),
@@ -90,5 +120,6 @@ export async function getCollections() {
     analyticsEvents: db.collection<AnalyticsEvent>("analyticsEvents"),
     consentEvents: db.collection<ConsentEvent>("consentEvents"),
     propertyRequests: db.collection<PropertyRequest>("propertyRequests"),
+    emailCampaigns: db.collection<EmailCampaign>("emailCampaigns"),
   };
 }
