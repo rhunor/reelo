@@ -3,6 +3,8 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
+import { after } from "next/server";
+import { notifyAdmins } from "@/lib/notifications";
 
 const WITHDRAWAL_MINIMUM_NGN = 3000;
 
@@ -51,6 +53,13 @@ export async function POST(request: Request) {
     status: "pending",
     createdAt: new Date(),
   });
+  after(() =>
+    notifyAdmins(
+      "Withdrawal requested",
+      `${user.name} asked to withdraw ₦${parsed.data.amountNGN.toLocaleString()} from their wallet.`,
+      "/dashboard/admin/referrals",
+    ),
+  );
 
   return NextResponse.json({ success: true });
 }

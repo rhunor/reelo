@@ -27,7 +27,7 @@ export default async function LandlordCandidatesPage() {
     listingIds.length === 0
       ? []
       : await tickets
-          .find({ listingId: { $in: listingIds }, userId: { $ne: new ObjectId(session.user.id) } })
+          .find({ listingId: { $in: listingIds }, userId: { $ne: new ObjectId(session.user.id) }, withdrawnAt: { $exists: false } })
           .sort({ createdAt: -1 })
           .toArray();
 

@@ -20,8 +20,7 @@ const inputClass = "rounded-md border border-line px-3 py-2 bg-transparent";
 
 const COMPLETION_LABEL: Record<CompletionStatus, string> = {
   completed: "Completed",
-  carcass: "Carcass (shell)",
-  under_construction: "Under construction / off-plan",
+  under_construction: "Under construction (incl. carcass / off-plan)",
 };
 
 export function NewAdminListingForm() {
@@ -52,7 +51,7 @@ export function NewAdminListingForm() {
       return;
     }
     if (needsCompletion && !completionStatus) {
-      setError("Say whether the building is completed, a carcass, or under construction");
+      setError("Say whether the building is completed or under construction");
       return;
     }
 
@@ -221,7 +220,7 @@ export function NewAdminListingForm() {
       </div>
 
       {needsCompletion && (
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           {COMPLETION_STATUSES.map((option) => (
             <button
               key={option}

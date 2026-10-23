@@ -323,7 +323,7 @@ export function NewListingForm() {
       {needsCompletion && (
         <fieldset>
           <legend className="mb-2 text-sm font-medium">{t("form.completion")}</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {COMPLETION_STATUSES.map((option) => (
               <button
                 key={option}

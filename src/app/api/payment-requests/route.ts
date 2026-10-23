@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   const { tickets, properties, users, agreements } = await getCollections();
   const ticket = await tickets.findOne({ _id: new ObjectId(parsed.data.ticketId) });
   if (!ticket?.listingId) return NextResponse.json({ error: "Application not found" }, { status: 404 });
+  if (ticket.withdrawnAt) return NextResponse.json({ error: "This application was withdrawn" }, { status: 409 });
   const listing = await properties.findOne({ _id: ticket.listingId });
   if (!listing) return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   if (!(await canActAsLandlord(listing.landlordId, session.user))) {

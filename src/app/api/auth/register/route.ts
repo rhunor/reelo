@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getCollections } from "@/lib/db";
 import { generateEmailVerificationToken, sendVerificationEmail } from "@/lib/email";
 import { generateReferralCode } from "@/lib/referrals";
-import { notifyWelcome } from "@/lib/notifications";
+import { notifyAdmins, notifyWelcome } from "@/lib/notifications";
 import { issueSignupLogin } from "@/lib/login-codes";
 
 // No human fills out this form in under 3 seconds — a submission that fast is almost
@@ -111,6 +111,7 @@ export async function POST(request: Request) {
   });
 
   await notifyWelcome(insertedId, firstName);
+  await notifyAdmins("New sign-up", `${name} just created a Reallow account${referrer ? " (referred)" : ""}.`, `/dashboard/admin/users/${insertedId}`);
   await sendVerificationEmail(email.toLowerCase(), token);
 
   // Lets the page sign the new account straight in, once, without an emailed code.

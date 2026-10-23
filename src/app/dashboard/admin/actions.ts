@@ -9,6 +9,7 @@ import { auth, forgetAccount } from "@/auth";
 import { getCollections } from "@/lib/db";
 import {
   notifySavedSearchMatches,
+  notifyAdmins,
   notifyListingReviewed,
   notifyVerificationInspectionScheduled,
   notifyVerificationVisitDeclined,
@@ -416,6 +417,7 @@ export async function confirmVerificationInspection(formData: FormData) {
     },
   );
 
+  after(() => notifyAdmins("Verification visit confirmed", `The owner of ${listing.title} confirmed their verification visit.`, "/dashboard/staff"));
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/landlord/listings/${listing._id}/verification`);
   revalidatePath("/dashboard/staff");

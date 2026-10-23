@@ -35,6 +35,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!ticket || !ticket.listingId) {
     return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
   }
+  if (ticket.withdrawnAt) {
+    return NextResponse.json({ error: "The applicant withdrew this application" }, { status: 409 });
+  }
 
   const listing = await properties.findOne({ _id: ticket.listingId });
   if (!listing || !(await canActAsLandlord(listing.landlordId, session.user))) {

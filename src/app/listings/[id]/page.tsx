@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { BookMeetingLinks } from "@/components/book-meeting-links";
+import { WithdrawApplicationButton } from "@/components/withdraw-application-button";
 import { InspectionNegotiation } from "@/components/inspection-negotiation";
 import { ApplyForListingButton } from "@/components/apply-for-listing";
 import { SaveListingButton } from "@/components/save-listing-button";
@@ -18,7 +19,7 @@ import { isStaffRole } from "@/lib/roles";
 import { redactContactInfo } from "@/lib/contact-guard";
 import { getT } from "@/lib/i18n/server";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
-import { formatDimensions, propertyTypeFields, propertyTypeKey } from "@/lib/property-types";
+import { displayCompletion, formatDimensions, propertyTypeFields, propertyTypeKey } from "@/lib/property-types";
 
 export default async function ListingDetailPage({
   params,
@@ -53,8 +54,9 @@ export default async function ListingDetailPage({
   // avoid showing the "apply" form again and to gate the paid inspection-booking step on
   // the landlord's decision. Not role-gated: anyone (other than this listing's own
   // landlord, or staff) can apply now.
+  // A withdrawn application counts as none — they can apply again.
   const existingTicket = canApply
-    ? await tickets.findOne({ userId: new ObjectId(session!.user.id), listingId: listing._id })
+    ? await tickets.findOne({ userId: new ObjectId(session!.user.id), listingId: listing._id, withdrawnAt: { $exists: false } })
     : null;
   const decision =
     existingTicket?.landlordDecision ?? (existingTicket?.landlordPreferred ? "approved" : undefined);
@@ -92,7 +94,13 @@ export default async function ListingDetailPage({
           ) : listing.status === "archived" ? (
             <p>
               <span className="font-medium">{t("listing.notPublic")}</span> —{" "}
-              {t(listing.takenDown?.reason === "owner_blocked" ? "listing.takenDownBlocked" : "listing.takenDown")}
+              {t(
+                listing.takenDown?.reason === "owner_blocked"
+                  ? "listing.takenDownBlocked"
+                  : listing.takenDown?.reason === "owner_unlisted"
+                    ? "listing.unlistedByOwner"
+                    : "listing.takenDown",
+              )}
               {listing.takenDown?.note ? `: ${listing.takenDown.note}` : "."}
             </p>
           ) : (
@@ -125,7 +133,7 @@ export default async function ListingDetailPage({
             {[
               t(propertyTypeKey(listing.propertyType) as MessageKey),
               !isRent && fields.completion && listing.completionStatus
-                ? t(`completion.${listing.completionStatus}` as MessageKey)
+                ? t(`completion.${displayCompletion(listing.completionStatus)}` as MessageKey)
                 : null,
               fields.bedrooms && listing.bedrooms !== undefined
                 ? t(listing.bedrooms === 1 ? "listing.bedroomOne" : "listing.bedrooms", { count: listing.bedrooms })
@@ -318,11 +326,12 @@ export default async function ListingDetailPage({
             {existingTicket && decision === undefined && (
               <p className="mt-3 text-sm text-foreground/70">
                 {t("listing.applicationSent")}{" "}
-                <Link href={`/dashboard/tenant/tickets/${existingTicket._id}`} className="underline">
+                <Link href="/contact" className="underline">
                   {t("listing.questionsMessage")}
                 </Link>
               </p>
             )}
+            {existingTicket && decision === undefined && <WithdrawApplicationButton ticketId={existingTicket._id!.toString()} />}
 
             {existingTicket && decision === "declined" && (
               <p className="mt-3 text-sm text-foreground/50">
@@ -357,6 +366,7 @@ export default async function ListingDetailPage({
                     <BookMeetingLinks ticketId={existingTicket._id!.toString()} />
                   </>
                 )}
+                <WithdrawApplicationButton ticketId={existingTicket._id!.toString()} />
               </div>
             )}
 

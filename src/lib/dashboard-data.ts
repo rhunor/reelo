@@ -100,9 +100,9 @@ export async function loadDashboardData(userIdString: string, ownListings: Prope
       referralCommissions.find({ referrerId: userId }).sort({ createdAt: -1 }).toArray(),
       withdrawalRequests.find({ userId }).sort({ createdAt: -1 }).toArray(),
       meetingFeedback.find({ userId }).project({ targetId: 1 }).toArray(),
-      tickets.find({ userId, listingId: { $exists: true } }).toArray(),
+      tickets.find({ userId, listingId: { $exists: true }, withdrawnAt: { $exists: false } }).toArray(),
       ownListingIds.length
-        ? tickets.find({ listingId: { $in: ownListingIds }, userId: { $ne: userId } }).toArray()
+        ? tickets.find({ listingId: { $in: ownListingIds }, userId: { $ne: userId }, withdrawnAt: { $exists: false } }).toArray()
         : Promise.resolve([]),
       users.findOne({ _id: userId }, { projection: { verifiedBadge: 1 } }),
     ]);

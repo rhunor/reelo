@@ -23,7 +23,7 @@ export default async function AdminApplicationsPage() {
 
   const [applications, meetingList] = listingIds.length
     ? await Promise.all([
-        tickets.find({ listingId: { $in: listingIds } }).sort({ createdAt: -1 }).limit(200).toArray(),
+        tickets.find({ listingId: { $in: listingIds }, withdrawnAt: { $exists: false } }).sort({ createdAt: -1 }).limit(200).toArray(),
         meetings.find({ listingId: { $in: listingIds } }).sort({ createdAt: -1 }).limit(200).toArray(),
       ])
     : [[], []];

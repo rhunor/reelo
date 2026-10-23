@@ -21,12 +21,12 @@ function Clause({ number, title, children }: { number: number; title: string; ch
 
 const COMPLETION_TEXT: Record<string, string> = {
   completed: "a completed building, ready for occupation",
-  carcass: "a carcass (a roofed shell without finishing)",
+  carcass: "a building still under construction",
   under_construction: "a building still under construction",
 };
 
 // The short sale agreement shown before a buyer pays — the sale counterpart of
-// TenancyAgreementDocument. It records the deal and Reallow's escrow role; the formal
+// TenancyAgreementDocument. It records the deal and how payment is made; the formal
 // conveyancing documents (Deed of Assignment, Governor's Consent) are still done separately.
 export function SaleAgreementDocument({
   agreement,
@@ -83,8 +83,8 @@ export function SaleAgreementDocument({
       <Clause number={next()} title="Payment through Reallow">
         <p>
           The Buyer pays the full amount through Reallow only — never directly to the Seller or anyone
-          else. Reallow holds the purchase price and releases it to the Seller once the title documents
-          and keys have been handed over to the Buyer as set out below.
+          else. Reallow pays the purchase price to the Seller once the title documents and keys have
+          been handed over to the Buyer as set out below.
         </p>
       </Clause>
 
@@ -104,16 +104,16 @@ export function SaleAgreementDocument({
 
       <Clause number={next()} title="If the sale can't be completed">
         <p>
-          If the Seller cannot transfer good title or hand over the Property, Reallow returns the money it
-          holds to the Buyer. Once the Seller has been paid out, any dispute is between the Buyer and the
-          Seller.
+          If the Seller cannot transfer good title or hand over the Property before the Seller has been
+          paid, the Buyer&apos;s payment is refunded. Once the Seller has been paid, any dispute is between
+          the Buyer and the Seller.
         </p>
       </Clause>
 
       <Clause number={next()} title="Reallow's role">
         <p>
           Reallow verified both parties&apos; identities and inspected the Property in person, arranges
-          communication between the parties, and holds the payment. Reallow is not the owner of the
+          communication between the parties, and processes the payment. Reallow is not the owner of the
           Property and does not give legal advice; the Buyer is encouraged to carry out their own searches
           before completing.
         </p>

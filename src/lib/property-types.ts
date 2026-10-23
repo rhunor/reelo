@@ -37,7 +37,7 @@ export interface PropertyTypeFields {
   bedrooms: boolean;
   bathrooms: boolean;
   furnishing: boolean;
-  // Completed / carcass / under construction — for buildings offered for sale.
+  // Completed / under construction — for buildings offered for sale.
   completion: boolean;
 }
 
@@ -56,10 +56,16 @@ export function propertyTypeFields(type: string | undefined): PropertyTypeFields
   return FIELDS_BY_TYPE[type as PropertyType] ?? RESIDENTIAL;
 }
 
-// How finished a building for sale is. "Carcass" is the Nigerian building term for a roofed
-// shell with no finishing (plastering, windows, doors, fittings).
-export const COMPLETION_STATUSES = ["completed", "carcass", "under_construction"] as const;
+// How finished a building for sale is. "Under construction" includes carcass (a roofed shell
+// with no finishing) — they were separate options until Oct 2026, so older listings may still
+// say "carcass"; displayCompletion() shows those as under construction.
+export const COMPLETION_STATUSES = ["completed", "under_construction"] as const;
 export type CompletionStatus = (typeof COMPLETION_STATUSES)[number];
+
+export function displayCompletion(status: string | undefined): CompletionStatus | undefined {
+  if (!status) return undefined;
+  return status === "completed" ? "completed" : "under_construction";
+}
 
 // Dimensions (length × width) are compulsory for land and for anything for sale — buyers need
 // the plot or floor size — and optional for other rentals.
@@ -100,7 +106,7 @@ export function applyPropertyTypeRules(input: {
   const fields = propertyTypeFields(input.propertyType);
   const needsCompletion = input.listingType === "sale" && fields.completion;
   if (needsCompletion && !input.completionStatus) {
-    return { ok: false, error: "Say whether the building is completed, a carcass, or under construction" };
+    return { ok: false, error: "Say whether the building is completed or under construction" };
   }
   if (dimensionsRequired(input.propertyType, input.listingType) && !input.dimensions) {
     return { ok: false, error: "Enter the property's dimensions (length × width)" };

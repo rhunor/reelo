@@ -199,6 +199,7 @@ export default async function AdminListingsPage({
                   <p className="mt-1 text-xs text-red-600">
                     Taken down {formatLagos(listing.takenDown.at)}
                     {listing.takenDown.reason === "owner_blocked" ? " — owner blocked" : ""}
+                    {listing.takenDown.reason === "owner_unlisted" ? " — unlisted by the owner" : ""}
                     {listing.takenDown.note ? ` — “${listing.takenDown.note}”` : ""}
                   </p>
                 )}

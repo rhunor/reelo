@@ -98,17 +98,16 @@ export function TenancyAgreementDocument({
       <Clause number={next()} title="Rent">
         <p>
           The rent is <strong>{naira(terms.rentNGN)} per year</strong>, paid in advance for the
-          term. The Tenant pays it through Reallow, never directly to the Landlord; Reallow holds
-          it and pays it out to the Landlord.
+          term. The Tenant pays it through Reallow, never directly to the Landlord, and Reallow pays
+          it to the Landlord.
         </p>
       </Clause>
 
       <Clause number={next()} title="Caution fee">
         <p>
           The Tenant pays a caution fee of <strong>{naira(terms.depositNGN)}</strong>, collected
-          through Reallow with the rent and paid to the Landlord. Reallow does not hold the
-          caution fee; any return of it at the end of the tenancy, and any deductions for damage,
-          are a matter between the Landlord and the Tenant.
+          through Reallow with the rent and paid to the Landlord. Any return of it at the end of the
+          tenancy, and any deductions for damage, are a matter between the Landlord and the Tenant.
         </p>
       </Clause>
 

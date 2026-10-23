@@ -13,6 +13,7 @@ import { IdentityHeader } from "@/components/dashboard/identity-header";
 import { ProposeInspectionForm } from "@/components/propose-inspection-form";
 import { confirmVerificationInspection, declineVerificationInspection } from "@/app/dashboard/admin/actions";
 import type { ListingStatus } from "@/types/models";
+import { UnlistListingButton } from "@/components/unlist-listing-button";
 
 export const dynamic = "force-dynamic";
 
@@ -256,7 +257,11 @@ export default async function DashboardPage({
                       </div>
                     </div>
                     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${status.className}`}>
-                      {t(`listingStatus.${listing.status}` as MessageKey)}
+                      {t(
+                        listing.takenDown?.reason === "owner_unlisted"
+                          ? "listingStatus.unlisted"
+                          : (`listingStatus.${listing.status}` as MessageKey),
+                      )}
                     </span>
                   </div>
 
@@ -295,11 +300,20 @@ export default async function DashboardPage({
                     </div>
                   )}
 
-                  {listing.status === "archived" && (
+                  {listing.status === "archived" && listing.takenDown?.reason === "owner_unlisted" ? (
+                    <>
+                      <p className="mt-2 text-xs text-foreground/60">{t("unlist.youUnlisted")}</p>
+                      <UnlistListingButton listingId={listing._id!.toString()} mode="relist" />
+                    </>
+                  ) : listing.status === "archived" ? (
                     <p className="mt-2 text-xs text-foreground/60">
                       {t("dash.takenDown")}
                       {listing.takenDown?.note ? `: ${listing.takenDown.note}` : "."} {t("dash.takenDownContact")}
                     </p>
+                  ) : null}
+
+                  {(listing.status === "published" || listing.status === "pending_verification") && (
+                    <UnlistListingButton listingId={listing._id!.toString()} mode="unlist" />
                   )}
 
                   {(listing.status === "draft" || listing.status === "rejected") && (

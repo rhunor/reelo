@@ -13,6 +13,9 @@ const DEDICATED_EMAIL: ReadonlySet<NotificationType> = new Set<NotificationType>
   "ticket_new", // support inbox email + sendMessageReceivedEmail
   "ticket_reply", // sendSupportReplyEmail
   "report_new", // support inbox email
+  // Admin activity feed: in-app only, so the team's inbox (and the Resend quota) isn't
+  // flooded with an email for every event on the platform.
+  "admin_activity",
 ]);
 
 // Emails the people these notifications are for. Never throws — an email problem must not

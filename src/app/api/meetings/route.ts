@@ -41,6 +41,9 @@ export async function POST(request: Request) {
 
   const { tickets, properties, meetings, users } = await getCollections();
   const ticket = await tickets.findOne({ _id: new ObjectId(parsed.data.ticketId) });
+  if (ticket?.withdrawnAt) {
+    return NextResponse.json({ error: "This application was withdrawn" }, { status: 409 });
+  }
   if (!ticket?.listingId) {
     return NextResponse.json({ error: "Application not found" }, { status: 404 });
   }

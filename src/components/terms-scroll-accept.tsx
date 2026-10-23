@@ -7,7 +7,7 @@ const SUMMARY = `Reallow connects you directly with the other party through Real
 
 Anyone can start a listing free of charge, but it won't be visible to others until Reallow verifies it in person — and Reallow won't do that until your own identity is verified. You'll need to verify your identity with your National Identification Number (NIN) or driver's licence before you can apply for a listing, book a paid inspection, or have a listing published. The name on your ID, bank account, and profile must all match — Reallow won't pay out to a name that doesn't correspond with your verified identity. Each NIN, driver's licence, phone number, and email can only ever be linked to one Reallow account.
 
-Every payment — inspection fees, rent, caution fees, estate charges, and Reallow's service charge — goes into Reallow's own account, never directly to another user. Once rent or the sale price is paid and the property changes hands, that deal is complete — anything after that is between the two of you, including the caution fee, which goes to the landlord with the rent — Reallow doesn't hold it.
+Every payment — inspection fees, rent, caution fees, estate charges, and Reallow's service charge — is made through Reallow, never directly to another user. Once rent or the sale price is paid and the property changes hands, that deal is complete — anything after that is between the two of you, including the caution fee, which goes to the landlord with the rent.
 
 Reallow collects your identity and bank details for verification and payout purposes only — they're never shown to other users or sold. You control whether optional profile details (occupation, marital status, religion, profile picture) are visible to others.
 

@@ -35,8 +35,22 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!user?.verifiedBadge) {
     return NextResponse.json({ error: "Verify your identity before applying" }, { status: 403 });
   }
-  if (await tickets.findOne({ userId, listingId: listing._id })) {
+  const previous = await tickets.findOne({ userId, listingId: listing._id });
+  if (previous && !previous.withdrawnAt) {
     return NextResponse.json({ error: "You've already applied for this property" }, { status: 409 });
+  }
+  if (previous) {
+    // Applying again after withdrawing: reopen the same application as brand new.
+    const now = new Date();
+    await tickets.updateOne(
+      { _id: previous._id },
+      {
+        $set: { status: "open", createdAt: now, updatedAt: now },
+        $unset: { withdrawnAt: "", landlordDecision: "", landlordDecisionAt: "", landlordPreferred: "", landlordPreferredAt: "" },
+      },
+    );
+    await notifyNewApplication({ ...previous, status: "open", createdAt: now }, listing);
+    return NextResponse.json({ success: true, id: previous._id!.toString() });
   }
 
   const now = new Date();

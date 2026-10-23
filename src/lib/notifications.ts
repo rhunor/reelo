@@ -213,6 +213,7 @@ export async function notifyVerificationInspectionScheduled(listing: Property, s
 // Sent the moment a listing is submitted — there's no date to propose anymore; Reallow's
 // agent reaches out to arrange the verification visit.
 export async function notifyListingReceived(listing: Property): Promise<void> {
+  await notifyAdmins("New listing submitted", `${listing.title} was submitted and needs a verification visit.`, "/dashboard/admin");
   const { notifications, users } = await getCollections();
 
   await notifications.insertOne({
@@ -342,6 +343,7 @@ export async function notifyInspectionConfirmed(booking: InspectionBooking): Pro
 // Tells the applicant whether the landlord accepted or declined their interest in a
 // listing. An acceptance links straight into booking a meeting or inspection.
 export async function notifyLandlordDecision(ticket: SupportTicket, decision: "approved" | "declined"): Promise<void> {
+  await notifyAdmins(decision === "approved" ? "Application accepted" : "Application declined", `The landlord ${decision === "approved" ? "accepted" : "declined"} an application: ${ticket.subject}.`, "/dashboard/admin/listings");
   const { notifications } = await getCollections();
 
   await notifications.insertOne({
@@ -399,6 +401,7 @@ export async function notifyWelcome(userId: ObjectId, firstName: string): Promis
 // Someone applied for one of this landlord's listings — tapping it opens the applicant's
 // shared profile with accept/reject.
 export async function notifyNewApplication(ticket: SupportTicket, listing: Property): Promise<void> {
+  await notifyAdmins("New application", `Someone applied for ${listing.title}.`, "/dashboard/admin/listings");
   await notifyLandlordSide(
     listing.landlordId,
     {
@@ -420,6 +423,7 @@ export async function notifyNewApplication(ticket: SupportTicket, listing: Prope
 const MEETING_NOUN: Record<Meeting["kind"], string> = { inspection: "inspection", meeting: "meeting" };
 
 export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId, isCounter: boolean): Promise<void> {
+  await notifyAdmins(isCounter ? "Meeting time changed" : "Meeting requested", `${await titleOfListing(meeting.listingId)} — proposed for ${formatLagos(meeting.proposedTime)}.`, "/dashboard/admin/applications");
   const { notifications } = await getCollections();
   const noun = MEETING_NOUN[meeting.kind];
   // The applicant has to pay the inspection fee before they can accept a landlord's time.
@@ -446,6 +450,7 @@ export async function notifyMeetingProposed(meeting: Meeting, toUserId: ObjectId
 }
 
 export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
+  await notifyAdmins("Meeting confirmed", `${await titleOfListing(meeting.listingId)} — ${formatLagos(meeting.scheduledFor ?? meeting.proposedTime)}.`, "/dashboard/staff");
   const { notifications } = await getCollections();
   const when = formatLagos(meeting.scheduledFor!);
   const isInspection = meeting.kind === "inspection";
@@ -488,6 +493,7 @@ export async function notifyMeetingConfirmed(meeting: Meeting): Promise<void> {
 }
 
 export async function notifyMeetingDeclined(meeting: Meeting, toUserId: ObjectId): Promise<void> {
+  await notifyAdmins("Meeting declined", `A meeting request for ${await titleOfListing(meeting.listingId)} was declined.`, "/dashboard/admin/applications");
   const { notifications } = await getCollections();
   // A paid applicant doesn't pay again — the fee carries over to the rescheduled meeting.
   const feeCarries = toUserId.equals(meeting.tenantId) && Boolean(meeting.paidAt);
@@ -553,6 +559,7 @@ export async function notifyMeetingPaid(meeting: Meeting, { landlord = true }: {
 }
 
 export async function notifyWalletFunded(userId: ObjectId, amountNGN: number): Promise<void> {
+  await notifyAdmins("Wallet funded", `A user added ₦${amountNGN.toLocaleString()} to their Reallow wallet.`, `/dashboard/admin/users/${userId}`);
   const { notifications } = await getCollections();
 
   await notifications.insertOne({
@@ -675,6 +682,7 @@ export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
 
 // The meeting was declined after the applicant paid — the fee went back to their wallet.
 export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number): Promise<void> {
+  await notifyAdmins("Meeting fee refunded", `₦${amountNGN.toLocaleString()} was refunded to an applicant's wallet (meeting cancelled).`, "/dashboard/admin");
   const { notifications } = await getCollections();
   const amount = `₦${amountNGN.toLocaleString()}`;
   await notifications.insertOne({
@@ -692,6 +700,7 @@ export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number)
 
 // One side cancelled a meeting; the other side hears about it.
 export async function notifyMeetingCancelled(meeting: Meeting, toUserId: ObjectId): Promise<void> {
+  await notifyAdmins("Meeting cancelled", `The meeting for ${await titleOfListing(meeting.listingId)} on ${formatLagos(meeting.scheduledFor ?? meeting.proposedTime)} was cancelled.`, "/dashboard/admin/applications");
   const { notifications } = await getCollections();
   const when = formatLagos(meeting.scheduledFor ?? meeting.proposedTime);
   const notice = {
@@ -754,6 +763,7 @@ async function listingTitle(agreement: Agreement): Promise<string> {
 // The landlord accepted an applicant and asked them to pay: the applicant reviews and signs
 // the agreement, then pays — all from one page.
 export async function notifyPaymentRequested(agreement: Agreement): Promise<void> {
+  await notifyAdmins("Payment requested", `A landlord asked an applicant to pay for ${await listingTitle(agreement)}.`, "/dashboard/admin/agreements");
   const { notifications } = await getCollections();
   const title = await listingTitle(agreement);
   await notifications.insertOne({
@@ -795,8 +805,9 @@ export async function notifyPaymentSuperseded(agreement: Agreement, refundedNGN?
 }
 
 // Payment completed: the payer gets a confirmation and the landlord side hears the property
-// is now rented/sold (Reallow holds the money until payout).
+// is now rented/sold (Reallow then pays them out).
 export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number): Promise<void> {
+  await notifyAdmins("Payment completed", `₦${amountNGN.toLocaleString()} was paid for ${await listingTitle(agreement)} — it's now marked ${agreement.kind === "sale" ? "sold" : "rented"}.`, "/dashboard/admin/agreements");
   const { notifications } = await getCollections();
   const title = await listingTitle(agreement);
   const amount = `₦${amountNGN.toLocaleString()}`;
@@ -816,7 +827,7 @@ export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number
   await notifyLandlordSide(agreement.landlordId, {
     type: "property_paid" as const,
     title: isSale ? "Your property has been paid for" : "Your tenant has paid",
-    body: `Payment for ${title} is complete and the listing is now marked ${isSale ? "sold" : "rented"}. Reallow holds the funds until payout.`,
+    body: `Payment for ${title} is complete and the listing is now marked ${isSale ? "sold" : "rented"}. Reallow will pay you out.`,
     i18n: {
       title: isSale ? "notif.ownerPaid.titleSale" : "notif.ownerPaid.title",
       body: isSale ? "notif.ownerPaid.bodySale" : "notif.ownerPaid.body",
@@ -827,4 +838,72 @@ export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number
     read: false,
     createdAt: now,
   });
+}
+
+// Keeps Reallow's admins on top of everything happening on the app: a bell notification for
+// each event (signups, listings, applications, meetings, payments…). In-app only — see
+// DEDICATED_EMAIL in lib/notification-email.ts for why these aren't also emailed.
+export async function notifyAdmins(title: string, body: string, href = "/dashboard/admin"): Promise<void> {
+  try {
+    const { notifications, users } = await getCollections();
+    const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
+    if (admins.length === 0) return;
+    const now = new Date();
+    await notifications.insertMany(
+      admins.map((admin) => ({
+        userId: admin._id as ObjectId,
+        type: "admin_activity" as const,
+        title,
+        body,
+        href,
+        read: false,
+        createdAt: now,
+      })),
+    );
+  } catch (error) {
+    console.error("[notifyAdmins] failed:", error);
+  }
+}
+
+// The applicant withdrew — the landlord side hears, and so do admins.
+export async function notifyApplicationWithdrawn(ticket: SupportTicket, listing: Property): Promise<void> {
+  await notifyLandlordSide(listing.landlordId, {
+    type: "application_withdrawn" as const,
+    title: "An applicant withdrew their application",
+    body: `An applicant withdrew their application for ${listing.title}. Any meetings with them have been cancelled.`,
+    i18n: { title: "notif.withdrawn.title", body: "notif.withdrawn.body", vars: { title: listing.title } },
+    listingId: listing._id,
+    href: "/dashboard/landlord/candidates",
+    read: false,
+    createdAt: new Date(),
+  });
+  await notifyAdmins("Application withdrawn", `An applicant withdrew their application for ${listing.title}.`, "/dashboard/admin/listings");
+}
+
+// The owner took their property off the market: people with an active application hear it's
+// no longer available, and admins are told.
+export async function notifyListingUnlisted(listing: Property, applicantIds: ObjectId[]): Promise<void> {
+  const { notifications } = await getCollections();
+  const now = new Date();
+  if (applicantIds.length) {
+    await notifications.insertMany(
+      applicantIds.map((userId) => ({
+        userId,
+        type: "listing_unlisted" as const,
+        title: "A property you applied for is no longer available",
+        body: `The owner has taken ${listing.title} off the market. Any meetings for it have been cancelled. Why not try other properties?`,
+        i18n: { title: "notif.unlisted.title", body: "notif.unlisted.body", vars: { title: listing.title } },
+        listingId: listing._id,
+        href: "/listings",
+        read: false,
+        createdAt: now,
+      })),
+    );
+  }
+  await notifyAdmins("Listing unlisted by owner", `${listing.title} was taken off the market by its owner.`, "/dashboard/admin/listings");
+}
+
+async function titleOfListing(listingId: ObjectId): Promise<string> {
+  const { properties } = await getCollections();
+  return (await properties.findOne({ _id: listingId }, { projection: { title: 1 } }))?.title ?? "a property";
 }

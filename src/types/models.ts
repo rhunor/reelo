@@ -256,7 +256,7 @@ export interface Property {
   // (see dimensionsRequired in src/lib/property-types.ts).
   dimensions?: PropertyDimensions;
   // Sale listings of buildings only — see COMPLETION_STATUSES in src/lib/property-types.ts.
-  completionStatus?: "completed" | "carcass" | "under_construction";
+  completionStatus?: "completed" | "under_construction" | "carcass"; // "carcass": legacy, shown as under construction
   amenities: string[];
   photoUrls: string[];
   videoUrls: string[];
@@ -272,7 +272,8 @@ export interface Property {
   takenDown?: {
     at: Date;
     by?: ObjectId;
-    reason: "admin" | "owner_blocked";
+    // "owner_unlisted": the owner took it off the market themselves (they can relist it).
+    reason: "admin" | "owner_blocked" | "owner_unlisted";
     note?: string;
     previousStatus: ListingStatus;
   };
@@ -647,6 +648,8 @@ export interface SupportTicket {
   // there — still no direct landlord<->tenant contact either way.
   landlordDecision?: "approved" | "declined";
   landlordDecisionAt?: Date;
+  // The applicant withdrew this application (they can apply again, which clears it).
+  withdrawnAt?: Date;
   messages: Array<{
     senderId: ObjectId;
     senderRole: UserRole;
@@ -683,6 +686,9 @@ export type NotificationType =
   | "landlord_decision"
   | "listing_received"
   | "meeting_refunded"
+  | "admin_activity"
+  | "application_withdrawn"
+  | "listing_unlisted"
   | "payment_requested"
   | "payment_superseded"
   | "property_paid"
