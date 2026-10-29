@@ -67,11 +67,10 @@ export async function SiteHeader() {
     </>
   ) : null;
 
-  // Confirmed top navigation: Home, Listings, About, Contact, Help.
+  // Top navigation: Home, Listings, Contact, Help. About is reached from the footer only.
   const navLinks = [
     { href: "/", label: t("nav.home") },
     { href: "/listings", label: t("nav.listings") },
-    { href: "/about", label: t("nav.about") },
     { href: "/contact", label: t("nav.contact") },
     { href: "/help", label: t("nav.help") },
   ];
