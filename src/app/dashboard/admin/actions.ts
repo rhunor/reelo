@@ -644,9 +644,11 @@ export async function createStaffAccount(
 }
 
 export type RoleFormState = { status: "idle" | "success" | "error"; message?: string };
-const ASSIGNABLE_ROLES = ["customer", "staff", "support", "admin"] as const;
+const ASSIGNABLE_ROLES = ["customer", "staff", "support", "admin", "admin_field"] as const;
 
 // Promote anyone to staff/support/admin, or move them back to an ordinary customer account.
+// "admin_field" is an admin who also does field visits: role admin plus fieldStaff and a
+// base city, so they keep every admin power and also work the field dashboard.
 // Their session picks the new role up within a minute (see the account re-check in
 // src/auth.ts), so they land on the matching dashboard without logging out.
 export async function changeUserRole(_previous: RoleFormState, formData: FormData): Promise<RoleFormState> {
@@ -665,39 +667,44 @@ export async function changeUserRole(_previous: RoleFormState, formData: FormDat
   const user = await users.findOne({ _id: userId });
   if (!user) return { status: "error", message: "User not found." };
 
-  const nextRole: User["role"] = target === "customer" ? "user" : target;
+  const nextRole: User["role"] = target === "customer" ? "user" : target === "admin_field" ? "admin" : target;
+  const nextFieldStaff = target === "admin_field";
   const staffBase = formData.get("staffBase") as string;
-  const needsBase = nextRole === "staff" || nextRole === "support";
+  const needsBase = nextRole === "staff" || nextRole === "support" || nextFieldStaff;
   if (needsBase && !isStaffBase(staffBase)) {
     return { status: "error", message: "Choose the city they work from." };
   }
   const roleUnchanged = nextRole === user.role || (target === "customer" && isCustomerRole(user.role));
+  const fieldUnchanged = nextFieldStaff === Boolean(user.role === "admin" && user.fieldStaff);
   const baseUnchanged = !needsBase || staffBase === user.staffBase;
-  if (roleUnchanged && baseUnchanged) return { status: "idle" };
+  if (roleUnchanged && fieldUnchanged && baseUnchanged) return { status: "idle" };
 
-  if (user.role === "admin" && (await users.countDocuments({ role: "admin" })) <= 1) {
+  if (user.role === "admin" && nextRole !== "admin" && (await users.countDocuments({ role: "admin" })) <= 1) {
     return { status: "error", message: "There must always be at least one admin." };
   }
 
   const now = new Date();
-  if (roleUnchanged) {
+  const label = nextFieldStaff ? "an admin and field staff" : ROLE_LABEL[nextRole];
+  if (roleUnchanged && fieldUnchanged) {
     await users.updateOne({ _id: userId }, { $set: { staffBase: staffBase as User["staffBase"], updatedAt: now } });
     revalidatePath("/dashboard/admin/users");
     return { status: "success", message: `${user.name} is now based in ${staffBase}.` };
   }
   await users.updateOne(
     { _id: userId },
-    needsBase
-      ? { $set: { role: nextRole, staffBase: staffBase as User["staffBase"], updatedAt: now } }
-      : { $set: { role: nextRole, updatedAt: now }, $unset: { staffBase: "" } },
+    nextFieldStaff
+      ? { $set: { role: nextRole, staffBase: staffBase as User["staffBase"], fieldStaff: true, updatedAt: now } }
+      : needsBase
+        ? { $set: { role: nextRole, staffBase: staffBase as User["staffBase"], updatedAt: now }, $unset: { fieldStaff: "" } }
+        : { $set: { role: nextRole, updatedAt: now }, $unset: { staffBase: "", fieldStaff: "" } },
   );
   forgetAccount(userId.toString());
-  after(() => notifyRoleChanged(userId, isCustomerRole(nextRole) ? "customer" : nextRole));
+  if (!roleUnchanged) after(() => notifyRoleChanged(userId, isCustomerRole(nextRole) ? "customer" : nextRole));
 
   revalidatePath("/dashboard/admin/users");
   return {
     status: "success",
-    message: `${user.name} is now ${ROLE_LABEL[nextRole]}${needsBase ? ` (${staffBase})` : ""}.`,
+    message: `${user.name} is now ${label}${needsBase ? ` (${staffBase})` : ""}.`,
   };
 }
 

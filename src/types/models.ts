@@ -123,7 +123,12 @@ export interface User {
   // Answer to "How did you hear about us?" at signup (see src/lib/acquisition.ts).
   heardAbout?: { source: string; detail?: string };
   // Field staff / support: the city they work from (one of SUPPORTED_STATES' values).
+  // Also set for an admin who does field visits too (fieldStaff below).
   staffBase?: "Abuja" | "Port Harcourt" | "Warri";
+  // An admin who also works as field staff — keeps every admin power, and is counted with
+  // the field team (Field staff list, field dashboard for their city). Only meaningful on
+  // role "admin"; a plain field-staff account is role "staff".
+  fieldStaff?: boolean;
   // Internal remarks Reallow admins leave on an account — never shown to the user.
   adminNotes?: Array<{ body: string; by: ObjectId; byName?: string; at: Date }>;
   termsAcceptedAt?: Date;
@@ -443,7 +448,11 @@ export interface MeetingFeedback {
   rating: number;
   tags: string[];
   comment?: string;
+  // Field staff's inspection report: supporting photos taken at the visit (the comment
+  // holds their notes). Staff can update their report, so updatedAt is set on edits.
+  photoUrls?: string[];
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export type AgreementStatus =

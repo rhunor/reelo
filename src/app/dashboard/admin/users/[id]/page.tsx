@@ -160,6 +160,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             {user.verifiedBadge && <VerifiedBadge />}
             <span className="rounded-full bg-foreground px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-background uppercase">
               {ROLE_LABEL[user.role]}
+              {user.role === "admin" && user.fieldStaff ? " + field staff" : ""}
             </span>
             {user.staffBase && (
               <span className="rounded-full bg-clay/10 px-2.5 py-0.5 text-xs font-medium text-clay">📍 {user.staffBase}</span>
@@ -245,7 +246,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       <section className="mt-4 flex flex-col gap-4 rounded-2xl border border-line p-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div>
           <p className="mb-2 text-xs font-medium tracking-wide text-foreground/50 uppercase">Role</p>
-          <UserRoleSelect userId={id} role={user.role} isSelf={isSelf} staffBase={user.staffBase} />
+          <UserRoleSelect userId={id} role={user.role} isSelf={isSelf} staffBase={user.staffBase} fieldStaff={user.fieldStaff} />
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {!user.verifiedBadge && (

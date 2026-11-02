@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ensureReferralCode } from "@/lib/referrals";
 import { ObjectId } from "mongodb";
@@ -45,6 +46,11 @@ export default async function AdminDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
       <IdentityHeader user={me} greeting="Admin dashboard" />
+      {me.fieldStaff && (
+        <Link href="/dashboard/staff" className="mt-3 inline-block text-sm text-clay hover:underline">
+          Go to your field staff dashboard{me.staffBase ? ` (${me.staffBase})` : ""} →
+        </Link>
+      )}
 
       <StatGrid
         stats={[
@@ -67,7 +73,7 @@ export default async function AdminDashboardPage() {
           { href: "/dashboard/admin/users", label: "People" },
           { href: "/dashboard/admin/reports", label: openReportCount ? `Reports (${openReportCount})` : "Reports" },
           { href: "/dashboard/admin/referrals", label: "Referrals & withdrawals" },
-          { href: "/dashboard/admin/feedback", label: "Meeting feedback" },
+          { href: "/dashboard/admin/feedback", label: "Feedback & inspection reports" },
           { href: "/dashboard/admin/insights", label: "How people found us" },
           { href: "/dashboard/admin/analytics", label: "Site analytics" },
           { href: "/dashboard/admin/emails", label: "Email users" },

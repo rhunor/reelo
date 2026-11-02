@@ -55,6 +55,57 @@ export async function completeInspectionVisit(formData: FormData) {
   revalidatePath("/dashboard/staff");
 }
 
+export type InspectionReportFormState = { status: "idle" | "success" | "error"; message?: string };
+
+// The agent's report on a tenant inspection they attended: a 1–5 rating, notes, and
+// supporting photos. Kept with the other visit ratings (meetingFeedback) so admin sees it
+// on the feedback page; saving again updates it.
+export async function submitInspectionReport(
+  _previous: InspectionReportFormState,
+  formData: FormData,
+): Promise<InspectionReportFormState> {
+  const agent = await requireStaff();
+  const targetType = formData.get("targetType");
+  const targetIdRaw = formData.get("targetId") as string;
+  const rating = Number(formData.get("rating"));
+  const notes = ((formData.get("notes") as string) ?? "").trim().slice(0, 2000);
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const photoUrls = [...new Set(formData.getAll("photoUrls").map(String))]
+    .filter((url) => url.startsWith(`https://res.cloudinary.com/${cloudName}/`))
+    .slice(0, 20);
+
+  if ((targetType !== "meeting" && targetType !== "inspection_booking") || !ObjectId.isValid(targetIdRaw)) {
+    return { status: "error", message: "Inspection not found." };
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { status: "error", message: "Give the inspection a star rating (1–5)." };
+  if (photoUrls.length === 0) return { status: "error", message: "Add at least one photo from the inspection." };
+
+  const targetId = new ObjectId(targetIdRaw);
+  const { meetings, inspectionBookings, meetingFeedback } = await getCollections();
+  const visit =
+    targetType === "meeting"
+      ? await meetings.findOne({ _id: targetId, paidAt: { $exists: true }, status: { $in: ["confirmed", "completed"] } })
+      : await inspectionBookings.findOne({ _id: targetId, status: { $in: ["confirmed", "completed"] } });
+  if (!visit) return { status: "error", message: "Inspection not found." };
+  if (!visit.scheduledFor || new Date(visit.scheduledFor).getTime() > Date.now()) {
+    return { status: "error", message: "You can file the report once the inspection time has come." };
+  }
+
+  const now = new Date();
+  await meetingFeedback.updateOne(
+    { userId: new ObjectId(agent.id), targetType, targetId },
+    {
+      $set: { rating, comment: notes || undefined, photoUrls, listingId: visit.listingId, updatedAt: now },
+      $setOnInsert: { tags: [], createdAt: now },
+    },
+    { upsert: true },
+  );
+
+  revalidatePath("/dashboard/staff");
+  revalidatePath("/dashboard/admin/feedback");
+  return { status: "success", message: "Report saved — Reallow admin can see it." };
+}
+
 export type VisitReportFormState = { status: "idle" | "success" | "error"; message?: string };
 
 const CONDITIONS = ["matches", "minor_differences", "does_not_match"] as const;

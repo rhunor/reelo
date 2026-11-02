@@ -9,7 +9,8 @@ import { scheduleInspection } from "@/app/dashboard/admin/actions";
 import { IdentityHeader } from "@/components/dashboard/identity-header";
 import { DashboardPanels } from "@/components/dashboard/dashboard-panels";
 import { VisitReportForm } from "@/components/visit-report-form";
-import { StaffRateVisit } from "@/components/staff-rate-visit";
+import { InspectionReportForm } from "@/components/inspection-report-form";
+import Link from "next/link";
 import { loadDashboardData } from "@/lib/dashboard-data";
 import { getT } from "@/lib/i18n/server";
 import { formatLagos, toLagosDateTimeLocal } from "@/lib/time";
@@ -69,7 +70,9 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
       // Inspections finished in the last 30 days, for the agent to rate.
       meetings.find({ kind: { $in: ["inspection", "meeting"] }, status: "completed", paidAt: { $exists: true }, updatedAt: { $gte: thirtyDaysAgo } }).sort({ updatedAt: -1 }).toArray(),
       inspectionBookings.find({ status: "completed", scheduledFor: { $gte: thirtyDaysAgo } }).toArray(),
-      meetingFeedback.find({ userId: new ObjectId(session.user.id) }).project({ targetId: 1 }).toArray(),
+      meetingFeedback
+        .find({ userId: new ObjectId(session.user.id), targetType: { $in: ["meeting", "inspection_booking"] } })
+        .toArray(),
     ]);
   if (!found) redirect("/login");
   // Older accounts predate referral codes — give them one now.
@@ -95,7 +98,10 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   const visitDone = (l: Property) => Boolean(l.verification.checkedInAt) || hasHappened(l.verification.scheduledFor);
   const awaitingReportCount = allPending.filter((l) => visitDone(l) && !l.verification.agentReport).length;
 
-  const ratedIds = new Set(myFeedback.map((f) => f.targetId.toString()));
+  // This agent's inspection reports (rating, notes, photos), by the visit they're about.
+  const reportById = new Map(
+    myFeedback.map((f) => [f.targetId.toString(), { rating: f.rating, comment: f.comment, photoUrls: f.photoUrls }]),
+  );
   const completed = [
     ...completedMeetings.map((m) => ({ id: m._id!.toString(), source: "meeting" as const, at: m.scheduledFor ?? m.updatedAt, listingId: m.listingId })),
     ...completedBookings.map((b) => ({ id: b._id!.toString(), source: "inspection_booking" as const, at: b.scheduledFor ?? b.createdAt, listingId: b.listingId })),
@@ -122,6 +128,11 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
       <IdentityHeader user={me} greeting="Field team" />
+      {session.user.role === "admin" && (
+        <Link href="/dashboard/admin" className="mt-3 inline-block text-sm text-clay hover:underline">
+          Go to the admin dashboard →
+        </Link>
+      )}
 
       <section className="mt-6">
         <DashboardPanels
@@ -332,6 +343,19 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
                   Mark inspection completed
                 </SubmitButton>
               </form>
+              {hasHappened(booking.scheduledFor) ? (
+                <div className="mt-3">
+                  <InspectionReportForm
+                    targetType={booking.source === "meeting" ? "meeting" : "inspection_booking"}
+                    targetId={booking._id!.toString()}
+                    existing={reportById.get(booking._id!.toString())}
+                  />
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-foreground/50">
+                  Once the inspection time comes you can add photos, notes and a rating here.
+                </p>
+              )}
             </div>
           );
         })}
@@ -339,15 +363,17 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
       {completed.length > 0 && (
         <>
           <h2 className="mt-10 text-lg font-semibold">Recently completed inspections</h2>
-          <p className="mt-1 text-sm text-foreground/60">Rate how each one went — late, no-shows, or a smooth visit.</p>
+          <p className="mt-1 text-sm text-foreground/60">
+            Add supporting photos, your notes on the property and a rating for each one you attended.
+          </p>
           <div className="mt-4 flex flex-col divide-y divide-line rounded-2xl border border-line">
             {completed.map((visit) => (
-              <div key={visit.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={visit.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium">{completedTitle.get(visit.listingId.toString()) ?? "Property"}</p>
                   <p className="text-xs text-foreground/50">{formatLagos(visit.at)}</p>
                 </div>
-                <StaffRateVisit targetType={visit.source} targetId={visit.id} alreadyRated={ratedIds.has(visit.id)} />
+                <InspectionReportForm targetType={visit.source} targetId={visit.id} existing={reportById.get(visit.id)} />
               </div>
             ))}
           </div>

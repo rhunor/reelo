@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const TABS: { id: string; label: string; filter: Filter<User> }[] = [
   { id: "users", label: "Users", filter: { role: { $in: ["user", "tenant", "landlord"] } } },
-  { id: "staff", label: "Field staff", filter: { role: "staff" } },
+  { id: "staff", label: "Field staff", filter: { $or: [{ role: "staff" }, { role: "admin", fieldStaff: true }] } },
   { id: "support", label: "Support", filter: { role: "support" } },
   { id: "admins", label: "Admins", filter: { role: "admin" } },
   { id: "blocked", label: "Blocked", filter: { status: "banned" } },
@@ -163,6 +163,7 @@ export default async function AdminUsersPage({
                   {user.role !== "user" && user.role !== "tenant" && user.role !== "landlord" && (
                     <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold tracking-wide text-background uppercase">
                       {ROLE_LABEL[user.role]}
+                      {user.role === "admin" && user.fieldStaff ? " + field staff" : ""}
                     </span>
                   )}
                   {user.staffBase && (

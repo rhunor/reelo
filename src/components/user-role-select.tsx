@@ -10,6 +10,7 @@ const OPTIONS = [
   { value: "staff", label: "Field staff" },
   { value: "support", label: "Support" },
   { value: "admin", label: "Admin" },
+  { value: "admin_field", label: "Admin + field staff" },
 ] as const;
 
 export function UserRoleSelect({
@@ -17,16 +18,23 @@ export function UserRoleSelect({
   role,
   isSelf,
   staffBase,
+  fieldStaff,
 }: {
   userId: string;
   role: UserRole;
   isSelf: boolean;
   staffBase?: string;
+  fieldStaff?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<RoleFormState, FormData>(changeUserRole, { status: "idle" });
-  const current = role === "user" || role === "tenant" || role === "landlord" ? "customer" : role;
+  const current =
+    role === "user" || role === "tenant" || role === "landlord"
+      ? "customer"
+      : role === "admin" && fieldStaff
+        ? "admin_field"
+        : role;
   const [selected, setSelected] = useState<string>(current);
-  const needsBase = selected === "staff" || selected === "support";
+  const needsBase = selected === "staff" || selected === "support" || selected === "admin_field";
 
   if (isSelf) return <span className="text-xs text-foreground/50">Your account</span>;
 

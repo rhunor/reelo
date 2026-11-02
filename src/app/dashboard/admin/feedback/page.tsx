@@ -11,7 +11,8 @@ const TARGET_LABEL = {
 } as const;
 
 // Ratings people leave on past meetings, inspections, and verification visits — the main
-// signal on how field agents are doing. Low ratings first.
+// signal on how field agents are doing — plus field staff's inspection reports (rating,
+// notes and supporting photos). Low ratings first.
 export default async function AdminFeedbackPage() {
   const { meetingFeedback, users, properties } = await getCollections();
   const entries = await meetingFeedback.find({}).sort({ rating: 1, createdAt: -1 }).limit(300).toArray();
@@ -31,7 +32,7 @@ export default async function AdminFeedbackPage() {
       <Link href="/dashboard/admin" className="text-sm text-foreground/60 hover:text-clay">
         ← Admin
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold">Meeting feedback</h1>
+      <h1 className="mt-3 text-2xl font-semibold">Meeting feedback &amp; inspection reports</h1>
       <p className="mt-1 text-sm text-foreground/60">
         {entries.length
           ? `${entries.length} rating${entries.length === 1 ? "" : "s"} · average ${average.toFixed(1)} / 5 · lowest first`
@@ -53,7 +54,8 @@ export default async function AdminFeedbackPage() {
               </div>
               <p className="mt-1 text-sm text-foreground/70">
                 {TARGET_LABEL[entry.targetType]}
-                {listing ? ` · ${listing.title}` : ""} · from {author?.name ?? "Unknown"}
+                {listing ? ` · ${listing.title}` : ""} · {entry.photoUrls?.length ? "inspection report by" : "from"}{" "}
+                {author?.name ?? "Unknown"}
                 {author?.phone ? ` (${author.phone})` : ""}
               </p>
               {entry.tags.length > 0 && (
@@ -65,7 +67,17 @@ export default async function AdminFeedbackPage() {
                   ))}
                 </div>
               )}
-              {entry.comment && <p className="mt-2 text-sm break-words">{entry.comment}</p>}
+              {entry.comment && <p className="mt-2 text-sm break-words whitespace-pre-line">{entry.comment}</p>}
+              {entry.photoUrls && entry.photoUrls.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {entry.photoUrls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- Cloudinary URL */}
+                      <img src={url} alt="Inspection photo" className="h-20 w-24 rounded-lg object-cover hover:opacity-90" />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
