@@ -718,9 +718,6 @@ export default function TermsPage() {
           <p>
             <strong className="text-foreground">Company:</strong> {COMPANY_NAME}
             <br />
-            <strong className="text-foreground">Registered address:</strong> 83 Effurun-Sapele Road, Effurun, Warri, Delta
-            State, Nigeria.
-            <br />
             <strong className="text-foreground">Email:</strong>{" "}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
               {SUPPORT_EMAIL}

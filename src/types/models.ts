@@ -112,7 +112,11 @@ export interface User {
   verifiedBadge: boolean;
   // Unset/"active" means active — only ever set to "banned" by an admin action (see
   // banUser in dashboard/admin/actions.ts), checked at login in src/auth.ts.
-  status?: "active" | "banned";
+  status?: "active" | "banned" | "deleted";
+  // Set when an admin deletes the account (see lib/account-deletion.ts) — the record is
+  // then just a "Deleted user" placeholder so old agreements and payments still resolve.
+  deletedAt?: Date;
+  deletedBy?: ObjectId;
   bannedAt?: Date;
   bannedBy?: ObjectId;
   bannedReason?: string;
@@ -273,7 +277,8 @@ export interface Property {
     at: Date;
     by?: ObjectId;
     // "owner_unlisted": the owner took it off the market themselves (they can relist it).
-    reason: "admin" | "owner_blocked" | "owner_unlisted";
+    // "owner_deleted": the owner's account was deleted — it never comes back.
+    reason: "admin" | "owner_blocked" | "owner_unlisted" | "owner_deleted";
     note?: string;
     previousStatus: ListingStatus;
   };

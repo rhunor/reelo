@@ -15,10 +15,10 @@ export const AUDIENCES: { id: EmailAudience; label: string; hint: string }[] = [
 // Marketing (newsletter) emails carry an unsubscribe link, as the NDPA requires.
 export const isMarketing = (audience: EmailAudience) => audience === "newsletter";
 
-// Who an audience reaches. Blocked accounts and accounts without an email never do.
+// Who an audience reaches. Blocked or deleted accounts and accounts without an email never do.
 export async function audienceRecipients(audience: EmailAudience, verifiedOnly: boolean) {
   const { users, properties, tickets } = await getCollections();
-  const filter: Filter<User> = { email: { $exists: true, $ne: "" }, status: { $ne: "banned" } };
+  const filter: Filter<User> = { email: { $exists: true, $ne: "" }, status: { $nin: ["banned", "deleted"] } };
   if (verifiedOnly) filter.verifiedBadge = true;
   const customers = { $in: ["user", "tenant", "landlord"] as User["role"][] };
 

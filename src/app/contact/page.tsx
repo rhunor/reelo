@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { ContactMessageForm } from "@/components/contact-message-form";
 import { SocialIcons } from "@/components/social-icons";
-import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_EMAIL, SUPPORT_PHONES } from "@/lib/contact-info";
+import { OPENING_HOURS, SUPPORT_EMAIL, SUPPORT_PHONES } from "@/lib/contact-info";
 import { getT } from "@/lib/i18n/server";
 
 export const metadata = { title: "Contact — Reallow" };
@@ -31,19 +31,6 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
         </section>
 
         <aside className="flex flex-col gap-4 text-sm">
-          <div className="rounded-2xl border border-line p-5">
-            <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">{t("contact.office")}</p>
-            <address className="mt-2 not-italic leading-relaxed">
-              {OFFICE_ADDRESS.lines.map((line) => (
-                <span key={line} className="block">
-                  {line}
-                </span>
-              ))}
-            </address>
-            <a href={OFFICE_ADDRESS.mapsUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-clay underline">
-              {t("contact.directions")}
-            </a>
-          </div>
 
           <div className="rounded-2xl border border-line p-5">
             <p className="text-xs font-medium tracking-wide text-foreground/50 uppercase">{t("contact.hours")}</p>

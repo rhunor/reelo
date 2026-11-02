@@ -200,6 +200,7 @@ export default async function AdminListingsPage({
                     Taken down {formatLagos(listing.takenDown.at)}
                     {listing.takenDown.reason === "owner_blocked" ? " — owner blocked" : ""}
                     {listing.takenDown.reason === "owner_unlisted" ? " — unlisted by the owner" : ""}
+                    {listing.takenDown.reason === "owner_deleted" ? " — owner's account deleted" : ""}
                     {listing.takenDown.note ? ` — “${listing.takenDown.note}”` : ""}
                   </p>
                 )}

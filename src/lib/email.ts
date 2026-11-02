@@ -36,7 +36,7 @@ function emailShell(bodyHtml: string, logo: "inline" | "hosted" = "inline", foot
         ${bodyHtml}
       </div>
       <p style="max-width:520px;margin:16px auto 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#8a8178;text-align:center;">
-        Reallow · 83 Effurun-Sapele Road, Effurun, Warri, Delta State · 09020253413<br />
+        Reallow · 09020253413<br />
         This is an automated message — please don&#39;t reply to this email.${footerExtra}
       </p>
     </div>

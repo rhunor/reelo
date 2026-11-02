@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Reveal, RevealGroup, RevealItem } from "@/components/reveal";
+import { ReallowFullLogo } from "@/components/reallow-logo";
 import { auth } from "@/auth";
 import { ctaLinks } from "@/lib/cta-links";
 import { getT } from "@/lib/i18n/server";
@@ -30,16 +31,9 @@ export default async function AboutPage() {
         </Reveal>
 
         <Reveal direction="left" delay={0.1}>
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl">
-            <Image
-              src="/home/about-couple.jpg"
-              alt="A Nigerian couple outside their home in Jos"
-              fill
-              priority
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="object-cover"
-              style={{ objectPosition: "45% 35%" }}
-            />
+          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-3xl border border-line bg-foreground/[0.03] p-10 text-foreground">
+            <ReallowFullLogo className="h-auto w-full max-w-sm" />
+            <span className="sr-only">Reallow</span>
           </div>
         </Reveal>
       </section>

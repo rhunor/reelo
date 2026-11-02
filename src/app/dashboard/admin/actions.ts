@@ -3,6 +3,8 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy
 
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { deleteAccount, deletionBlockers } from "@/lib/account-deletion";
 import { after } from "next/server";
 import bcrypt from "bcryptjs";
 import { auth, forgetAccount } from "@/auth";
@@ -290,6 +292,30 @@ export async function unbanUser(formData: FormData) {
   revalidateModeration();
 }
 
+// Permanent: see lib/account-deletion.ts for what goes and what's kept. Refused while the
+// person still has money with Reallow, and for admins (demote first) and yourself.
+export async function deleteUser(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = new ObjectId(formData.get("userId") as string);
+  if (userId.equals(new ObjectId(admin.id))) throw new Error("You can't delete your own account");
+  if (formData.get("confirm") !== "DELETE") throw new Error("Type DELETE to confirm");
+
+  const { users } = await getCollections();
+  const target = await users.findOne({ _id: userId });
+  if (!target || target.status === "deleted") throw new Error("This account no longer exists");
+  if (target.role === "admin") throw new Error("Change this admin's role before deleting the account");
+  const blockers = await deletionBlockers(userId);
+  if (blockers.length) throw new Error(blockers.join(" "));
+
+  await deleteAccount(userId, new ObjectId(admin.id));
+  forgetAccount(userId.toString());
+  after(() =>
+    notifyAdmins("User deleted", `${admin.name ?? "An admin"} deleted the account of ${target.name} (${target.email}).`, "/dashboard/admin/users"),
+  );
+  revalidateModeration();
+  redirect("/dashboard/admin/users?deleted=1");
+}
+
 function revalidateModeration() {
   revalidatePath("/dashboard/admin/users/[id]", "page");
   revalidatePath("/dashboard/admin/reports");
@@ -331,6 +357,7 @@ export async function setListingVisibility(formData: FormData) {
   } else if (action === "show") {
     const owner = await users.findOne({ _id: listing.landlordId }, { projection: { status: 1 } });
     if (owner?.status === "banned") throw new Error("Unblock the owner first");
+    if (owner?.status === "deleted") throw new Error("The owner's account was deleted");
     // A taken-down listing goes back to whatever it was; a rented/sold one goes back to live.
     const previous = listing.takenDown?.previousStatus;
     const restoreTo: ListingStatus =

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { ReallowFullLogo } from "@/components/reallow-logo";
 import { SocialIcons } from "@/components/social-icons";
-import { OFFICE_ADDRESS, OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-info";
+import { OPENING_HOURS, SUPPORT_PHONES } from "@/lib/contact-info";
 import { ctaLinks } from "@/lib/cta-links";
 import { getT } from "@/lib/i18n/server";
 import { CookieSettingsLink } from "@/components/cookie-settings-link";
@@ -77,14 +77,7 @@ export async function SiteFooter() {
           ))}
 
           <div className="text-sm text-foreground/60">
-            <p className="text-xs font-semibold tracking-wide text-foreground uppercase">{t("footer.visitUs")}</p>
-            <address className="mt-3 not-italic leading-relaxed">
-              {OFFICE_ADDRESS.lines.map((line) => (
-                <span key={line} className="block">
-                  {line}
-                </span>
-              ))}
-            </address>
+            <p className="text-xs font-semibold tracking-wide text-foreground uppercase">{t("footer.getInTouch")}</p>
             <p className="mt-3">
               {t(OPENING_HOURS[0].daysKey)}, {OPENING_HOURS[0].hours}
             </p>

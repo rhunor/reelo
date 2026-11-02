@@ -20,6 +20,8 @@ const TABS: { id: string; label: string; filter: Filter<User> }[] = [
   { id: "all", label: "Everyone", filter: {} },
 ];
 
+const NOT_DELETED: Filter<User> = { status: { $ne: "deleted" } };
+
 const SORTS: { id: string; label: string; sort: Sort }[] = [
   { id: "newest", label: "Newest first", sort: { createdAt: -1 } },
   { id: "oldest", label: "Oldest first", sort: { createdAt: 1 } },
@@ -40,7 +42,8 @@ export default async function AdminUsersPage({
   const q = params.q?.trim();
   const { users } = await getCollections();
 
-  const filter: Filter<User> = { ...tab.filter };
+  // Deleted accounts are only placeholder records — never listed.
+  const filter: Filter<User> = { $and: [tab.filter, NOT_DELETED] };
   if (q) {
     const pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     filter.$or = [{ email: pattern }, { name: pattern }, { phone: pattern }];
@@ -55,7 +58,7 @@ export default async function AdminUsersPage({
       .limit(PAGE_SIZE)
       .toArray(),
     users.countDocuments(filter),
-    Promise.all(TABS.map((t) => users.countDocuments(t.filter))),
+    Promise.all(TABS.map((t) => users.countDocuments({ $and: [t.filter, NOT_DELETED] }))),
     // A shared first+last name across accounts is an early fraud/multi-account signal —
     // flagged for a human look, never acted on automatically.
     users

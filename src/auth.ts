@@ -41,7 +41,8 @@ async function accountSnapshot(userId: string): Promise<AccountSnapshot> {
   );
   const snapshot: AccountSnapshot = {
     at: Date.now(),
-    missing: !current,
+    // A deleted account is only a placeholder record — treated as gone.
+    missing: !current || current.status === "deleted",
     banned: current?.status === "banned",
     // Legacy "tenant"/"landlord" accounts are plain users now.
     role: current ? (current.role === "tenant" || current.role === "landlord" ? "user" : current.role) : undefined,

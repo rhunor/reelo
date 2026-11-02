@@ -4,7 +4,8 @@ import { ObjectId } from "mongodb";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { addUserNote, adminVerifyUser, banUser, unbanUser } from "@/app/dashboard/admin/actions";
+import { addUserNote, adminVerifyUser, banUser, deleteUser, unbanUser } from "@/app/dashboard/admin/actions";
+import { deletionBlockers } from "@/lib/account-deletion";
 import { UserRoleSelect } from "@/components/user-role-select";
 import { UserAvatar } from "@/components/user-avatar";
 import { VerifiedBadge } from "@/components/verified-badge";
@@ -67,6 +68,22 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
   const user = await users.findOne({ _id: userId });
   if (!user) notFound();
+  if (user.status === "deleted") {
+    return (
+      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6">
+        <Link href="/dashboard/admin/users" className="text-sm text-foreground/60 hover:text-clay">
+          ← People
+        </Link>
+        <section className="mt-4 rounded-3xl border border-line p-5 sm:p-7">
+          <h1 className="text-2xl font-semibold tracking-tight">Deleted user</h1>
+          <p className="mt-2 text-sm text-foreground/70">
+            This account was deleted{user.deletedAt ? ` on ${formatLagos(user.deletedAt)}` : ""}. Their personal details are
+            gone; past agreements and payments still show them as &ldquo;Deleted user&rdquo;.
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   const [
     ownListings,
@@ -125,6 +142,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   const earned = commissions.filter((c) => c.status === "approved").reduce((s, c) => s + c.amountNGN, 0);
   const isSelf = session?.user?.id === id;
   const isStaffish = !isCustomerRole(user.role);
+  const canDelete = user.role !== "admin" && !isSelf;
+  const blockers = canDelete ? await deletionBlockers(userId) : [];
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6">
@@ -265,6 +284,44 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                 </form>
               </details>
             ))}
+          {canDelete && (
+            <details>
+              <summary className="flex h-9 cursor-pointer list-none items-center rounded-full bg-red-600 px-4 text-sm font-medium text-white">
+                Delete account
+              </summary>
+              <div className="mt-2 max-w-sm rounded-xl border border-red-600/40 p-3 text-sm">
+                {blockers.length ? (
+                  <>
+                    <p className="font-medium text-red-600">This account can&apos;t be deleted yet:</p>
+                    <ul className="mt-1 list-disc pl-5 text-foreground/70">
+                      {blockers.map((b) => (
+                        <li key={b}>{b}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <form action={deleteUser} className="flex flex-col gap-2">
+                    <input type="hidden" name="userId" value={id} />
+                    <p className="text-foreground/70">
+                      This can&apos;t be undone. Their personal details, listings, open applications, meetings and payment
+                      requests are removed; past agreements and payments are kept as &ldquo;Deleted user&rdquo;.
+                    </p>
+                    <input
+                      name="confirm"
+                      required
+                      pattern="DELETE"
+                      autoComplete="off"
+                      placeholder="Type DELETE to confirm"
+                      className="h-9 rounded-md border border-line bg-transparent px-2 text-sm"
+                    />
+                    <SubmitButton className="h-9 rounded-full bg-red-600 px-4 text-sm font-medium text-white">
+                      Delete permanently
+                    </SubmitButton>
+                  </form>
+                )}
+              </div>
+            </details>
+          )}
         </div>
       </section>
 
