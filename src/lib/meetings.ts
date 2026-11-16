@@ -5,8 +5,11 @@ import {
   notifyMeetingPaid,
   notifyMeetingProposed,
   notifyMeetingRefunded,
+  notifyAdmins,
 } from "@/lib/notifications";
 import { creditWallet, walletReference } from "@/lib/wallet";
+import { createRefund } from "@/lib/paystack";
+import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 import type { Meeting, Transaction } from "@/types/models";
 
 export function meetingSide(meeting: Pick<Meeting, "landlordId" | "tenantId">, userId: string) {
@@ -33,11 +36,12 @@ export async function recordMeetingPayment(
   const { meetings, transactions } = await getCollections();
   const now = new Date();
 
+  // The inspection fee pays for Reallow's agent attending — it's Reallow's own revenue.
   const { insertedId } = await transactions.insertOne({
     type: "inspection_fee",
     amountNGN,
     payerId: meeting.tenantId,
-    payeeId: meeting.landlordId,
+    payeeId: await getOrCreateReallowLandlordId(),
     listingId: meeting.listingId,
     meetingId: meeting._id,
     provider,
@@ -90,31 +94,49 @@ export async function recordMeetingPayment(
   }
 }
 
-// A paid meeting was cancelled: the fee goes back to the applicant's Reallow wallet.
-// Claimed with a conditional update so it can only ever be refunded once.
+// A paid meeting was cancelled: the fee goes back to the applicant's card through Paystack.
+// A fee paid from an old wallet balance (before top-ups were switched off) goes back to that
+// balance instead. Claimed with a conditional update so it can only ever be refunded once.
 export async function refundMeetingFee(meeting: Meeting): Promise<void> {
   if (!meeting.paidAt || !meeting.feeNGN) return;
   const { meetings, transactions } = await getCollections();
   const now = new Date();
+  const byCard = meeting.paymentMethod === "card";
   const claimed = await meetings.updateOne(
     { _id: meeting._id, paidAt: { $exists: true }, refundedAt: { $exists: false } },
-    { $set: { refundedAt: now, updatedAt: now } },
+    { $set: { refundedAt: now, refundedVia: byCard ? "card" : "wallet", updatedAt: now } },
   );
   if (claimed.modifiedCount !== 1) return;
 
-  await creditWallet(meeting.tenantId, meeting.feeNGN);
+  let failed = false;
+  if (byCard) {
+    const paid = meeting.transactionId ? await transactions.findOne({ _id: meeting.transactionId }) : null;
+    try {
+      if (!paid?.providerReference) throw new Error("payment reference not found");
+      await createRefund(paid.providerReference);
+    } catch (error) {
+      failed = true;
+      await meetings.updateOne({ _id: meeting._id }, { $set: { refundFailed: true } });
+      await notifyAdmins(
+        "Refund needs attention",
+        `The ₦${meeting.feeNGN.toLocaleString()} inspection fee for a cancelled meeting couldn't be refunded automatically (${(error as Error).message}). Refund it from the Paystack dashboard.`,
+        "/dashboard/admin",
+      );
+    }
+  } else {
+    await creditWallet(meeting.tenantId, meeting.feeNGN);
+  }
   await transactions.insertOne({
     type: "inspection_fee_refund",
     amountNGN: meeting.feeNGN,
-    // Reallow returns it to the applicant's own wallet, like a top-up.
     payerId: meeting.tenantId,
     payeeId: meeting.tenantId,
     listingId: meeting.listingId,
     meetingId: meeting._id,
-    provider: "wallet",
-    providerReference: walletReference("inspection_refund", meeting._id!),
-    status: "success",
+    provider: byCard ? "paystack" : "wallet",
+    providerReference: byCard ? `refund_meeting_${meeting._id}` : walletReference("inspection_refund", meeting._id!),
+    status: failed ? "failed" : "success",
     createdAt: now,
   });
-  await notifyMeetingRefunded(meeting, meeting.feeNGN);
+  await notifyMeetingRefunded(meeting, meeting.feeNGN, byCard ? "card" : "wallet");
 }

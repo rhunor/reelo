@@ -33,9 +33,6 @@ const schema = z.object({
   profilePictureVisible: z.boolean().optional(),
   // Bank details are never exposed via any visibility toggle — collected purely for
   // name-matching before Reallow ever pays this user out.
-  bankAccountName: z.string().max(200).optional(),
-  bankAccountNumber: z.string().max(20).optional(),
-  bankName: z.string().max(100).optional(),
 });
 
 export async function POST(request: Request) {
@@ -75,11 +72,8 @@ export async function POST(request: Request) {
           stateOfOriginVisible: data.stateOfOriginVisible ?? false,
           profilePictureVisible: data.profilePictureVisible ?? false,
         },
-        bankDetails: {
-          accountName: data.bankAccountName,
-          accountNumber: data.bankAccountNumber,
-          bankName: data.bankName,
-        },
+        // Bank details are no longer set here: they come from the verified payout account
+        // (api/payout-account), which Paystack confirms belongs to the account holder.
         updatedAt: new Date(),
       },
     },

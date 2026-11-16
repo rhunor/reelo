@@ -6,9 +6,9 @@ import { useI18n } from "@/components/i18n-provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { formatLagos } from "@/lib/time";
 import type { WalletEarning, WalletWithdrawal } from "@/lib/dashboard-data";
+import { withdrawableNGN } from "@/lib/withdrawable";
 
 const WITHDRAWAL_MINIMUM_NGN = 3000;
-const FUNDING_MINIMUM_NGN = 500;
 
 const EARNING_STATUS: Record<WalletEarning["status"], MessageKey> = {
   pending: "wallet.earning.pending",
@@ -16,6 +16,9 @@ const EARNING_STATUS: Record<WalletEarning["status"], MessageKey> = {
   rejected: "wallet.earning.rejected",
 };
 
+// The wallet holds referral earnings (Reallow's own money, credited once approved) and any
+// balance left from before top-ups were switched off. Nobody can add money to it — Reallow
+// doesn't hold customer money — and only approved referral earnings can be withdrawn.
 // Deliberately never states a commission percentage — the rate is a server-side-only
 // constant (see src/lib/referrals.ts). Copy only ever says "a percentage of sales."
 export function WalletPanel({
@@ -33,7 +36,6 @@ export function WalletPanel({
 }) {
   const router = useRouter();
   const { t } = useI18n();
-  const [tab, setTab] = useState<"fund" | "withdraw">("fund");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +43,18 @@ export function WalletPanel({
 
   const totalEarned = earnings.filter((e) => e.status === "approved").reduce((s, e) => s + e.amountNGN, 0);
   const pendingEarnings = earnings.filter((e) => e.status === "pending").reduce((s, e) => s + e.amountNGN, 0);
+  // Only approved referral earnings can be withdrawn — the rest is for payments on Reallow.
+  const withdrawable = withdrawableNGN({
+    walletBalanceNGN,
+    approvedEarningsNGN: totalEarned,
+    withdrawnOrPendingNGN: withdrawals.filter((w) => w.status !== "rejected").reduce((s, w) => s + w.amountNGN, 0),
+  });
 
   async function submit() {
     setError(null);
     setMessage(null);
     setLoading(true);
-    const res = await fetch(tab === "fund" ? "/api/wallet/fund" : "/api/withdrawals", {
+    const res = await fetch("/api/withdrawals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amountNGN: Number(amount) }),
@@ -55,10 +63,6 @@ export function WalletPanel({
     if (!res.ok) {
       setLoading(false);
       setError(data?.error ?? t("common.somethingWrong"));
-      return;
-    }
-    if (data?.authorizationUrl) {
-      window.location.href = data.authorizationUrl;
       return;
     }
     setLoading(false);
@@ -79,34 +83,18 @@ export function WalletPanel({
       </div>
 
       <div className="rounded-xl border border-line p-4">
-        <div className="flex gap-1 rounded-full bg-foreground/5 p-1">
-          {(["fund", "withdraw"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => {
-                setTab(option);
-                setError(null);
-                setMessage(null);
-              }}
-              className={`h-8 flex-1 rounded-full text-sm font-medium ${
-                tab === option ? "bg-background shadow-sm" : "text-foreground/60"
-              }`}
-            >
-              {t(option === "fund" ? "wallet.fundTab" : "wallet.withdrawTab")}
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-3 text-xs text-foreground/60">
-          {tab === "fund"
-            ? t("wallet.fundHint", { min: `₦${FUNDING_MINIMUM_NGN.toLocaleString()}` })
-            : t("wallet.withdrawHint", { min: `₦${WITHDRAWAL_MINIMUM_NGN.toLocaleString()}` })}
+        <p className="text-sm font-semibold">{t("wallet.withdrawTab")}</p>
+        <p className="mt-1 text-xs text-foreground/60">
+          {t("wallet.withdrawHint", { min: `₦${WITHDRAWAL_MINIMUM_NGN.toLocaleString()}` })}
         </p>
-        {tab === "withdraw" && !hasBankDetails && (
+        <p className="mt-2 text-sm">
+          {t("wallet.withdrawable", { amount: `₦${withdrawable.toLocaleString()}` })}
+          <span className="mt-0.5 block text-xs text-foreground/60">{t("wallet.withdrawableNote")}</span>
+        </p>
+        {!hasBankDetails && (
           <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
             {t("wallet.addBankBefore")}{" "}
-            <a href="/dashboard/settings#profile" className="underline">
+            <a href="/dashboard/settings#payout" className="underline">
               {t("menu.settings")}
             </a>
           </p>
@@ -117,8 +105,8 @@ export function WalletPanel({
             <input
               type="number"
               inputMode="numeric"
-              min={tab === "fund" ? FUNDING_MINIMUM_NGN : WITHDRAWAL_MINIMUM_NGN}
-              max={tab === "withdraw" ? walletBalanceNGN : undefined}
+              min={WITHDRAWAL_MINIMUM_NGN}
+              max={withdrawable}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder={t("wallet.amount")}
@@ -127,11 +115,11 @@ export function WalletPanel({
           </div>
           <button
             type="button"
-            disabled={loading || !amount}
+            disabled={loading || !amount || withdrawable < WITHDRAWAL_MINIMUM_NGN}
             onClick={submit}
             className="h-10 rounded-full bg-clay px-5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {loading ? t("common.pleaseWait") : t(tab === "fund" ? "wallet.fundWithCard" : "wallet.requestWithdrawal")}
+            {loading ? t("common.pleaseWait") : t("wallet.requestWithdrawal")}
           </button>
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}

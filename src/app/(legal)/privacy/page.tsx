@@ -13,7 +13,7 @@ export default function PrivacyPage() {
           </h2>
           <p className="mt-2">
             Reallow collects sensitive information — including your National Identification
-            Number (NIN) or driver&apos;s licence number, and bank account details — because real
+            Number (NIN) or Bank Verification Number (BVN), and bank account details — because real
             money moves through the platform and Reallow must be able to confirm who it&apos;s
             paying. This information is never sold, and is never shown to other users.
           </p>
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-display text-lg font-semibold text-foreground">What we collect</h2>
           <p className="mt-2">
-            Account details (name, email, phone), identity verification data (NIN or driver&apos;s licence number, and the name and date of birth on it), bank
+            Account details (name, email, phone), identity verification data (NIN or BVN, and the name and date of birth on it), bank
             account details for payouts, optional profile details (occupation, employment status,
             marital status, religion, gender, state of origin, present address, profile picture),
             and records of your activity on Reallow (listings, applications, inspections,
@@ -81,7 +81,13 @@ export default function PrivacyPage() {
             you&apos;ve explicitly chosen to make visible.
           </p>
           <p className="mt-2">
-            Your NIN, driver&apos;s licence number, bank account details, and present address are never shown to any other
+            We only check your ID after you tick the consent box on the verification form. Your ID number is sent to our
+            verification partner, Youverify, which checks it against official records (the NIMC database for a
+            NIN, or the NIBSS database for a BVN) and returns the name and date of birth on it, so we can confirm they match your account.
+            We keep the result, the ID number and the time you gave consent.
+          </p>
+          <p className="mt-2">
+            Your NIN, BVN, bank account details, and present address are never shown to any other
             user, regardless of your visibility settings — those settings only apply to optional
             profile details like occupation, marital status, religion, employment status, gender,
             state of origin, and your profile picture.
@@ -116,7 +122,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-display text-lg font-semibold text-foreground">Third parties</h2>
           <p className="mt-2">
-            We share identity data with Dojah (identity verification against government records), payment data with
+            We share identity data with Youverify (identity verification against government records), payment data with
             Paystack (payments), and photos/videos with Cloudinary (media hosting) — solely to
             provide those specific services, not for their own marketing use.
           </p>

@@ -39,9 +39,6 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
   const listing = await properties.findOne({ _id: agreement.listingId });
   const tenant = isLandlordParty || isStaff ? await users.findOne({ _id: agreement.tenantId }) : null;
-  const viewerWalletNGN = isTenantParty
-    ? ((await users.findOne({ _id: agreement.tenantId }, { projection: { walletBalanceNGN: 1 } }))?.walletBalanceNGN ?? 0)
-    : 0;
 
   // Snapshotted values win; agreements created before snapshots existed fall back to
   // live lookups so they still render a complete document.
@@ -113,7 +110,9 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           <p className="mt-1 text-foreground/70">
             {agreement.payment.status === "refunded_to_wallet"
               ? t("agreement.refundedBody", { amount: `₦${agreement.payment.amountNGN?.toLocaleString() ?? 0}` })
-              : t("agreement.closedBody")}{" "}
+              : agreement.payment.status === "refunded"
+                ? t("agreement.refundedCardBody", { amount: `₦${agreement.payment.amountNGN?.toLocaleString() ?? 0}` })
+                : t("agreement.closedBody")}{" "}
             <Link href="/listings" className="text-clay underline">
               {t("agreement.browseOthers")}
             </Link>
@@ -243,7 +242,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           <div className="mt-6 rounded-lg border border-line p-4">
             <p className="text-sm font-medium">{t(isSale ? "agreement.payment" : "agreement.rentDeposit")}</p>
             <p className="mt-1 text-xs text-foreground/50">
-              {t("agreement.paidToReallow")}
+              {t("pay.safeNotice")}
             </p>
 
             {agreement.payment.status === "unpaid" && isTenantParty && (
@@ -256,7 +255,6 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                 <AgreementPayButton
                   agreementId={agreement._id!.toString()}
                   amountNGN={paymentBreakdown.totalNGN}
-                  walletBalanceNGN={viewerWalletNGN}
                   label={t("agreement.payVia", { amount: `₦${paymentBreakdown.totalNGN.toLocaleString()}` })}
                 />
               </div>
@@ -294,9 +292,14 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
 
             {agreement.payment.status === "paid_out_to_landlord" && (
               <p className="mt-3 text-sm text-verified">
-                {agreement.payment.payoutAt
-                  ? t("agreement.paidOutOn", { date: date(agreement.payment.payoutAt) })
-                  : t("agreement.paidOutDone")}
+                {agreement.payment.settledVia === "paystack_split"
+                  ? t("agreement.settledDirect", {
+                      amount: `₦${paymentBreakdown.toOwnerNGN.toLocaleString()}`,
+                      date: date(agreement.payment.paidAt ?? agreement.payment.payoutAt ?? agreement.updatedAt),
+                    })
+                  : agreement.payment.payoutAt
+                    ? t("agreement.paidOutOn", { date: date(agreement.payment.payoutAt) })
+                    : t("agreement.paidOutDone")}
               </p>
             )}
           </div>

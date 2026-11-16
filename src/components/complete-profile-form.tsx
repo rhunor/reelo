@@ -25,7 +25,7 @@ function VisibilityToggle({
   );
 }
 
-export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "bankDetails"> }) {
+export function CompleteProfileForm({ user }: { user?: Pick<User, "profile"> }) {
   const router = useRouter();
   const { t } = useI18n();
   const [profilePictureUrl, setProfilePictureUrl] = useState(user?.profile?.profilePictureUrl ?? "");
@@ -59,9 +59,6 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
       genderVisible: formData.get("genderVisible") === "on",
       stateOfOriginVisible: formData.get("stateOfOriginVisible") === "on",
       profilePictureVisible: formData.get("profilePictureVisible") === "on",
-      bankAccountName: formData.get("bankAccountName") || undefined,
-      bankAccountNumber: formData.get("bankAccountNumber") || undefined,
-      bankName: formData.get("bankName") || undefined,
     };
 
     const res = await fetch("/api/profile", {
@@ -185,35 +182,6 @@ export function CompleteProfileForm({ user }: { user?: Pick<User, "profile" | "b
           <input name="occupation" defaultValue={user?.profile?.occupation} className={inputClass + " w-full"} />
           <div className="mt-1">
             <VisibilityToggle name="occupationVisible" defaultChecked={user?.profile?.occupationVisible} />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-line p-4">
-        <p className="text-sm font-medium">{t("profile.bankDetails")}</p>
-        <p className="mt-1 text-xs text-foreground/50">
-          {t("profile.bankHint")}
-        </p>
-        <div className="mt-3 flex flex-col gap-3">
-          <input
-            name="bankAccountName"
-            placeholder={t("profile.accountName")}
-            defaultValue={user?.bankDetails?.accountName}
-            className={inputClass}
-          />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input
-              name="bankAccountNumber"
-              placeholder={t("profile.accountNumber")}
-              defaultValue={user?.bankDetails?.accountNumber}
-              className={inputClass}
-            />
-            <input
-              name="bankName"
-              placeholder={t("profile.bankName")}
-              defaultValue={user?.bankDetails?.bankName}
-              className={inputClass}
-            />
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { deleteAccount, deletionBlockers } from "@/lib/account-deletion";
+import { debitWallet } from "@/lib/wallet";
 import { after } from "next/server";
 import bcrypt from "bcryptjs";
 import { auth, forgetAccount } from "@/auth";
@@ -181,10 +182,9 @@ export async function checkInAtListing(formData: FormData) {
   return { flagged };
 }
 
-// Reallow holds rent/deposit money the moment Paystack confirms it (see the webhook) —
-// this only records that staff have since sent it on to the landlord by bank transfer.
-// It never moves money itself; that transfer happens outside this app, by design (see
-// the guardrail comment in lib/paystack.ts on why Paystack split payments aren't used).
+// Legacy only: payments made before split payments landed in Reallow's account, and this
+// records that staff have since sent the owner's share on by bank transfer. Payments now
+// settle straight to the owner's Paystack subaccount and never reach this state.
 export async function markAgreementPaidOut(formData: FormData) {
   const staff = await requireAdmin();
   const agreementId = formData.get("agreementId") as string;
@@ -476,21 +476,22 @@ export async function declineVerificationInspection(formData: FormData) {
   revalidatePath("/dashboard/admin");
 }
 
-// Testing-only bypass for the real Dojah ID check — lets an admin verify an account manually
+// Testing-only bypass for the real Youverify ID check — lets an admin verify an account manually
 // so the verified-user flows (applying for a listing, booking inspections) can be exercised
-// without a live lookup. Marks the NIN verified, which is enough for the badge.
+// without a live lookup. Marks the submitted NIN or BVN verified, which is enough for the badge.
 export async function adminVerifyUser(formData: FormData) {
   await requireAdmin();
   const userId = formData.get("userId") as string;
 
   const { users } = await getCollections();
   const now = new Date();
-  const user = await users.findOne({ _id: new ObjectId(userId) }, { projection: { driversLicence: 1, nin: 1 } });
+  const user = await users.findOne({ _id: new ObjectId(userId) }, { projection: { bvn: 1, nin: 1 } });
   // Confirm whichever ID they submitted for review (NIN by default).
-  const field = user?.driversLicence?.status === "pending" && user.nin.status !== "pending" ? "driversLicence" : "nin";
+  const field = user?.bvn?.status === "pending" && user.nin.status !== "pending" ? "bvn" : "nin";
 
   await users.updateOne(
     { _id: new ObjectId(userId) },
+    // A pending BVN was submitted through the form, so it already carries the consent time.
     { $set: { [`${field}.status`]: "verified", [`${field}.verifiedAt`]: now, updatedAt: now } },
   );
 
@@ -545,16 +546,18 @@ export async function markWithdrawalPaid(formData: FormData) {
   const admin = await requireAdmin();
   const requestId = formData.get("requestId") as string;
 
-  const { withdrawalRequests, users } = await getCollections();
+  const { withdrawalRequests } = await getCollections();
   const request = await withdrawalRequests.findOne({ _id: new ObjectId(requestId) });
   if (!request) throw new Error("Withdrawal request not found");
   if (request.status !== "pending") throw new Error("This request has already been decided");
 
+  // The request was checked against approved referral earnings when it was made; the
+  // wallet must still hold the amount now (it may have been spent on Reallow since), and the
+  // balance check and the deduction happen in one step so it can never go negative.
+  if (!(await debitWallet(request.userId, request.amountNGN))) {
+    throw new Error("Their wallet no longer holds this amount — reject the request instead");
+  }
   const now = new Date();
-  await users.updateOne(
-    { _id: request.userId },
-    { $inc: { walletBalanceNGN: -request.amountNGN }, $set: { updatedAt: now } },
-  );
   await withdrawalRequests.updateOne(
     { _id: request._id },
     { $set: { status: "paid", paidAt: now, paidBy: new ObjectId(admin.id) } },

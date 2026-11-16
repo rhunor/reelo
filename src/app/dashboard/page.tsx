@@ -172,7 +172,7 @@ export default async function DashboardPage({
           referralCode={user.referralCode}
           earnings={data.earnings}
           withdrawals={data.withdrawals}
-          hasBankDetails={Boolean(user.bankDetails?.accountNumber)}
+          hasBankDetails={Boolean(user.payoutAccount)}
         />
       </section>
 

@@ -70,8 +70,8 @@ export function TenancyAgreementDocument({
       <p className="mt-8">
         This Tenancy Agreement is made between <strong>{landlordName}</strong> (&quot;the
         Landlord&quot;) and <strong>{tenantName}</strong> (&quot;the Tenant&quot;), and was
-        arranged through Reallow (&quot;Reallow&quot;), which coordinated it and handles the
-        payments described below but is not itself a party to the tenancy.
+        arranged through Reallow (&quot;Reallow&quot;), which coordinated it and provides the
+        checkout for the payments described below but is not itself a party to the tenancy.
       </p>
 
       <Clause number={next()} title="The property">
@@ -98,15 +98,17 @@ export function TenancyAgreementDocument({
       <Clause number={next()} title="Rent">
         <p>
           The rent is <strong>{naira(terms.rentNGN)} per year</strong>, paid in advance for the
-          term. The Tenant pays it through Reallow, never directly to the Landlord, and Reallow pays
-          it to the Landlord.
+          term. The Tenant pays it through Reallow&apos;s checkout, processed by Paystack, never
+          directly to the Landlord in cash or by private transfer. At the moment of payment,
+          Paystack settles the rent straight to the Landlord&apos;s verified bank account; Reallow
+          never holds it.
         </p>
       </Clause>
 
       <Clause number={next()} title="Caution fee">
         <p>
-          The Tenant pays a caution fee of <strong>{naira(terms.depositNGN)}</strong>, collected
-          through Reallow with the rent and paid to the Landlord. Any return of it at the end of the
+          The Tenant pays a caution fee of <strong>{naira(terms.depositNGN)}</strong>, paid with
+          the rent and settled the same way, straight to the Landlord. Any return of it at the end of the
           tenancy, and any deductions for damage, are a matter between the Landlord and the Tenant.
         </p>
       </Clause>
@@ -115,8 +117,8 @@ export function TenancyAgreementDocument({
         <Clause number={next()} title="Estate / service charge">
           <p>
             The Tenant also pays an estate or service charge of{" "}
-            <strong>{naira(terms.estateChargeNGN)}</strong>, collected through Reallow with the
-            rent.
+            <strong>{naira(terms.estateChargeNGN)}</strong>, paid with the rent and settled the same
+            way, straight to the Landlord.
           </p>
         </Clause>
       ) : null}
@@ -184,7 +186,8 @@ export function TenancyAgreementDocument({
 
       <Clause number={next()} title="Reallow's role">
         <p>
-          Reallow arranged this agreement and collected the payments above. Once rent has been
+          Reallow arranged this agreement and provided the checkout for the payments above, which
+          Paystack settled directly to the Landlord; Reallow receives only its service charge. Once rent has been
           paid and the Tenant has taken possession, day-to-day matters
           under this tenancy are between the Landlord and the Tenant, in line with Reallow&apos;s
           Terms of Use.

@@ -80,11 +80,12 @@ export function SaleAgreementDocument({
         </p>
       </Clause>
 
-      <Clause number={next()} title="Payment through Reallow">
+      <Clause number={next()} title="Payment">
         <p>
-          The Buyer pays the full amount through Reallow only — never directly to the Seller or anyone
-          else. Reallow pays the purchase price to the Seller once the title documents and keys have
-          been handed over to the Buyer as set out below.
+          The Buyer pays the full amount through Reallow&apos;s checkout, processed by Paystack — never
+          directly to the Seller in cash or by private transfer. At the moment of payment, Paystack
+          settles the purchase price straight to the Seller&apos;s verified bank account and only
+          Reallow&apos;s service charge to Reallow. Reallow never holds the Buyer&apos;s money.
         </p>
       </Clause>
 
@@ -104,16 +105,19 @@ export function SaleAgreementDocument({
 
       <Clause number={next()} title="If the sale can't be completed">
         <p>
-          If the Seller cannot transfer good title or hand over the Property before the Seller has been
-          paid, the Buyer&apos;s payment is refunded. Once the Seller has been paid, any dispute is between
-          the Buyer and the Seller.
+          If the Seller cannot transfer good title or hand over the Property, the Seller must refund the
+          Buyer&apos;s purchase price in full within 14 days. Because the purchase price is paid to the
+          Seller directly, Reallow cannot refund it itself, but it will share the records of the sale
+          with the Buyer and may suspend the Seller&apos;s account. Any other dispute is between the
+          Buyer and the Seller.
         </p>
       </Clause>
 
       <Clause number={next()} title="Reallow's role">
         <p>
           Reallow verified both parties&apos; identities and inspected the Property in person, arranges
-          communication between the parties, and processes the payment. Reallow is not the owner of the
+          communication between the parties, and provides the checkout through which the payment is
+          made. Reallow is not the owner of the
           Property and does not give legal advice; the Buyer is encouraged to carry out their own searches
           before completing.
         </p>

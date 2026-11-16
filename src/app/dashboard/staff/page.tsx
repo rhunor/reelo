@@ -144,7 +144,7 @@ export default async function StaffDashboardPage({ searchParams }: { searchParam
           referralCode={me.referralCode}
           earnings={money.earnings}
           withdrawals={money.withdrawals}
-          hasBankDetails={Boolean(me.bankDetails?.accountNumber)}
+          hasBankDetails={Boolean(me.payoutAccount)}
         />
       </section>
 

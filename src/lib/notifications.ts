@@ -681,18 +681,25 @@ export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
 }
 
 // The meeting was declined after the applicant paid — the fee went back to their wallet.
-export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number): Promise<void> {
-  await notifyAdmins("Meeting fee refunded", `₦${amountNGN.toLocaleString()} was refunded to an applicant's wallet (meeting cancelled).`, "/dashboard/admin");
+export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number, to: "card" | "wallet" = "card"): Promise<void> {
+  await notifyAdmins(
+    "Meeting fee refunded",
+    `₦${amountNGN.toLocaleString()} was refunded to an applicant's ${to === "card" ? "card through Paystack" : "wallet"} (meeting cancelled).`,
+    "/dashboard/admin",
+  );
   const { notifications } = await getCollections();
   const amount = `₦${amountNGN.toLocaleString()}`;
   await notifications.insertOne({
     userId: meeting.tenantId,
     type: "meeting_refunded",
     title: "Inspection fee refunded",
-    body: `The meeting didn't go ahead, so your ${amount} inspection fee is back in your Reallow wallet.`,
-    i18n: { title: "notif.refund.title", body: "notif.refund.body", vars: { amount } },
+    body:
+      to === "card"
+        ? `The meeting didn't go ahead, so your ${amount} inspection fee is being refunded to the card you paid with. Banks usually take a few working days.`
+        : `The meeting didn't go ahead, so your ${amount} inspection fee is back in your Reallow wallet.`,
+    i18n: { title: "notif.refund.title", body: to === "card" ? "notif.refund.bodyCard" : "notif.refund.body", vars: { amount } },
     listingId: meeting.listingId,
-    href: "/dashboard?panel=wallet",
+    href: to === "card" ? "/dashboard?panel=meetings" : "/dashboard?panel=wallet",
     read: false,
     createdAt: new Date(),
   });
@@ -781,7 +788,11 @@ export async function notifyPaymentRequested(agreement: Agreement): Promise<void
 
 // Another applicant completed payment first. If this applicant had also just paid, their
 // money was returned to their wallet (refundedNGN).
-export async function notifyPaymentSuperseded(agreement: Agreement, refundedNGN?: number): Promise<void> {
+export async function notifyPaymentSuperseded(
+  agreement: Agreement,
+  refundedNGN?: number,
+  to: "card" | "wallet" = "card",
+): Promise<void> {
   const { notifications } = await getCollections();
   const title = await listingTitle(agreement);
   const amount = refundedNGN ? `₦${refundedNGN.toLocaleString()}` : "";
@@ -789,12 +800,14 @@ export async function notifyPaymentSuperseded(agreement: Agreement, refundedNGN?
     userId: agreement.tenantId,
     type: "payment_superseded",
     title: "Someone completed payment before you",
-    body: refundedNGN
-      ? `Another applicant completed payment for ${title} just before you, so your ${amount} has been returned to your Reallow wallet. Why not try other properties?`
-      : `Another applicant completed payment for ${title} before you. Why not try other properties?`,
+    body: !refundedNGN
+      ? `Another applicant completed payment for ${title} before you. Why not try other properties?`
+      : to === "card"
+        ? `Another applicant completed payment for ${title} just before you, so your ${amount} is being refunded to the card you paid with. Why not try other properties?`
+        : `Another applicant completed payment for ${title} just before you, so your ${amount} has been returned to your Reallow wallet. Why not try other properties?`,
     i18n: {
       title: "notif.superseded.title",
-      body: refundedNGN ? "notif.superseded.bodyRefund" : "notif.superseded.body",
+      body: !refundedNGN ? "notif.superseded.body" : to === "card" ? "notif.superseded.bodyCardRefund" : "notif.superseded.bodyRefund",
       vars: { title, amount },
     },
     listingId: agreement.listingId,
@@ -827,7 +840,7 @@ export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number
   await notifyLandlordSide(agreement.landlordId, {
     type: "property_paid" as const,
     title: isSale ? "Your property has been paid for" : "Your tenant has paid",
-    body: `Payment for ${title} is complete and the listing is now marked ${isSale ? "sold" : "rented"}. Reallow will pay you out.`,
+    body: `Payment for ${title} is complete and the listing is now marked ${isSale ? "sold" : "rented"}. Your share is being settled by Paystack straight to your payout account.`,
     i18n: {
       title: isSale ? "notif.ownerPaid.titleSale" : "notif.ownerPaid.title",
       body: isSale ? "notif.ownerPaid.bodySale" : "notif.ownerPaid.body",
@@ -906,4 +919,28 @@ export async function notifyListingUnlisted(listing: Property, applicantIds: Obj
 async function titleOfListing(listingId: ObjectId): Promise<string> {
   const { properties } = await getCollections();
   return (await properties.findOne({ _id: listingId }, { projection: { title: 1 } }))?.title ?? "a property";
+}
+
+// A tenant/buyer tried to pay but the owner has no payout account yet — nobody can pay them
+// until they add one (their share settles straight to it).
+export async function notifyPayoutAccountNeeded(agreement: Agreement): Promise<void> {
+  const { notifications } = await getCollections();
+  const title = await listingTitle(agreement);
+  const recent = await notifications.findOne({
+    userId: agreement.landlordId,
+    type: "payout_account_needed",
+    createdAt: { $gte: new Date(Date.now() - 6 * 3600 * 1000) },
+  });
+  if (recent) return;
+  await notifications.insertOne({
+    userId: agreement.landlordId,
+    type: "payout_account_needed",
+    title: "Add your payout account to get paid",
+    body: `Someone is ready to pay for ${title}, but you haven't added the bank account your money should go to. Add it in Settings so they can pay — Paystack sends your share straight there.`,
+    i18n: { title: "notif.payoutNeeded.title", body: "notif.payoutNeeded.body", vars: { title } },
+    listingId: agreement.listingId,
+    href: "/dashboard/settings#payout",
+    read: false,
+    createdAt: new Date(),
+  });
 }

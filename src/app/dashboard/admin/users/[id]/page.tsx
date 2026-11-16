@@ -190,8 +190,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             )}
           </p>
           <p className="mt-2 text-xs text-foreground/50">
-            Joined {formatLagos(user.createdAt)} · last updated {formatLagos(user.updatedAt)} · NIN {user.nin.status} · driver&apos;s licence{" "}
-            {user.driversLicence?.status ?? "unverified"}
+            Joined {formatLagos(user.createdAt)} · last updated {formatLagos(user.updatedAt)} · NIN {user.nin.status} · BVN{" "}
+            {user.bvn?.consentAt ? user.bvn.status : "unverified"}
+            {user.driversLicence?.status === "verified" && " · driver's licence verified"}
             {user.referralCode && ` · code ${user.referralCode}`}
           </p>
           <p className="mt-1 text-xs text-foreground/60">
@@ -216,7 +217,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </div>
       </section>
 
-      {!user.verifiedBadge && (user.nin.status === "pending" || user.driversLicence?.status === "pending") && (
+      {!user.verifiedBadge && (user.nin.status === "pending" || user.bvn?.status === "pending") && (
         <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm">
             <p className="font-semibold">ID waiting for verification</p>
@@ -227,7 +228,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                 </>
               ) : (
                 <>
-                  Driver&apos;s licence: <span className="font-mono">{user.driversLicence?.value}</span>
+                  BVN: <span className="font-mono">{user.bvn?.value}</span>
                 </>
               )}{" "}
               — check it matches <span className="font-medium">{user.name}</span>, then mark them verified.

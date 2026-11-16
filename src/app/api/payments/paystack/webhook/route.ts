@@ -7,6 +7,7 @@ import { recordMeetingPayment } from "@/lib/meetings";
 import { notifyWalletFunded } from "@/lib/notifications";
 import { parseLagosDateTimeLocal } from "@/lib/time";
 import { creditWallet } from "@/lib/wallet";
+import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -72,7 +73,17 @@ export async function POST(request: Request) {
         { $set: { "payment.status": "paid_to_reallow" } },
       );
       if (agreement) {
-        await recordAgreementPayment(agreement, { reference, amountNGN: amount / 100, provider: "paystack" });
+        // Checkouts started since split payments carry the owner's subaccount; one without it
+        // is either Reallow's own listing or a checkout started before the switch.
+        const split = typeof metadata.split === "string" ? metadata.split : undefined;
+        const ownListing = !split && agreement.landlordId.equals(await getOrCreateReallowLandlordId());
+        await recordAgreementPayment(agreement, {
+          reference,
+          amountNGN: amount / 100,
+          provider: "paystack",
+          settlement: split ? "split" : ownListing ? "reallow" : "legacy",
+          subaccountCode: split,
+        });
       }
     } else if (metadata?.kind === "meeting_inspection_fee" && metadata?.meetingId) {
       // Claimed with a conditional update so a redelivery (or a wallet payment racing this
@@ -85,6 +96,8 @@ export async function POST(request: Request) {
         await recordMeetingPayment(claimed, { reference, amountNGN: amount / 100, provider: "paystack" });
       }
     } else if (metadata?.kind === "wallet_funding" && metadata?.userId) {
+      // Wallet top-ups are switched off (Reallow doesn't hold customer money); this only
+      // completes a top-up that was already paid for before the switch.
       const alreadyProcessed = await transactions.findOne({ providerReference: reference });
       if (!alreadyProcessed) {
         const userId = new ObjectId(metadata.userId);

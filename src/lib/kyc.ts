@@ -1,20 +1,25 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { forgetAccount } from "@/auth";
-import { isDojahConfigured, lookupDriversLicence, lookupNin, type IdentityRecord } from "@/lib/dojah";
+import { isYouverifyConfigured, lookupBvn, lookupNin, type IdentityRecord } from "@/lib/youverify";
 import { notifyIdAwaitingReview } from "@/lib/notifications";
 import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
 import type { User } from "@/types/models";
 
 // verifiedBadge means "one government ID verified and matching this account" — a NIN or a
-// driver's licence. (BVN is no longer required; old BVN results are ignored.) Always
-// recomputed from the stored results rather than set directly.
+// BVN, the two choices on the verify form. A driver's licence verified before BVN replaced
+// it still counts. Old BVN results from before BVN became a choice (no consentAt — only the
+// current form records consent) were never checked against the account name, so they don't.
+// Always recomputed from the stored results rather than set directly.
 export async function recomputeVerifiedBadge(userId: ObjectId): Promise<boolean> {
   const { users } = await getCollections();
   const user = await users.findOne({ _id: userId });
   if (!user) return false;
 
-  const verifiedBadge = user.nin.status === "verified" || user.driversLicence?.status === "verified";
+  const verifiedBadge =
+    user.nin.status === "verified" ||
+    (user.bvn?.status === "verified" && Boolean(user.bvn.consentAt)) ||
+    user.driversLicence?.status === "verified";
   await users.updateOne({ _id: userId }, { $set: { verifiedBadge, updatedAt: new Date() } });
   forgetAccount(userId.toString()); // so the session picks up the new badge straight away
   return verifiedBadge;
@@ -49,12 +54,14 @@ function datesMatch(profileDob: string | undefined, idDob: string | undefined): 
   return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
 }
 
-export type IdType = "nin" | "drivers_licence";
+export type IdType = "nin" | "bvn";
 
-const FIELD: Record<IdType, "nin" | "driversLicence"> = { nin: "nin", drivers_licence: "driversLicence" };
-const LABEL: Record<IdType, string> = { nin: "NIN", drivers_licence: "driver's licence" };
+const FIELD: Record<IdType, "nin" | "bvn"> = { nin: "nin", bvn: "bvn" };
+const LABEL: Record<IdType, string> = { nin: "NIN", bvn: "BVN" };
 
-// Look the ID up with Dojah, check it belongs to this account holder, and store the result.
+// Look the ID up with Youverify, check it belongs to this account holder, and store the
+// result. Only called once the person has agreed to the check (the API routes require it);
+// when they agreed is stored with the result.
 export async function verifyGovernmentId(
   userId: ObjectId,
   type: IdType,
@@ -62,7 +69,7 @@ export async function verifyGovernmentId(
   // Messages go back to the user, so they're in the user's language.
   t: Translator = translator("en"),
 ): Promise<{ success: boolean; pending?: boolean; message: string; verifiedBadge: boolean; status: number }> {
-  const idLabel = t(type === "nin" ? "id.nin.label" : "id.drivers_licence.label");
+  const idLabel = t(type === "nin" ? "id.nin.label" : "id.bvn.label");
   const { users } = await getCollections();
   const field = FIELD[type];
   const user = await users.findOne({ _id: userId });
@@ -77,12 +84,14 @@ export async function verifyGovernmentId(
     };
   }
 
-  // No Dojah keys yet: hold the number for a Reallow admin to check by hand instead of
+  const consentAt = new Date();
+
+  // No Youverify key yet: hold the number for a Reallow admin to check by hand instead of
   // showing the user an error. Admins are notified and verify from Admin → People.
-  if (!isDojahConfigured()) {
+  if (!isYouverifyConfigured()) {
     await users.updateOne(
       { _id: userId },
-      { $set: { [`${field}.status`]: "pending", [`${field}.value`]: number, updatedAt: new Date() } },
+      { $set: { [`${field}.status`]: "pending", [`${field}.value`]: number, [`${field}.consentAt`]: consentAt, updatedAt: new Date() } },
     );
     await notifyIdAwaitingReview(userId, user.name, LABEL[type]);
     return {
@@ -94,11 +103,12 @@ export async function verifyGovernmentId(
     };
   }
 
-  const result = type === "nin" ? await lookupNin(number) : await lookupDriversLicence(number);
+  const requestId = userId.toString();
+  const result = type === "nin" ? await lookupNin(number, requestId) : await lookupBvn(number, requestId);
   if (!result.ok) {
     // A provider outage or missing keys isn't the user's failure — don't record "failed".
     if (result.reason === "not_found" || result.reason === "error") {
-      await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
+      await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "youverify", [`${field}.consentAt`]: consentAt, updatedAt: new Date() } });
     }
     const reasonKey: Record<typeof result.reason, MessageKey> = {
       not_found: "id.err.notFound",
@@ -110,7 +120,7 @@ export async function verifyGovernmentId(
   }
 
   if (!namesMatch(user, result.record)) {
-    await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
+    await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "youverify", [`${field}.consentAt`]: consentAt, updatedAt: new Date() } });
     return {
       success: false,
       message: t("id.err.nameMismatch", { id: idLabel }),
@@ -119,7 +129,7 @@ export async function verifyGovernmentId(
     };
   }
   if (!datesMatch(user.profile?.dateOfBirth, result.record.dateOfBirth)) {
-    await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "dojah", updatedAt: new Date() } });
+    await users.updateOne({ _id: userId }, { $set: { [`${field}.status`]: "failed", [`${field}.provider`]: "youverify", [`${field}.consentAt`]: consentAt, updatedAt: new Date() } });
     return {
       success: false,
       message: t("id.err.dobMismatch", { id: idLabel }),
@@ -133,7 +143,8 @@ export async function verifyGovernmentId(
     {
       $set: {
         [`${field}.status`]: "verified",
-        [`${field}.provider`]: "dojah",
+        [`${field}.provider`]: "youverify",
+        [`${field}.consentAt`]: consentAt,
         [`${field}.verifiedAt`]: new Date(),
         [`${field}.value`]: number,
         updatedAt: new Date(),

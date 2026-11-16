@@ -79,6 +79,8 @@ export interface User {
     status: VerificationStatus;
     provider?: "youverify" | "prembly" | "smile_id" | "dojah";
     verifiedAt?: Date;
+    // When the person agreed to the check (the verify form's consent box).
+    consentAt?: Date;
     // The actual verified number — never stored before this, needed to enforce "no two
     // accounts share a NIN" (see the uniqueness check in api/kyc/verify-nin/route.ts).
     // Treated exactly like bankDetails: never exposed via any API response or visibility
@@ -88,18 +90,22 @@ export interface User {
   // Optional so existing users predating BVN verification don't break — treated as
   // "unverified" wherever read. See src/lib/kyc.ts recomputeVerifiedBadge: verifiedBadge
   // requires NIN and BVN both verified, not NIN alone.
-  // Legacy — BVN is no longer required or collected (see recomputeVerifiedBadge).
+  // The other choice on the verify form, alongside NIN (see recomputeVerifiedBadge). Old
+  // results without consentAt predate that and don't count towards the badge.
   bvn?: {
     status: VerificationStatus;
     provider?: "youverify" | "prembly" | "smile_id" | "dojah";
     verifiedAt?: Date;
+    consentAt?: Date;
     value?: string;
   };
-  // Alternative to NIN — one verified government ID is enough for the badge.
+  // Legacy: was the alternative to NIN before BVN replaced it. Verified licences still count
+  // for the badge; new ones aren't collected.
   driversLicence?: {
     status: VerificationStatus;
-    provider?: "dojah";
+    provider?: "dojah" | "youverify";
     verifiedAt?: Date;
+    consentAt?: Date;
     value?: string;
   };
   // Never exposed via any "public" visibility toggle — collected for KYC/payout name
@@ -122,6 +128,17 @@ export interface User {
   bannedReason?: string;
   // Answer to "How did you hear about us?" at signup (see src/lib/acquisition.ts).
   heardAbout?: { source: string; detail?: string };
+  // Where a property owner's share of rent/sale payments settles: a bank account Paystack
+  // confirmed belongs to them, registered as a Paystack subaccount. Required before anyone
+  // can pay them through Reallow (see lib/payout-account.ts).
+  payoutAccount?: {
+    bankCode: string;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    subaccountCode: string;
+    verifiedAt: Date;
+  };
   // Field staff / support: the city they work from (one of SUPPORTED_STATES' values).
   // Also set for an admin who does field visits too (fieldStaff below).
   staffBase?: "Abuja" | "Port Harcourt" | "Warri";
@@ -278,6 +295,10 @@ export interface Property {
   // Set when Reallow takes a listing off the site (status "archived") — by hand, or because
   // the owner's account was blocked. previousStatus is what "Make visible" / unblocking
   // restores.
+  // While one applicant is at Paystack checkout, nobody else can start paying for the
+  // property — a split payment can't be clawed back from the owner, so two payments must
+  // never both go through. Expires on its own if they abandon checkout.
+  paymentLock?: { agreementId: ObjectId; until: Date };
   takenDown?: {
     at: Date;
     by?: ObjectId;
@@ -349,8 +370,11 @@ export interface Meeting {
   transactionId?: ObjectId;
   // The applicant is paying to accept the landlord's proposed time — confirm once paid.
   acceptOnPayment?: boolean;
-  // Fee returned to the applicant's wallet because the meeting was cancelled.
+  // Fee refunded because the meeting was cancelled — to their card through Paystack
+  // ("card"), or, for a fee paid from an old wallet balance, back to that balance.
   refundedAt?: Date;
+  refundedVia?: "card" | "wallet";
+  refundFailed?: boolean;
   // A declined meeting's paid fee moved on to the rescheduled meeting (no second charge).
   feeCarriedTo?: ObjectId;
   cancelledBy?: "landlord" | "tenant" | "reallow";
@@ -466,14 +490,19 @@ export type AgreementStatus =
   | "superseded"
   | "cancelled";
 
-// Rent + deposit only ever move Reallow -> nobody until Reallow pays the landlord out
-// out-of-band (bank transfer, not Paystack) — see the guardrail comment in lib/paystack.ts.
-// "paid_to_reallow" is the escrow state: money has landed in Reallow's account but not yet
-// reached the landlord. Only Reallow staff can move a payment to "paid_out_to_landlord",
-// and only manually, once the transfer has actually happened.
-// "refunded_to_wallet": paid at the same moment another applicant's payment completed —
-// the money went straight back to their Reallow wallet.
-export type AgreementPaymentStatus = "unpaid" | "paid_to_reallow" | "paid_out_to_landlord" | "refunded_to_wallet";
+// Payments are split by Paystack at the point of payment (see lib/paystack.ts): the owner's
+// share settles straight to their subaccount, so a completed payment goes directly to
+// "paid_out_to_landlord" with settledVia "paystack_split".
+// "paid_to_reallow": legacy — payments made before the split, which landed in Reallow's
+// account and were transferred to the owner by hand ("Mark paid out" in admin).
+// "refunded": paid at the same moment another applicant's payment completed — refunded to
+// their card through Paystack. "refunded_to_wallet": the legacy version of that.
+export type AgreementPaymentStatus =
+  | "unpaid"
+  | "paid_to_reallow"
+  | "paid_out_to_landlord"
+  | "refunded"
+  | "refunded_to_wallet";
 
 export interface AgreementPayment {
   status: AgreementPaymentStatus;
@@ -482,6 +511,13 @@ export interface AgreementPayment {
   paidAt?: Date;
   payoutAt?: Date;
   payoutBy?: ObjectId;
+  // "paystack_split": the owner's share settled straight to their Paystack subaccount.
+  settledVia?: "paystack_split";
+  // The owner's subaccount the payment was split to.
+  subaccountCode?: string;
+  // A refund sent back through Paystack, and whether Paystack accepted it ("failed" means an
+  // admin has to sort it out — they're notified).
+  cardRefund?: { status: "requested" | "failed"; at: Date; error?: string };
   // Legacy — from when Reallow held caution fees and refunded them itself. It no longer
   // does (the caution fee goes to the landlord with the rent), so nothing writes these
   // anymore; kept only so older agreement records still type-check.
@@ -705,6 +741,7 @@ export type NotificationType =
   | "listing_unlisted"
   | "payment_requested"
   | "payment_superseded"
+  | "payout_account_needed"
   | "property_paid"
   | "property_request"
   | "listing_approved"

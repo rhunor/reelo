@@ -5,14 +5,20 @@ import { auth } from "@/auth";
 import { verifyGovernmentId } from "@/lib/kyc";
 import { getT } from "@/lib/i18n/server";
 
-const schema = z.object({ nin: z.string().trim().regex(/^\d{11}$/) });
+// consent: the person ticked "I agree to Reallow checking this ID" — Youverify only runs a
+// check with the subject's consent.
+const schema = z.object({ nin: z.string().trim().regex(/^\d{11}$/), consent: z.literal(true) });
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  if (body?.consent !== true) {
+    return NextResponse.json({ success: false, message: (await getT())("id.consentRequired") }, { status: 400 });
+  }
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ success: false, message: "Your NIN is 11 digits." }, { status: 400 });
   }

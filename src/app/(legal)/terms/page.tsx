@@ -106,7 +106,7 @@ export default function TermsPage() {
             ]}
           />
           <p>
-            Reallow may require a valid National Identification Number (NIN), driver&apos;s licence or other legally
+            Reallow may require a valid National Identification Number (NIN), Bank Verification Number (BVN) or other legally
             acceptable identification, subject to applicable data protection requirements.
           </p>
           <p>
@@ -219,7 +219,7 @@ export default function TermsPage() {
               "Scheduling and coordinating inspections.",
               "Facilitating communications and negotiations.",
               "Preparing or facilitating the preparation of tenancy documentation.",
-              "Collecting and processing payments through the payment arrangements displayed on the Platform.",
+              "Providing the checkout through which payments are made and processed by Reallow's licensed payment processor, Paystack.",
               "Communicating transaction updates and facilitating handover.",
             ]}
           />
@@ -313,8 +313,17 @@ export default function TermsPage() {
             payment arrangement has been expressly authorised by Reallow and verified through its official channels.
           </p>
           <p>
-            Reallow may collect inspection fees, rent, caution fees, estate charges and its service charge in accordance
-            with the transaction breakdown disclosed before payment.
+            Inspection fees, rent, caution fees, estate charges and Reallow&apos;s service charge are paid through the
+            Platform&apos;s checkout in accordance with the transaction breakdown disclosed before payment. Payments are
+            processed by Reallow&apos;s payment processor, Paystack.
+          </p>
+          <p>
+            <strong className="text-foreground">Reallow does not hold customer funds.</strong> For rent, caution fees,
+            estate charges and purchase prices, Paystack splits each payment at the point of payment: the property
+            owner&apos;s amount is settled directly to the owner&apos;s verified bank account, and only Reallow&apos;s service
+            charge is settled to Reallow. Inspection fees and listing verification fees are charges for Reallow&apos;s own
+            services and are settled to Reallow. A property owner must add a verified payout bank account in their own
+            name before they can receive payment through the Platform.
           </p>
           <p>
             <strong className="text-foreground">
@@ -333,9 +342,11 @@ export default function TermsPage() {
             be changed retrospectively without the User&apos;s agreement or another lawful basis.
           </p>
           <p>
-            Where Reallow receives transaction funds for onward payment, the applicable payment arrangement, deductions,
-            release conditions and expected processing timeframe shall be disclosed to the relevant parties. Reallow may
-            conduct reasonable checks to confirm payment, identity, authority and compliance before releasing funds.
+            Because the owner&apos;s amount is settled directly to the owner, any refund of rent, a caution fee, an estate
+            charge or a purchase price that becomes due after payment (for example, where a property cannot be handed over)
+            is owed by the owner who received it. Reallow will assist by sharing transaction records and may suspend the
+            owner&apos;s account. A refund of an inspection fee that Reallow received is returned to the original payment
+            method through Paystack.
           </p>
           <p>
             Reallow shall not be responsible for a delay caused solely by a bank, payment processor, regulatory
@@ -344,8 +355,8 @@ export default function TermsPage() {
           </p>
           <h3 className="mt-2 font-semibold text-foreground">Caution fees</h3>
           <p>
-            For a tenancy, the caution fee shall be collected and transferred to the landlord or other designated
-            recipient in accordance with the disclosed transaction terms. Unless expressly stated otherwise in a separate
+            For a tenancy, the caution fee is paid with the rent and settled directly to the landlord&apos;s verified bank
+            account in accordance with the disclosed transaction terms. Unless expressly stated otherwise in a separate
             written agreement, Reallow does not retain the caution fee as a deposit for future return.
           </p>
           <p>
@@ -354,7 +365,7 @@ export default function TermsPage() {
           </p>
           <p>
             Reallow is not responsible for a landlord&apos;s failure to refund a caution fee after it has been properly
-            transferred, except to the extent that Reallow has expressly undertaken an additional obligation or is
+            settled to them, except to the extent that Reallow has expressly undertaken an additional obligation or is
             otherwise legally responsible.
           </p>
           <h3 className="mt-2 font-semibold text-foreground">Refunds and failed transactions</h3>

@@ -17,13 +17,20 @@ export default async function VerifyIdentityPage() {
   const user = await users.findOne({ _id: new ObjectId(session.user.id) });
   if (!user) redirect("/login");
 
+  const bvnCounts = Boolean(user.bvn?.consentAt);
   const verifiedWith =
-    user.nin.status === "verified" ? "NIN" : user.driversLicence?.status === "verified" ? "driver's licence" : null;
-  const lastFailed = user.nin.status === "failed" || user.driversLicence?.status === "failed";
-  const pendingWith =
-    user.nin.status === "pending" ? "NIN" : user.driversLicence?.status === "pending" ? "driver's licence" : null;
+    user.nin.status === "verified"
+      ? "nin"
+      : bvnCounts && user.bvn?.status === "verified"
+        ? "bvn"
+        : user.driversLicence?.status === "verified"
+          ? "drivers_licence"
+          : null;
+  const lastFailed = user.nin.status === "failed" || (bvnCounts && user.bvn?.status === "failed");
+  const pendingWith = user.nin.status === "pending" ? "nin" : user.bvn?.status === "pending" ? "bvn" : null;
   const t = await getT();
-  const idName = (which: string | null) => (which === "NIN" ? t("id.nin.label") : t("id.drivers_licence.label"));
+  const idName = (which: "nin" | "bvn" | "drivers_licence" | null) =>
+    which === "bvn" ? t("id.bvn.label") : which === "drivers_licence" ? t("id.drivers_licence.label") : t("id.nin.label");
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 py-12 sm:px-6 sm:py-16">
@@ -57,7 +64,7 @@ export default async function VerifyIdentityPage() {
               </Link>
             </p>
           )}
-          <VerifyIdForm defaultType={user.driversLicence?.status === "failed" && user.nin.status !== "failed" ? "drivers_licence" : "nin"} />
+          <VerifyIdForm defaultType={bvnCounts && user.bvn?.status === "failed" && user.nin.status !== "failed" ? "bvn" : "nin"} />
         </div>
       )}
 

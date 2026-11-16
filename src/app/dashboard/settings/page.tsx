@@ -4,6 +4,8 @@ import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { CompleteProfileForm } from "@/components/complete-profile-form";
+import { PayoutAccountForm } from "@/components/payout-account-form";
+import { isStaffRole } from "@/lib/roles";
 import { ChangePasswordForm, ContactSettingsForm } from "@/components/account-settings-forms";
 import { LanguageSelect } from "@/components/language-select";
 import { getT } from "@/lib/i18n/server";
@@ -13,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 const SECTIONS: { id: string; label: MessageKey }[] = [
   { id: "profile", label: "settings.profile" },
+  { id: "payout", label: "payout.title" },
   { id: "contact", label: "settings.contact" },
   { id: "security", label: "settings.security" },
   { id: "language", label: "settings.language" },
@@ -57,6 +60,23 @@ export default async function SettingsPage() {
               </a>
             </p>
             <CompleteProfileForm user={user} />
+          </section>
+
+          <section id="payout" className="scroll-mt-24 rounded-2xl border border-line p-5 sm:p-6">
+            <h2 className="text-lg font-semibold">{t("payout.title")}</h2>
+            <p className="mt-1 mb-4 text-sm text-foreground/60">{t("payout.intro")}</p>
+            <PayoutAccountForm
+              verified={user.verifiedBadge || isStaffRole(user.role)}
+              current={
+                user.payoutAccount
+                  ? {
+                      bankName: user.payoutAccount.bankName,
+                      accountNumber: user.payoutAccount.accountNumber,
+                      accountName: user.payoutAccount.accountName,
+                    }
+                  : undefined
+              }
+            />
           </section>
 
           <section id="contact" className="scroll-mt-24 rounded-2xl border border-line p-5 sm:p-6">

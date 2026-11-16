@@ -10,6 +10,7 @@ import { formatDimensions } from "@/lib/property-types";
 import { MINIMUM_LEASE_TERM_MONTHS } from "@/lib/listing-verification";
 import { notifyPaymentRequested } from "@/lib/notifications";
 import type { Agreement } from "@/types/models";
+import { settlementFor } from "@/lib/payout-account";
 
 const schema = z.object({
   ticketId: z.string(),
@@ -56,6 +57,16 @@ export async function POST(request: Request) {
   });
   if (open) {
     return NextResponse.json({ error: "You've already asked this applicant to pay", id: open._id!.toString() }, { status: 409 });
+  }
+
+  // The applicant's payment settles straight to the owner's payout account (Paystack split),
+  // so one must exist before anyone can be asked to pay.
+  const owner = await users.findOne({ _id: listing.landlordId }, { projection: { payoutAccount: 1 } });
+  if ((await settlementFor(owner)).kind === "missing") {
+    return NextResponse.json(
+      { error: "Add your payout bank account in Settings first — payments go straight to it.", code: "payout_account_required" },
+      { status: 409 },
+    );
   }
 
   const isSale = listing.listingType === "sale";
