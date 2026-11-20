@@ -1,11 +1,12 @@
 import { createHash } from "crypto";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
 import type { AgreementStatus } from "@/types/models";
+import { notifyAdmins, titleOfListing } from "@/lib/notifications";
 
 const schema = z.object({ fullName: z.string().min(2) });
 
@@ -77,5 +78,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
   );
 
+  const kind = agreement.kind === "sale" ? "sale agreement" : "tenancy agreement";
+  after(async () => {
+    const title = await titleOfListing(agreement.listingId);
+    await notifyAdmins(
+      nextStatus === "fully_signed" ? "Agreement fully signed" : "Agreement signed",
+      nextStatus === "fully_signed"
+        ? `Both parties have signed the ${kind} for ${title} — it's ready for payment.`
+        : `The ${party === "landlord" ? "owner" : party === "tenant" ? (agreement.kind === "sale" ? "buyer" : "tenant") : party} signed the ${kind} for ${title}.`,
+      `/agreements/${agreement._id}`,
+    );
+  });
   return NextResponse.json({ success: true, status: nextStatus });
 }

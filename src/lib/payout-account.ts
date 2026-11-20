@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { namesMatch } from "@/lib/kyc";
+import { notifyAdmins } from "@/lib/notifications";
 import { listBanks, resolveAccount, upsertSubaccount } from "@/lib/paystack";
 import { getOrCreateReallowLandlordId } from "@/lib/reallow-landlord";
 import { isStaffRole } from "@/lib/roles";
@@ -63,6 +64,11 @@ export async function savePayoutAccount(userId: ObjectId, bankCode: string, acco
         updatedAt: now,
       },
     },
+  );
+  await notifyAdmins(
+    user.payoutAccount ? "Payout account changed" : "Payout account added",
+    `${user.name} ${user.payoutAccount ? "changed their payout account to" : "added a payout account:"} ${accountName}, ${bank.name} (••••${accountNumber.slice(-4)}).`,
+    `/dashboard/admin/users/${userId}`,
   );
   return { ok: true, accountName, bankName: bank.name };
 }

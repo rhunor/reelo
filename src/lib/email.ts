@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { formatLagos } from "@/lib/time";
 import { EMAIL_LOGO_PNG_BASE64 } from "@/lib/email-logo";
+import { SUPPORT_EMAIL } from "@/lib/contact-info";
 
 export function generateEmailVerificationToken(): { token: string; expiresAt: Date } {
   const token = crypto.randomBytes(32).toString("hex");
@@ -263,6 +264,25 @@ export async function sendSupportInboxEmail(params: {
     `,
     "support-inbox",
     params.fromEmail,
+  );
+}
+
+// Activity alerts: every event Reallow admins are alerted about in-app (notifyAdmins — a new
+// listing, sign-up, application, payment…) is also emailed to the support inbox, so the team
+// sees it without opening the dashboard. ACTIVITY_ALERT_EMAIL can point it elsewhere.
+export async function sendActivityAlertEmail(title: string, body: string, href: string): Promise<void> {
+  const to = process.env.ACTIVITY_ALERT_EMAIL || SUPPORT_EMAIL;
+  const link = href.startsWith("http") ? href : `${appBaseUrl()}${href}`;
+  await sendEmail(
+    to,
+    `[Reallow activity] ${title}`,
+    `
+      <p style="font-size:13px;color:#8a8178;margin:0;">${escapeHtml(formatLagos(new Date()))}</p>
+      <h2 style="font-size:18px;margin:8px 0 12px;">${escapeHtml(title)}</h2>
+      <p style="padding:12px;background:#f5f1ec;border-radius:8px;">${nl2br(body)}</p>
+      <p style="text-align:center;">${button(link, "Open in Reallow")}</p>
+    `,
+    "activity-alert",
   );
 }
 

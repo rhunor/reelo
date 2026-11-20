@@ -75,7 +75,8 @@ export default async function DashboardPage({
       : Promise.resolve([]),
   ]);
   const initialPanel = PANELS.find((p) => p === params.panel);
-  const profileIncomplete = !user.profile?.profilePictureUrl || !user.profile?.dateOfBirth;
+  // A profile picture is optional — it never counts towards the profile being incomplete.
+  const profileIncomplete = !user.profile?.dateOfBirth;
 
   // "Browse properties" lives in the navbar and "List a property" in the profile menu, so
   // the dashboard only keeps the account's own areas.

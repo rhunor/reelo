@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
+import { notifyAdmins, titleOfListing } from "@/lib/notifications";
 
 // Either party marks their own end of the tenancy as over, so Reallow's records (active
 // tenancies on both dashboards) reflect it. Reallow doesn't hold the caution fee, so
@@ -56,5 +57,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
   );
 
+  after(async () => {
+    const title = await titleOfListing(agreement.listingId);
+    await notifyAdmins(
+      bothTerminated ? "Tenancy ended" : "Request to end a tenancy",
+      bothTerminated
+        ? `Both parties agreed to end the tenancy for ${title}.`
+        : `The ${party === "landlord" ? "landlord" : "tenant"} asked to end the tenancy for ${title}.`,
+      `/agreements/${agreement._id}`,
+    );
+  });
   return NextResponse.json({ success: true, bothTerminated });
 }

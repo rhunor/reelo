@@ -2,7 +2,7 @@ import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { forgetAccount } from "@/auth";
 import { isYouverifyConfigured, lookupBvn, lookupNin, type IdentityRecord } from "@/lib/youverify";
-import { notifyIdAwaitingReview } from "@/lib/notifications";
+import { notifyAdmins, notifyIdAwaitingReview } from "@/lib/notifications";
 import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
 import type { User } from "@/types/models";
 
@@ -152,5 +152,6 @@ export async function verifyGovernmentId(
     },
   );
   const verifiedBadge = await recomputeVerifiedBadge(userId);
+  await notifyAdmins("Identity verified", `${user.name} verified their identity with their ${LABEL[type]}.`, `/dashboard/admin/users/${userId}`);
   return { success: true, message: t("id.verifiedBadge"), verifiedBadge, status: 200 };
 }

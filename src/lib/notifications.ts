@@ -1,7 +1,13 @@
 import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import type { Agreement, InspectionBooking, Meeting, Property, PropertyRequest, SupportTicket } from "@/types/models";
-import { sendListingReceivedEmail, sendListingReviewedEmail, sendVerificationVisitScheduledEmail } from "@/lib/email";
+import {
+  sendActivityAlertEmail,
+  sendListingReceivedEmail,
+  sendListingReviewedEmail,
+  sendVerificationVisitScheduledEmail,
+} from "@/lib/email";
+import { after } from "next/server";
 import { formatLagos } from "@/lib/time";
 import { landlordRecipients } from "@/lib/reallow-landlord";
 import type { Notification } from "@/types/models";
@@ -611,6 +617,11 @@ export async function notifyNewReport(report: { _id?: ObjectId; targetType: "use
   const { users, notifications } = await getCollections();
   const staff = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
   if (staff.length === 0) return;
+  emailSupport(
+    report.targetType === "listing" ? "A property was reported" : "A user was reported",
+    `${report.reason} — review it in Reports.`,
+    "/dashboard/admin/reports",
+  );
   const now = new Date();
   await notifications.insertMany(
     staff.map((member) => ({
@@ -649,6 +660,7 @@ export async function notifyRoleChanged(userId: ObjectId, role: string): Promise
 
 // An ID number is waiting for a manual check (automatic verification isn't switched on yet).
 export async function notifyIdAwaitingReview(userId: ObjectId, name: string, idLabel: string): Promise<void> {
+  emailSupport("ID waiting for verification", `${name} submitted their ${idLabel}. Check it and mark them verified.`, `/dashboard/admin/users/${userId}`);
   const { users, notifications } = await getCollections();
   const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
   if (admins.length === 0) return;
@@ -731,6 +743,7 @@ export async function notifyPropertyRequest(request: PropertyRequest): Promise<v
   const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
   const what = `${request.propertyType} for ${request.listingType === "rent" ? "rent" : "sale"}`;
   const where = [request.city, request.state].filter(Boolean).join(", ");
+  emailSupport("New property request", `${request.name} is looking for a ${what} in ${where}.`, "/dashboard/admin/requests");
   const now = new Date();
   const notices: Omit<Notification, "_id">[] = admins.map((admin) => ({
     userId: admin._id as ObjectId,
@@ -856,7 +869,21 @@ export async function notifyPropertyPaid(agreement: Agreement, amountNGN: number
 // Keeps Reallow's admins on top of everything happening on the app: a bell notification for
 // each event (signups, listings, applications, meetings, payments…). In-app only — see
 // DEDICATED_EMAIL in lib/notification-email.ts for why these aren't also emailed.
+// Emails an admin alert to the support inbox (see sendActivityAlertEmail). Sent after the
+// response so it never slows the action down; outside a request (scripts) it just runs.
+function emailSupport(title: string, body: string, href: string): void {
+  const send = () => sendActivityAlertEmail(title, body, href).catch((error) => console.error("[activity-alert] failed:", error));
+  try {
+    after(send);
+  } catch {
+    void send();
+  }
+}
+
+// Every major thing that happens on Reallow lands here: an in-app alert for each admin, and
+// an email to the support inbox (support@reallow.co).
 export async function notifyAdmins(title: string, body: string, href = "/dashboard/admin"): Promise<void> {
+  emailSupport(title, body, href);
   try {
     const { notifications, users } = await getCollections();
     const admins = await users.find({ role: "admin" }).project({ _id: 1 }).toArray();
@@ -916,7 +943,7 @@ export async function notifyListingUnlisted(listing: Property, applicantIds: Obj
   await notifyAdmins("Listing unlisted by owner", `${listing.title} was taken off the market by its owner.`, "/dashboard/admin/listings");
 }
 
-async function titleOfListing(listingId: ObjectId): Promise<string> {
+export async function titleOfListing(listingId: ObjectId): Promise<string> {
   const { properties } = await getCollections();
   return (await properties.findOne({ _id: listingId }, { projection: { title: 1 } }))?.title ?? "a property";
 }

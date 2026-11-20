@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { CONTACT_INFO_ERROR, noContactInfo } from "@/lib/contact-guard";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
 import { isStaffRole } from "@/lib/roles";
+import { notifyAdmins } from "@/lib/notifications";
 
 const schema = z.object({
   agreementId: z.string(),
@@ -88,5 +89,8 @@ export async function POST(request: Request) {
     },
   );
 
+  after(() =>
+    notifyAdmins("New review", `A ${parsed.data.rating}-star review was left on Reallow.`, `/dashboard/admin/users/${toUserId}`),
+  );
   return NextResponse.json({ success: true });
 }
