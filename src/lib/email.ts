@@ -9,8 +9,23 @@ export function generateEmailVerificationToken(): { token: string; expiresAt: Da
   return { token, expiresAt };
 }
 
+// Reallow's public address — what every link in an email (verify email, password reset,
+// notifications) and Paystack's return-after-payment link is built on.
+export const PRODUCTION_URL = "https://www.reallow.co";
+
+// In production, links must always point at the real site. VERCEL_URL is a different,
+// one-off address for every deployment, and Vercel puts those behind its own login — a
+// link built on one sends users to a Vercel sign-in page instead of Reallow. So in
+// production it's never used, and NEXT_PUBLIC_APP_URL is only honoured when it isn't a
+// *.vercel.app address (a setting left pointing at a deployment would cause the same bug).
+// Preview deployments link to themselves; local dev links to localhost.
 export function appBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  if (process.env.VERCEL_ENV === "production") {
+    if (configured && !/\.vercel\.app$/i.test(configured)) return configured;
+    return PRODUCTION_URL;
+  }
+  if (configured) return configured;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }

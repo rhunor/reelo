@@ -740,8 +740,8 @@ export default function TermsPage() {
             </a>
             <br />
             <strong className="text-foreground">Website:</strong>{" "}
-            <a href="https://reelo-pearl.vercel.app/" className="underline">
-              https://reelo-pearl.vercel.app/
+            <a href="https://www.reallow.co/" className="underline">
+              https://www.reallow.co/
             </a>
           </p>
           <p>
