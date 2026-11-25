@@ -8,6 +8,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 import { formatLagos } from "@/lib/time";
 import type { User } from "@/types/models";
 import { SubmitButton } from "@/components/submit-button";
+import { adminRunAllIdChecks } from "@/app/dashboard/admin/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,19 @@ const PAGE_SIZE = 50;
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tab?: string; sort?: string; base?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    tab?: string;
+    sort?: string;
+    base?: string;
+    page?: string;
+    // Summary after "Run Youverify on all" (see adminRunAllIdChecks): a count per outcome.
+    idchecks?: string;
+    verified?: string;
+    failed?: string;
+    waiting?: string;
+    not_configured?: string;
+  }>;
 }) {
   const params = await searchParams;
   const tab = TABS.find((t) => t.id === params.tab) ?? TABS[0]!;
@@ -50,7 +63,7 @@ export default async function AdminUsersPage({
   }
   if ((tab.id === "staff" || tab.id === "support") && params.base) filter.staffBase = params.base as User["staffBase"];
 
-  const [results, total, tabCounts, nameCounts] = await Promise.all([
+  const [results, total, tabCounts, nameCounts, idsWaiting] = await Promise.all([
     users
       .find(filter, { projection: { passwordHash: 0, emailVerificationToken: 0, "nin.value": 0, "bvn.value": 0, "driversLicence.value": 0 } })
       .sort(sort.sort)
@@ -68,6 +81,14 @@ export default async function AdminUsersPage({
         { $match: { count: { $gt: 1 } } },
       ])
       .toArray(),
+    // IDs held for review while Youverify wasn't set up, which can now be checked with it.
+    users.countDocuments({
+      status: { $ne: "deleted" },
+      $or: [
+        { "nin.status": "pending", "nin.consentAt": { $exists: true } },
+        { "bvn.status": "pending", "bvn.consentAt": { $exists: true } },
+      ],
+    }),
   ]);
   const duplicateNames = new Set(nameCounts.map((n) => n._id));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -88,6 +109,27 @@ export default async function AdminUsersPage({
       <p className="mt-1 text-sm text-foreground/60">
         Open anyone to see how they use Reallow, change their role, block them, or leave notes.
       </p>
+
+      {params.idchecks && (
+        <p className="mt-4 rounded-xl border border-line bg-foreground/5 p-4 text-sm">
+          {params.not_configured
+            ? "Youverify isn't set up — add YOUVERIFY_API_KEY in Vercel first."
+            : `Youverify checks done: ${Number(params.verified ?? 0)} verified, ${Number(params.failed ?? 0)} didn't match (asked to resubmit), ${Number(params.waiting ?? 0)} still waiting.`}
+        </p>
+      )}
+      {idsWaiting > 0 && (
+        <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span className="font-semibold">{idsWaiting}</span> {idsWaiting === 1 ? "ID is" : "IDs are"} waiting for a check —
+            submitted before Youverify was set up.
+          </p>
+          <form action={adminRunAllIdChecks}>
+            <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+              Run Youverify on {idsWaiting > 10 ? "the next 10" : "all"}
+            </SubmitButton>
+          </form>
+        </section>
+      )}
 
       <nav className="mt-6 flex gap-2 overflow-x-auto pb-1">
         {TABS.map((t, i) => (

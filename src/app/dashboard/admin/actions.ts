@@ -27,7 +27,7 @@ function isStaffBase(value: unknown): value is NonNullable<User["staffBase"]> {
   return SUPPORTED_STATES.some((s) => s.value === value);
 }
 import { distanceMeters, CHECK_IN_DISTANCE_WARNING_METERS } from "@/lib/geo";
-import { recomputeVerifiedBadge } from "@/lib/kyc";
+import { recomputeVerifiedBadge, runPendingIdCheck } from "@/lib/kyc";
 import { generateReferralCode } from "@/lib/referrals";
 import { parseLagosDateTimeLocal } from "@/lib/time";
 import type { ListingStatus, User } from "@/types/models";
@@ -501,6 +501,48 @@ export async function adminVerifyUser(formData: FormData) {
   revalidatePath(`/dashboard/admin/users/${userId}`);
 
   revalidatePath("/dashboard/admin/users");
+}
+
+// Runs the real Youverify check on an ID that was held for review while no Youverify key was
+// set (see runPendingIdCheck). The result is shown on the person's page.
+export async function adminRunIdCheck(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+  if (!ObjectId.isValid(userId)) throw new Error("Invalid user");
+  const { outcome, message } = await runPendingIdCheck(new ObjectId(userId));
+  revalidatePath("/dashboard/admin/users");
+  redirect(`/dashboard/admin/users/${userId}?idcheck=${outcome}&idmsg=${encodeURIComponent(message)}`);
+}
+
+// The same check for everyone whose ID is still waiting, oldest first. Run in small batches
+// (each check takes a few seconds); press again to carry on with the rest.
+const ID_CHECK_BATCH = 10;
+export async function adminRunAllIdChecks() {
+  await requireAdmin();
+  const { users } = await getCollections();
+  const waiting = await users
+    .find(
+      {
+        status: { $ne: "deleted" },
+        $or: [
+          { "nin.status": "pending", "nin.consentAt": { $exists: true } },
+          { "bvn.status": "pending", "bvn.consentAt": { $exists: true } },
+        ],
+      },
+      { projection: { _id: 1 } },
+    )
+    .sort({ updatedAt: 1 })
+    .limit(ID_CHECK_BATCH)
+    .toArray();
+  const counts: Record<string, number> = {};
+  for (const { _id } of waiting) {
+    const { outcome } = await runPendingIdCheck(_id!);
+    counts[outcome] = (counts[outcome] ?? 0) + 1;
+    if (outcome === "not_configured") break;
+  }
+  revalidatePath("/dashboard/admin/users");
+  const summary = new URLSearchParams(Object.entries(counts).map(([k, v]) => [k, String(v)]));
+  redirect(`/dashboard/admin/users?idchecks=1&${summary.toString()}`);
 }
 
 // Approving is the actual credit event — nothing lands in a referrer's wallet until an

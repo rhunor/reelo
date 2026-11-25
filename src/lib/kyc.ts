@@ -2,7 +2,7 @@ import type { ObjectId } from "mongodb";
 import { getCollections } from "@/lib/db";
 import { forgetAccount } from "@/auth";
 import { isYouverifyConfigured, lookupBvn, lookupNin, type IdentityRecord } from "@/lib/youverify";
-import { notifyAdmins, notifyIdAwaitingReview } from "@/lib/notifications";
+import { notifyAdmins, notifyIdAwaitingReview, notifyIdCheckFailed, notifyIdentityVerified } from "@/lib/notifications";
 import { translator, type MessageKey, type Translator } from "@/lib/i18n/dictionaries";
 import type { User } from "@/types/models";
 
@@ -71,6 +71,8 @@ export async function verifyGovernmentId(
   number: string,
   // Messages go back to the user, so they're in the user's language.
   t: Translator = translator("en"),
+  // Set when re-running a check the person submitted earlier: keeps the time they agreed.
+  options: { consentAt?: Date } = {},
 ): Promise<{ success: boolean; pending?: boolean; message: string; verifiedBadge: boolean; status: number }> {
   const idLabel = t(type === "nin" ? "id.nin.label" : "id.bvn.label");
   const { users } = await getCollections();
@@ -87,7 +89,7 @@ export async function verifyGovernmentId(
     };
   }
 
-  const consentAt = new Date();
+  const consentAt = options.consentAt ?? new Date();
 
   // No Youverify key yet: hold the number for a Reallow admin to check by hand instead of
   // showing the user an error. Admins are notified and verify from Admin → People.
@@ -173,4 +175,38 @@ export async function verifyGovernmentId(
   const verifiedBadge = await recomputeVerifiedBadge(userId);
   await notifyAdmins("Identity verified", `${user.name} verified their identity with their ${LABEL[type]}.`, `/dashboard/admin/users/${userId}`);
   return { success: true, message: t("id.verifiedBadge"), verifiedBadge, status: 200 };
+}
+
+export type PendingIdCheckOutcome = "verified" | "failed" | "waiting" | "nothing_pending" | "not_configured";
+
+// IDs submitted while no Youverify key was set were held as "pending" for an admin. Once the
+// key is in, an admin can run the real check on them from Admin → People: it's the same check
+// as the verify form, using the number and the consent the person gave when they submitted.
+export async function runPendingIdCheck(userId: ObjectId): Promise<{ outcome: PendingIdCheckOutcome; message: string }> {
+  if (!isYouverifyConfigured()) {
+    return { outcome: "not_configured", message: "Youverify isn't set up — add YOUVERIFY_API_KEY in Vercel first." };
+  }
+  const { users } = await getCollections();
+  const user = await users.findOne({ _id: userId }, { projection: { nin: 1, bvn: 1 } });
+  const type: IdType | null =
+    user?.nin?.status === "pending" && user.nin.value ? "nin" : user?.bvn?.status === "pending" && user.bvn.value ? "bvn" : null;
+  if (!user || !type) return { outcome: "nothing_pending", message: "No ID is waiting for a check." };
+
+  const pending = user[type]!;
+  // Youverify only runs a check the person agreed to; a pending ID without a recorded
+  // agreement has to be submitted again by the person themselves.
+  if (!pending.consentAt) {
+    return { outcome: "nothing_pending", message: `This ${LABEL[type]} has no recorded consent — ask them to submit it again.` };
+  }
+
+  const result = await verifyGovernmentId(userId, type, pending.value!, translator("en"), { consentAt: pending.consentAt });
+  if (result.success) {
+    await notifyIdentityVerified(userId);
+    return { outcome: "verified", message: `${LABEL[type]} verified with Youverify.` };
+  }
+  // A busy or unavailable service leaves the ID pending, so it can be run again later.
+  const stillPending = (await users.findOne({ _id: userId }, { projection: { [type]: 1 } }))?.[type]?.status === "pending";
+  if (stillPending) return { outcome: "waiting", message: `${LABEL[type]} still pending — ${result.message}` };
+  await notifyIdCheckFailed(userId);
+  return { outcome: "failed", message: `${LABEL[type]} not verified — ${result.message}` };
 }

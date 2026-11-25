@@ -810,6 +810,8 @@
   "notif.completeProfile.body": "Ƙara hotonka da 'yan bayanai domin masu gida da Reallow su san wanda suke mu'amala da shi.",
   "notif.declined.title": "Mai gida ya ci gaba daga neman ka",
   "notif.empty": "Babu sabon abu.",
+  "notif.idCheckFailed.body": "Mun duba ID ɗin da kuka aika amma bai dace da asusunku ba. Duba sunanku, ranar haihuwa da lambar ID, sannan ku sake gwadawa.",
+  "notif.idCheckFailed.title": "Ba mu iya tantance ID ɗinku ba",
   "notif.idVerified.body": "Yanzu za ka iya neman gidaje, shirya dubawa, kuma a wallafa gidajenka.",
   "notif.idVerified.title": "An tabbatar da shaidarka",
   "notif.inspConfirmed.landlord": "An tabbatar a {when}. Wakilin Reallow zai kawo maka mai nema.",

@@ -810,6 +810,8 @@
   "notif.completeProfile.body": "Fi fọ́tò rẹ àti àlàyé díẹ̀ kún un kí àwọn onílé àti Reallow lè mọ ẹni tí wọ́n ń bá ṣe.",
   "notif.declined.title": "Onílé ti kọjá sí ẹlòmíràn lórí ìbéèrè rẹ",
   "notif.empty": "Kò sí ohun tuntun.",
+  "notif.idCheckFailed.body": "A ṣayẹwo ID ti o fi silẹ ṣugbọn ko baamu akọọlẹ rẹ. Ṣayẹwo orukọ rẹ, ọjọ ibi ati nọmba ID, lẹhinna tun gbiyanju.",
+  "notif.idCheckFailed.title": "A ko le jẹrisi ID rẹ",
   "notif.idVerified.body": "O lè béèrè fún ilé, ṣètò àyẹ̀wò, kí ilé rẹ sì jáde báyìí.",
   "notif.idVerified.title": "A ti ṣàyẹ̀wò ìdánimọ̀ rẹ",
   "notif.inspConfirmed.landlord": "A ti jẹ́rìí fún {when}. Aṣojú Reallow yóò mú olùbéèrè wá sọ́dọ̀ rẹ.",

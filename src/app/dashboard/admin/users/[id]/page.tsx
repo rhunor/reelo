@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { getCollections } from "@/lib/db";
-import { addUserNote, adminVerifyUser, banUser, deleteUser, unbanUser } from "@/app/dashboard/admin/actions";
+import { addUserNote, adminRunIdCheck, adminVerifyUser, banUser, deleteUser, unbanUser } from "@/app/dashboard/admin/actions";
 import { deletionBlockers } from "@/lib/account-deletion";
 import { UserRoleSelect } from "@/components/user-role-select";
 import { UserAvatar } from "@/components/user-avatar";
@@ -46,8 +46,15 @@ const naira = (n: number) => `₦${n.toLocaleString()}`;
 
 // Everything one person does on Reallow, in one place — for investigating reports,
 // answering support questions, and keeping an eye on staff.
-export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminUserDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ idcheck?: string; idmsg?: string }>;
+}) {
   const { id } = await params;
+  const { idcheck, idmsg } = await searchParams;
   if (!ObjectId.isValid(id)) notFound();
   const session = await auth();
   const userId = new ObjectId(id);
@@ -217,6 +224,21 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </div>
       </section>
 
+      {idcheck && idmsg && (
+        <p
+          className={`mt-4 rounded-xl border p-4 text-sm ${
+            idcheck === "verified"
+              ? "border-verified/40 bg-verified/5"
+              : idcheck === "failed"
+                ? "border-red-600/40 bg-red-600/5 text-red-700"
+                : "border-line bg-foreground/5"
+          }`}
+        >
+          {idmsg}
+          {idcheck === "failed" && " They've been notified to submit their ID again."}
+        </p>
+      )}
+
       {!user.verifiedBadge && (user.nin.status === "pending" || user.bvn?.status === "pending") && (
         <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm">
@@ -231,15 +253,24 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                   BVN: <span className="font-mono">{user.bvn?.value}</span>
                 </>
               )}{" "}
-              — check it matches <span className="font-medium">{user.name}</span>, then mark them verified.
+              — submitted before Youverify was set up. Run the Youverify check, or check it matches{" "}
+              <span className="font-medium">{user.name}</span> yourself and mark them verified.
             </p>
           </div>
-          <form action={adminVerifyUser}>
-            <input type="hidden" name="userId" value={id} />
-            <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
-              Mark verified
-            </SubmitButton>
-          </form>
+          <div className="flex flex-wrap gap-2">
+            <form action={adminRunIdCheck}>
+              <input type="hidden" name="userId" value={id} />
+              <SubmitButton className="h-9 rounded-full bg-clay px-4 text-sm font-medium text-white">
+                Run Youverify check
+              </SubmitButton>
+            </form>
+            <form action={adminVerifyUser}>
+              <input type="hidden" name="userId" value={id} />
+              <SubmitButton className="h-9 rounded-full border border-line px-4 text-sm font-medium">
+                Mark verified
+              </SubmitButton>
+            </form>
+          </div>
         </section>
       )}
 

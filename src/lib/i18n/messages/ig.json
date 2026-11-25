@@ -810,6 +810,8 @@
   "notif.completeProfile.body": "Tinye foto gị na nkọwa ole na ole ka ndị nwe ụlọ na Reallow mara onye ha na ya na-emekọ.",
   "notif.declined.title": "Onye nwe ụlọ agafeela arịrịọ gị",
   "notif.empty": "Ọ dịghị ihe ọhụrụ.",
+  "notif.idCheckFailed.body": "Anyị lelere ID ị zitere mana ọ dabaghị na akaụntụ gị. Lelee aha gị, ụbọchị ọmụmụ na nọmba ID, wee nwaa ọzọ.",
+  "notif.idCheckFailed.title": "Anyị enweghị ike ịkwado ID gị",
   "notif.idVerified.body": "Ị nwere ike ịrịọ maka ụlọ, hazie nleta nyocha, ma mee ka ụlọ gị pụta ugbu a.",
   "notif.idVerified.title": "Enyochala njirimara gị",
   "notif.inspConfirmed.landlord": "Ekwadola maka {when}. Onye nnọchite Reallow ga-akpọtara gị onye arịrịọ.",

@@ -692,6 +692,22 @@ export async function notifyIdentityVerified(userId: ObjectId): Promise<void> {
   });
 }
 
+// An ID they submitted earlier was checked with Youverify (see runPendingIdCheck in kyc.ts)
+// and didn't match — they need to submit it again from Verify identity.
+export async function notifyIdCheckFailed(userId: ObjectId): Promise<void> {
+  const { notifications } = await getCollections();
+  await notifications.insertOne({
+    userId,
+    type: "id_review",
+    title: "We couldn't verify your ID",
+    body: "We checked the ID you submitted but it didn't match your account. Check your name, date of birth and ID number, then try again.",
+    i18n: { title: "notif.idCheckFailed.title", body: "notif.idCheckFailed.body" },
+    href: "/dashboard/verify-identity",
+    read: false,
+    createdAt: new Date(),
+  });
+}
+
 // The meeting was declined after the applicant paid — the fee went back to their wallet.
 export async function notifyMeetingRefunded(meeting: Meeting, amountNGN: number, to: "card" | "wallet" = "card"): Promise<void> {
   await notifyAdmins(

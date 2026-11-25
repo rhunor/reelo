@@ -810,6 +810,8 @@
   "notif.completeProfile.body": "Add your picture and small details make landlords and Reallow know who dem dey deal with.",
   "notif.declined.title": "Di landlord don move on from your application",
   "notif.empty": "Nothing new for now.",
+  "notif.idCheckFailed.body": "We check the ID wey you submit but e no match your account. Check your name, date of birth and ID number, then try again.",
+  "notif.idCheckFailed.title": "We no fit verify your ID",
   "notif.idVerified.body": "You fit apply for houses, book inspection, and make your houses live now.",
   "notif.idVerified.title": "Your ID don verify",
   "notif.inspConfirmed.landlord": "E don confirm for {when}. Reallow agent go bring di applicant come meet you.",
