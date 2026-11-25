@@ -620,6 +620,7 @@
   "id.err.noAccount": "A kò rí àkọọ́lẹ̀ náà.",
   "id.err.notFound": "A kò rí àkọsílẹ̀ kankan fún nọ́ńbà yẹn.",
   "id.err.taken": "A ti so {id} yìí mọ́ àkọọ́lẹ̀ Reallow mìíràn.",
+  "id.err.tooManyAttempts": "O ti gbiyanju lati jẹrisi ju igba pupọ lọ loni. Jọwọ ṣayẹwo awọn alaye rẹ ki o tun gbiyanju ni ọla, tabi kan si atilẹyin Reallow.",
   "id.err.unavailable": "Ìṣàyẹ̀wò ń ṣiṣẹ́ lọ́wọ́ báyìí — jọ̀wọ́ gbìyànjú lẹ́ẹ̀kan sí i ní ìṣẹ́jú díẹ̀.",
   "id.failed": "A kò lè ṣàyẹ̀wò nọ́ńbà yẹn. Ṣàyẹ̀wò rẹ̀ kí o sì gbìyànjú lẹ́ẹ̀kan sí i.",
   "id.footnote": "A ń ṣàyẹ̀wò ìdánimọ̀ rẹ pẹ̀lú àkọsílẹ̀ ìjọba nípasẹ̀ alábàáṣiṣẹ́ wa, Youverify. Orúkọ lórí ìdánimọ̀ rẹ gbọ́dọ̀ bá orúkọ lórí àkọọ́lẹ̀ Reallow rẹ mu (àti ọjọ́ ìbí rẹ, tí o bá ti fi kún un). A kò ní fi nọ́ńbà ìdánimọ̀ rẹ han àwọn mìíràn, ìdánimọ̀ kan sì lè ṣàyẹ̀wò àkọọ́lẹ̀ kan ṣoṣo.",

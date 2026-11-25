@@ -620,6 +620,7 @@
   "id.err.noAccount": "Account not found.",
   "id.err.notFound": "We couldn't find a record for that number.",
   "id.err.taken": "This {id} is already linked to another Reallow account.",
+  "id.err.tooManyAttempts": "You've tried to verify too many times today. Please check your details and try again tomorrow, or contact Reallow support.",
   "id.err.unavailable": "Verification is busy right now — please try again in a few minutes.",
   "id.failed": "We couldn't verify that number. Check it and try again.",
   "id.footnote": "We check your ID against official government records through our verification partner, Youverify. The name on your ID must match the name on your Reallow account (and your date of birth, if you've added it). Your ID number is never shown to other users, and one ID can only verify one account.",

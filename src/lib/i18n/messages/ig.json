@@ -620,6 +620,7 @@
   "id.err.noAccount": "Achọtaghị akaụntụ ahụ.",
   "id.err.notFound": "Anyị achọtaghị ndekọ maka nọmba ahụ.",
   "id.err.taken": "E jikọọla {id} a n'akaụntụ Reallow ọzọ.",
+  "id.err.tooManyAttempts": "Ị nwaala ịkwado ọtụtụ oge taa. Biko lelee nkọwa gị ma nwaa ọzọ echi, ma ọ bụ kpọtụrụ ndị nkwado Reallow.",
   "id.err.unavailable": "Nyocha nwere ọrụ ugbu a — biko nwaa ọzọ n'ime nkeji ole na ole.",
   "id.failed": "Anyị enweghị ike inyocha nọmba ahụ. Lelee ya ma nwaa ọzọ.",
   "id.footnote": "Anyị na-enyocha njirimara gị megide ndekọ gọọmentị site n'aka onye mmekọ anyị, Youverify. Aha dị na njirimara gị ga-adaba n'aha dị n'akaụntụ Reallow gị (na ụbọchị ọmụmụ gị, ma ọ bụrụ na i tinyere ya). A naghị egosi ndị ọzọ nọmba njirimara gị, otu njirimara nwekwara ike inyocha naanị otu akaụntụ.",

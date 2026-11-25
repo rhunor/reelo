@@ -620,6 +620,7 @@
   "id.err.noAccount": "Ba a samu asusun ba.",
   "id.err.notFound": "Ba mu samu bayani na wannan lambar ba.",
   "id.err.taken": "An riga an haɗa wannan {id} da wani asusun Reallow.",
+  "id.err.tooManyAttempts": "Kun yi ƙoƙarin tantancewa sau da yawa a yau. Da fatan za a duba bayananku ku sake gwadawa gobe, ko ku tuntuɓi tallafin Reallow.",
   "id.err.unavailable": "Tabbatarwa na da aiki yanzu — don Allah sake gwadawa nan da 'yan mintuna.",
   "id.failed": "Ba mu iya tabbatar da wannan lambar ba. Duba ta ka sake gwadawa.",
   "id.footnote": "Muna duba shaidarka da bayanan gwamnati ta hannun abokin aikinmu na tabbatarwa, Youverify. Sunan da ke kan shaidarka dole ne ya dace da sunan asusunka na Reallow (da ranar haihuwarka, idan ka ƙara ta). Ba a taɓa nuna lambar shaidarka ga sauran masu amfani ba, kuma shaida ɗaya na iya tabbatar da asusu ɗaya kawai.",

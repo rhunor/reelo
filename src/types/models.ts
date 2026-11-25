@@ -116,6 +116,9 @@ export interface User {
     bankName?: string;
   };
   verifiedBadge: boolean;
+  // When this account's recent paid ID lookups (Youverify) were made — capped per day in
+  // src/lib/kyc.ts so repeated attempts can't run up the bill. Only the latest few are kept.
+  idLookups?: Date[];
   // Unset/"active" means active — only ever set to "banned" by an admin action (see
   // banUser in dashboard/admin/actions.ts), checked at login in src/auth.ts.
   status?: "active" | "banned" | "deleted";

@@ -620,6 +620,7 @@
   "id.err.noAccount": "We no see di account.",
   "id.err.notFound": "We no see any record for dat number.",
   "id.err.taken": "Dis {id} don already join another Reallow account.",
+  "id.err.tooManyAttempts": "You don try verify too many times today. Abeg check your details and try again tomorrow, or contact Reallow support.",
   "id.err.unavailable": "Verification dey busy now — abeg try again after some minutes.",
   "id.failed": "We no fit verify dat number. Check am and try again.",
   "id.footnote": "We dey check your ID against official government record through our verification partner, Youverify. Di name for your ID must match di name for your Reallow account (and your birthday, if you don add am). We no dey ever show your ID number to other users, and one ID fit verify only one account.",

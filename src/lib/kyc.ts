@@ -59,6 +59,9 @@ export type IdType = "nin" | "bvn";
 const FIELD: Record<IdType, "nin" | "bvn"> = { nin: "nin", bvn: "bvn" };
 const LABEL: Record<IdType, string> = { nin: "NIN", bvn: "BVN" };
 
+const MAX_LOOKUPS_PER_DAY = 5;
+const LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 // Look the ID up with Youverify, check it belongs to this account holder, and store the
 // result. Only called once the person has agreed to the check (the API routes require it);
 // when they agreed is stored with the result.
@@ -101,6 +104,22 @@ export async function verifyGovernmentId(
       verifiedBadge: user.verifiedBadge,
       status: 200,
     };
+  }
+
+  // Already verified with this same number: nothing to check again (and nothing to pay for).
+  if (user[field]?.status === "verified" && user[field]?.value === number) {
+    return { success: true, message: t("id.verifiedBadge"), verifiedBadge: user.verifiedBadge, status: 200 };
+  }
+
+  // Every live lookup is billed by Youverify, so each account gets a few per day. The slot
+  // is claimed atomically before calling, so parallel submits can't get around the cap.
+  const since = new Date(Date.now() - LOOKUP_WINDOW_MS);
+  const claimed = await users.updateOne(
+    { _id: userId, $expr: { $lt: [{ $size: { $filter: { input: { $ifNull: ["$idLookups", []] }, cond: { $gte: ["$$this", since] } } } }, MAX_LOOKUPS_PER_DAY] } },
+    { $push: { idLookups: { $each: [new Date()], $slice: -MAX_LOOKUPS_PER_DAY } } },
+  );
+  if (claimed.modifiedCount === 0) {
+    return { success: false, message: t("id.err.tooManyAttempts"), verifiedBadge: user.verifiedBadge, status: 429 };
   }
 
   const requestId = userId.toString();
